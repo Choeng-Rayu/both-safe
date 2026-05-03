@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BothSafe Cambodia Startup Architecture - Deep Research Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #1a1a1a;
+            background: #ffffff;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+        }
+
+        .header {
+            background: #003d5c;
+            color: white;
+            padding: 25px 40px;
+            border-bottom: 3px solid #002840;
+        }
+
+        .header h1 {
+            font-size: 26px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .header-meta {
+            font-size: 13px;
+            color: #b8d4e6;
+            display: flex;
+            gap: 25px;
+        }
+
+        .metrics-dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0;
+            border-bottom: 2px solid #003d5c;
+        }
+
+        .metric {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-right: 1px solid #d1d5db;
+            text-align: center;
+        }
+
+        .metric:last-child {
+            border-right: none;
+        }
+
+        .metric-number {
+            font-size: 32px;
+            font-weight: 700;
+            color: #003d5c;
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #4a5568;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        .content {
+            padding: 30px 40px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #003d5c;
+            margin: 32px 0 16px 0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #003d5c;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            line-height: 1.3;
+        }
+
+        .subsection-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin: 24px 0 12px 0;
+            line-height: 1.4;
+        }
+
+        .executive-summary {
+            background: #f8f9fa;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-left: 4px solid #003d5c;
+        }
+
+        .executive-summary p {
+            margin-bottom: 12px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        p {
+            margin-bottom: 14px;
+            line-height: 1.7;
+            text-align: left;
+        }
+
+        /* Better paragraph spacing in content sections */
+        .content > p,
+        .section p {
+            margin-bottom: 16px;
+        }
+
+        .findings-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .finding-card {
+            background: #f8f9fa;
+            padding: 18px;
+            border-left: 3px solid #003d5c;
+        }
+
+        .finding-card h3 {
+            font-size: 14px;
+            font-weight: 700;
+            color: #003d5c;
+            margin-bottom: 10px;
+        }
+
+        .finding-card p {
+            font-size: 13px;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 13px;
+        }
+
+        .data-table th {
+            background: #003d5c;
+            color: white;
+            padding: 10px 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .data-table td {
+            padding: 10px 15px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        ul, ol {
+            margin: 16px 0 16px 28px;
+            padding-left: 0;
+        }
+
+        li {
+            margin-bottom: 10px;
+            font-size: 14px;
+            line-height: 1.6;
+            padding-left: 8px;
+        }
+
+        /* Nested lists */
+        li ul, li ol {
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+
+        /* Better bullet/number spacing */
+        ol {
+            list-style-position: outside;
+            padding-left: 0;
+        }
+
+        ul {
+            list-style-position: outside;
+            padding-left: 0;
+        }
+
+        .key-insight {
+            background: white;
+            border: 1px solid #d1d5db;
+            border-left: 3px solid #003d5c;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .key-insight strong {
+            color: #003d5c;
+            font-weight: 600;
+        }
+
+        .citation {
+            color: #003d5c;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            position: relative;
+            padding: 2px 4px;
+            background: #f0f7fc;
+            border-radius: 2px;
+            transition: all 0.2s ease;
+        }
+
+        .citation:hover {
+            background: #003d5c;
+            color: white;
+        }
+
+        /* Attribution Gradients (2025 Enhancement) */
+        .citation-tooltip {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            background: white;
+            border: 2px solid #003d5c;
+            box-shadow: 0 4px 12px rgba(0, 61, 92, 0.15);
+            padding: 12px;
+            min-width: 300px;
+            max-width: 500px;
+            z-index: 1000;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .citation:hover .citation-tooltip {
+            display: block;
+        }
+
+        .tooltip-title {
+            font-weight: 700;
+            color: #003d5c;
+            margin-bottom: 8px;
+            font-size: 13px;
+            border-bottom: 1px solid #d1d5db;
+            padding-bottom: 6px;
+        }
+
+        .tooltip-source {
+            color: #4a5568;
+            margin-bottom: 8px;
+            font-style: italic;
+        }
+
+        .tooltip-claim {
+            background: #f8f9fa;
+            padding: 8px;
+            margin-top: 8px;
+            border-left: 3px solid #003d5c;
+            font-size: 11px;
+        }
+
+        .tooltip-claim-label {
+            font-weight: 600;
+            color: #003d5c;
+            text-transform: uppercase;
+            font-size: 10px;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .evidence-chain {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #d1d5db;
+        }
+
+        .evidence-chain-label {
+            font-weight: 600;
+            color: #003d5c;
+            font-size: 11px;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .evidence-step {
+            padding: 6px;
+            background: #f8f9fa;
+            margin-bottom: 4px;
+            font-size: 11px;
+            border-left: 2px solid #d1d5db;
+            padding-left: 8px;
+        }
+
+        .bibliography {
+            background: #f8f9fa;
+            padding: 30px;
+            margin-top: 40px;
+            border-left: 4px solid #003d5c;
+        }
+
+        .bibliography-content {
+            background: #f8f9fa;
+            padding: 20px 0;
+        }
+
+        .bib-entry {
+            margin-bottom: 18px;
+            padding-left: 50px;
+            text-indent: -50px;
+            line-height: 1.6;
+            font-size: 13px;
+        }
+
+        .bib-number {
+            color: #003d5c;
+            font-weight: 700;
+            margin-right: 8px;
+        }
+
+        .bib-entry a {
+            color: #003d5c;
+            word-wrap: break-word;
+            text-decoration: none;
+        }
+
+        .bib-entry a:hover {
+            text-decoration: underline;
+        }
+
+        .compact-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .compact-list li {
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .info-box {
+            background: white;
+            border: 1px solid #d1d5db;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .info-box h4 {
+            font-size: 13px;
+            font-weight: 700;
+            color: #003d5c;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .highlight-stat {
+            font-weight: 700;
+            color: #003d5c;
+        }
+
+        strong {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        @media print {
+            .container {
+                max-width: 100%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .metrics-dashboard {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .findings-grid {
+                grid-template-columns: 1fr;
+            }
+            .compact-list {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>BothSafe Cambodia Startup Architecture</h1>
+            <div class="header-meta">
+                <span>2026-05-03</span>
+                <span>•</span>
+                <span>23 Sources</span>
+            </div>
+        </div>
+
+        <div class="metrics-dashboard"><div class="metric-card"><div class="metric-value">KHQR</div><div class="metric-label">Payment Rail</div><div class="metric-sublabel">Bakong and PayWay-ready</div></div><div class="metric-card"><div class="metric-value">23</div><div class="metric-label">Source Base</div><div class="metric-sublabel">Cited sources</div></div><div class="metric-card"><div class="metric-value">1 city</div><div class="metric-label">Launch Scope</div><div class="metric-sublabel">Phnom Penh first</div></div><div class="metric-card"><div class="metric-value">12 wks</div><div class="metric-label">Build Plan</div><div class="metric-sublabel">Private beta path</div></div></div>
+
+        <div class="content">
+            <p>Generated: 2026-05-03 Mode: deep-research standard + last30days social signal Location focus: Cambodia, starting in Phnom Penh</p>
+<div class="section"><h2 class="section-title">Executive Summary</h2>
+<ul>
+<li><strong>Key Finding 1:</strong> Cambodia has the payment rails BothSafe needs: Bakong/KHQR is a national interoperable payment layer, and PayWay exposes KHQR, pre-authorization, webhook, refund, payout, and split-payout APIs that can support an escrow-like workflow if the commercial and regulatory terms allow it [1], [2], [3], [4], [5], [6].</li>
+<li><strong>Key Finding 2:</strong> BothSafe should not launch by directly holding customer money unless it first obtains the right NBC permissions or works under a licensed bank/payment partner, because Cambodia&#x27;s payment service Prakas applies to persons providing payment services [7].</li>
+<li><strong>Key Finding 3:</strong> The product opportunity is real but must start narrow. Cambodia&#x27;s e-commerce behavior is social-commerce-heavy, while trust, payment safety, delivery, and dispute resolution remain weak points [11], [12], [13], [14], [15].</li>
+<li><strong>Key Finding 4:</strong> The first launch should be &quot;protected payments for social sellers&quot; rather than a full marketplace. The last30days run found weak Cambodia-specific social data but strong adjacent evidence that escrow marketplaces face cold-start risk when they try to create listings and trust at the same time [21].</li>
+</ul>
+<p><strong>Primary Recommendation:</strong> Launch BothSafe V1 as a non-custodial or partner-custodial escrow workflow for high-value physical goods in Phnom Penh, using KHQR/PayWay for payment confirmation, bank/PSP controlled fund holding, OTP delivery confirmation, and an append-only transaction ledger.</p>
+<p><strong>Confidence Level:</strong> Medium-high for the architecture and launch sequence; medium for exact regulatory classification until confirmed with Cambodian counsel and the National Bank of Cambodia.</p>
+<hr>
+<div class="section"><h2 class="section-title">Introduction</h2>
+<h3 class="subsection-title">Research Question</h3>
+<p>How should BothSafe build a Cambodia-based trusted transaction startup that lets buyers and sellers exchange money and goods safely, starting with physical product escrow and later expanding to digital products?</p>
+<p>This matters because the product touches payments, custody, consumer trust, dispute resolution, and fraud. A wrong architecture can create legal exposure or money-loss risk. A wrong go-to-market can create the classic two-sided marketplace cold start, where buyers do not come because sellers are absent and sellers do not come because buyers are absent.</p>
+<h3 class="subsection-title">Scope &amp; Methodology</h3>
+<p>This research covered Cambodia&#x27;s current payment infrastructure, e-commerce rules, payment-service licensing risk, consumer protection, social-commerce behavior, fraud/scam context, and comparable marketplace payment patterns. Sources included official NBC/Bakong documentation, ABA PayWay developer documentation, Cambodia legal/regulatory references, government policy documents, market reports, news on 2026 scam enforcement, and a <code>last30days</code> scan across Reddit/Hacker News/Polymarket where available.</p>
+<p>The <code>last30days</code> scan ran on 2026-05-03 for &quot;Cambodia escrow buyer protection marketplace Bakong KHQR.&quot; Available live sources in the environment were Reddit, Hacker News, Polymarket, and GitHub. It returned five Reddit items and no HN or Polymarket items, so I treat it as weak social signal, not as market proof [21]. The useful pattern from that weak signal is that escrow reduces trust anxiety but does not automatically solve marketplace liquidity.</p>
+<h3 class="subsection-title">Key Assumptions</h3>
+<ul>
+<li>BothSafe is incorporated or will incorporate in Cambodia and will serve Cambodian residents first.</li>
+<li>V1 focuses on physical goods where buyer and seller can be identified and delivery can be evidenced.</li>
+<li>BothSafe wants to avoid becoming an unlicensed deposit taker, e-money issuer, or payment service institution at launch.</li>
+<li>The MVP can start in Phnom Penh with limited categories before national expansion.</li>
+<li>The engineering stack can be NestJS, React/TypeScript, PostgreSQL/Supabase, object storage, Redis queues, and a payment provider abstraction.</li>
+</ul>
+<hr>
+<div class="section"><h2 class="section-title">Main Analysis</h2>
+<h3 class="subsection-title">Finding 1: Cambodia&#x27;s payment rails are strong enough for escrow-like checkout, but direct fund custody is the central legal risk</h3>
+<p>Bakong describes itself as the backbone of Cambodia&#x27;s payment system and supports real-time fund transfers across banks and platforms [1]. NBC&#x27;s KHQR integration guide describes a merchant flow where the merchant generates a KHQR code, displays it with an expiration time, and checks payment status against Bakong until the response is success, failed, not found, or expired [2]. The same guide states that a merchant-generated QR should include a unique transaction ID, timestamp, and optional additional data, and that QR timeout should generally not exceed 10 minutes [2]. That maps cleanly to BothSafe&#x27;s &quot;deal ID -&gt; payment link -&gt; payment confirmation&quot; requirement.</p>
+<p>ABA PayWay gives BothSafe a stronger starting point than a raw KHQR-only integration. PayWay&#x27;s developer suite includes checkout, ABA QR, payment links, refund APIs, pre-authorization, payout, and split-payout sections [3]. PayWay&#x27;s KHQR guide states that KHQR is standardized under NBC, supports payment from multiple bank apps, supports KHR and USD, and can notify merchants through a webhook after successful payment [4]. PayWay&#x27;s webhook sample includes fields such as transaction ID, transaction date, original amount, payment status, bank reference, payment type, payer account, bank name, and merchant reference [4]. These fields are exactly what BothSafe needs for payment reconciliation and fraud evidence.</p>
+<p>The caution is that KHQR payment itself is usually a completed transfer. A naive &quot;buyer pays into BothSafe&#x27;s own bank account, BothSafe later pays seller&quot; model may become regulated custody or payment-service activity. Cambodia&#x27;s Prakas on Management of Payment Service Institutions says its purpose is to regulate licensing for legal persons intending to provide payment services in Cambodia and applies to persons providing payment services as well as banking and financial institutions under NBC supervision [7]. The same Prakas defines electronic money, payment service institutions, payment accounts, payment initiation service, and trust accounts [7]. This is the product&#x27;s main red line.</p>
+<p>The practical answer is to design two launch paths. Path A is partner-custodial: BothSafe is the instruction, evidence, and dispute layer while an NBC-licensed bank or payment institution holds funds and executes capture, cancellation, refund, and payout. Path B is non-custodial protected payment: BothSafe generates payment requests and tracks commitments, but the bank/PSP controls settlement and funds. Baray&#x27;s public positioning is useful as a local reference pattern because it says it is software integration middleware, not a payment gateway or financial institution, and that all payments flow through NBC-regulated bank infrastructure [23]. BothSafe should use a similar boundary unless and until it is licensed.</p>
+<p><strong>Implications:</strong> BothSafe&#x27;s first engineering principle should be &quot;never treat database balances as money.&quot; Money is wherever the licensed partner says it is. BothSafe&#x27;s database records claims, instructions, evidence, and ledger events. It should reconcile against provider records before any release or refund.</p>
+<p><strong>Sources:</strong> [1], [2], [3], [4], [5], [6], [7], [23]</p>
+<hr>
+<h3 class="subsection-title">Finding 2: PayWay&#x27;s API surface can support the release/refund mechanics, but BothSafe must confirm exact product eligibility before promising escrow</h3>
+<p>PayWay&#x27;s pre-authorization completion documentation defines a two-step flow: first reserve funds on the customer&#x27;s account, then later capture the funds when the product or service is provided [5]. It states that pre-auth can be completed once, cannot be completed after expiration or cancellation, and for card payments can be completed with an additional 10 percent above the original pre-auth amount [5]. The cancellation documentation says cancellation releases a temporary hold when the transaction is still pending and notes that for ABA Pay and card transactions funds are instantly released back to the payer, while for KHQR transactions funds are refunded to the payer [6].</p>
+<p>PayWay also documents payout services for distributing funds to a recipient and split-payout services for collecting, splitting, and distributing funds from purchase transactions across checkout, account/card-on-file, payment link, ABA QR API, and pre-auth products [6]. This is unusually relevant for BothSafe because the product needs three money movements: collect buyer payment, hold or delay release, and pay seller after delivery confirmation. PayWay&#x27;s docs indicate that at least some of these primitives exist inside an established Cambodian bank payment stack [3], [5], [6].</p>
+<p>However, &quot;supports primitives&quot; is not the same as &quot;approved for escrow.&quot; BothSafe must confirm directly with ABA PayWay and legal counsel whether pre-auth and split-payout can be used for third-party marketplace escrow, which product types are allowed, how long funds can remain pending, whether sellers need beneficiary whitelisting, who is merchant of record, what happens when disputes exceed the pre-auth window, and whether KHQR payments can be held or only refunded after settlement. This is not a minor detail. The business model changes if PayWay can hold funds for 3 to 7 days versus if BothSafe must collect into a settlement account and then handle release manually.</p>
+<p>The safest MVP promise is therefore &quot;payment secured through bank partner, released after delivery confirmation&quot; rather than &quot;BothSafe holds your money&quot; until the provider contract is signed. The UI can still show &quot;Secured&quot; or &quot;Protected&quot; after payment confirmation, but the terms should clearly state who holds funds, what release rules apply, and what dispute window exists.</p>
+<p><strong>Implications:</strong> Payment integration should be abstracted behind a provider interface from day one. The first provider can be ABA PayWay or another bank gateway, but the domain model should support provider capabilities: <code>supports_pre_auth</code>, <code>supports_split_payout</code>, <code>supports_refund</code>, <code>supports_payout</code>, <code>max_hold_duration</code>, <code>supported_currencies</code>, and <code>requires_beneficiary_whitelist</code>.</p>
+<p><strong>Sources:</strong> [3], [4], [5], [6]</p>
+<hr>
+<h3 class="subsection-title">Finding 3: Cambodia&#x27;s market gap is trust infrastructure around social commerce, not another generic marketplace</h3>
+<p>Cambodia&#x27;s e-commerce market is still shaped by social platforms. Xinhua reported in 2025 that many Cambodian businesses rely on Facebook, TikTok, and Telegram to sell products, and that mobile payments and social commerce had the highest penetration among e-commerce sectors, exceeding 50 percent [13]. DataReportal&#x27;s 2026 Cambodia report says there were 14.0 million active social media user identities in Cambodia in October 2025, equivalent to 77.9 percent of the population [11]. Cambodianess reported that Cambodia had 11.65 million Facebook users and 9.96 million TikTok users in 2024, with e-commerce contributing $1.51 billion or 6.68 percent to GDP, while fraud, poor product quality, high delivery fees, logistics bottlenecks, and limited digital literacy remained constraints [15].</p>
+<p>This creates a sharp product strategy. BothSafe should not begin by asking Cambodians to abandon Facebook, Telegram, TikTok, or direct chat selling. It should begin as the trusted transaction link used inside those channels. A seller can create a deal, share a BothSafe link in Telegram/Facebook chat, and let the buyer pay into a protected flow. This avoids building demand, listings, search, chat, logistics, and trust all at once.</p>
+<p>The last30days run reinforces that risk. One recent Reddit item was from a builder who created a local marketplace with escrow payments and AI pricing but had &quot;zero buyers,&quot; despite trying to solve no-shows, cash, Venmo, and trust [21]. That is only one item and not Cambodia-specific, so it should not be overweighted. But it matches a known marketplace lesson: escrow is valuable at the moment of transaction, while a marketplace needs liquidity before transactions happen.</p>
+<p>Tokkae&#x27;s Cambodia marketplace analysis is not official, but it matches the same pattern: social commerce gives reach but lacks buyer protection, seller verification, order tracking, and dispute resolution [14]. BothSafe&#x27;s first beachhead should be those missing trust primitives layered over existing social commerce.</p>
+<p><strong>Implications:</strong> The MVP should be a transaction layer, not a marketplace. Build deal links, payment protection, seller verification, delivery proof, notifications, and disputes first. Add marketplace discovery only after there are enough completed protected transactions to seed trusted seller profiles.</p>
+<p><strong>Sources:</strong> [11], [13], [14], [15], [21]</p>
+<hr>
+<h3 class="subsection-title">Finding 4: Cambodia&#x27;s legal environment supports e-commerce growth, but BothSafe needs licensing, terms, consumer disclosure, and data controls before launch</h3>
+<p>Cambodia&#x27;s Law on Electronic Commerce was enacted in 2019 and provides a legal framework for electronic records, electronic signatures, electronic contracts, intermediary liability, electronic payments, and consumer-facing digital commerce [8]. The law includes a chapter on intermediaries and electronic commerce service providers, with conditional liability protection when the service provider is not the originator of unlawful information and acts appropriately once aware of unlawful content [8]. This matters because BothSafe will host deal descriptions, product photos, messages, evidence, and dispute claims.</p>
+<p>The Library of Congress summary of Cambodia&#x27;s e-commerce licensing regime says the E-Commerce Law created two categories: an e-commerce permit for individual persons and sole proprietorships and an e-commerce license for legal persons and branches of foreign companies [9]. It also says Sub-Decree No. 134 applies to operations in Cambodia, services from Cambodia to other countries, and services from other countries to Cambodia, and that e-commerce platforms are among activities requiring a license [9]. BothSafe should assume it needs the relevant Ministry of Commerce e-commerce license or permit before public launch.</p>
+<p>Cambodia also enacted a Consumer Protection Law on November 2, 2019 [10]. Tilleke &amp; Gibbins notes that both the e-commerce and consumer protection laws changed the legal landscape for businesses and that financial institutions can become liable for unauthorized transactions after a customer notification about a lost or stolen electronic payment instrument [10]. For BothSafe, the broader point is that refund rules, complaint handling, product description accuracy, dispute process fairness, and standard terms are not &quot;nice to have.&quot; They are part of the trust product.</p>
+<p>Cambodia does not yet have a comprehensive enacted personal data protection law as of the latest guide reviewed, although draft personal data protection law consultations have occurred [20]. That does not mean BothSafe can ignore privacy. Payment, identity, chat, product evidence, delivery photos, and dispute files are sensitive. A startup touching money should behave as if stronger data-protection obligations are coming: minimize data, encrypt sensitive fields, apply role-based access, log admin access, and define retention periods.</p>
+<p><strong>Implications:</strong> Before launch, BothSafe needs a legal readiness workstream: company registration, domain and e-commerce licensing, payment partner agreement, terms of service, privacy notice, buyer/seller agreement, prohibited items policy, dispute policy, AML/KYC policy if required by partner or regulator, and data retention schedule.</p>
+<p><strong>Sources:</strong> [8], [9], [10], [20]</p>
+<hr>
+<h3 class="subsection-title">Finding 5: Fraud context is a brand risk and a product requirement, not only a compliance issue</h3>
+<p>Cambodia is under intense scrutiny for online scams in 2026. AP reported in March 2026 that Cambodian officials said they had targeted 250 suspected scam-center locations since July and shut about 80 percent, or 200, of them [18]. The same AP report quoted an expert warning that enforcement must reach the financial and protection networks behind the industry, not just the buildings [18]. TRC also warned in September 2025 that fraudulent Telegram messages were rising, including impersonation of public figures and business leaders, fake prize messages, and phishing for passwords or financial information [16].</p>
+<p>BothSafe should treat this as a product-design constraint. A Cambodian escrow brand can either become a trust-building counterexample or be misused by scammers. The MVP must prevent fake payment confirmations, fake BothSafe links, fake seller profiles, and off-platform pressure. Every deal link needs a signed short URL, public verification page, anti-phishing education, and a simple way for users to check &quot;is this deal real?&quot; from the app or Telegram bot.</p>
+<p>The dispute system must be evidence-first. For physical goods, the strongest evidence is a chain of custody: seller proof of item, pickup proof, courier proof, delivery OTP, buyer confirmation, and timestamped photos. For pickup/meetup deals, the product should use a handover OTP or QR confirmation that both parties see at the same time. Never let &quot;seller uploaded a screenshot&quot; count as payment proof; payment proof should come from provider webhook plus reconciliation polling.</p>
+<p><strong>Implications:</strong> Fraud controls should ship in V1, not after growth. The product should include phone verification, device/session logging, transaction limits for new users, seller verification tiers, high-risk category restrictions, link authenticity checks, payment reconciliation, evidence uploads, manual review queues, and admin audit logs.</p>
+<p><strong>Sources:</strong> [16], [18], [21]</p>
+<hr>
+<h3 class="subsection-title">Finding 6: The technical architecture should separate deal state, payment state, ledger state, delivery state, and dispute state</h3>
+<p>Escrow products fail when they store a single <code>status</code> string and let that string imply money movement. BothSafe should separate five state machines. Deal state describes commercial agreement. Payment state describes provider confirmation. Ledger state records accounting events. Delivery state records shipment and handover proof. Dispute state controls whether release is allowed.</p>
+<p>The payment provider state should be webhook-driven and reconciled by scheduled polling. NBC&#x27;s KHQR integration flow explicitly describes status checking within a QR expiration window, and PayWay&#x27;s KHQR guide supports webhook notification after successful payment [2], [4]. The architecture should therefore use both push and pull: webhooks for fast updates, reconciliation jobs for correctness. Every inbound webhook should be stored raw, verified, idempotently processed, and linked to a provider transaction.</p>
+<p>The ledger should be append-only. Even if the MVP does not legally hold funds, it still needs a ledger of obligations: buyer paid, funds protected with provider, seller payable pending release, platform fee earned, refund pending, refund completed, payout requested, payout completed. This ledger is not a bank balance. It is an audit trail and reconciliation record. Each event should have an idempotency key, source event, actor, timestamp, and before/after state.</p>
+<p>The admin system should be treated as a privileged financial operations tool. Admins must not be able to silently edit deal amounts, payment statuses, or ledger rows. They can create decisions, approve refunds or releases, and annotate disputes, but all changes must produce immutable events. For production, high-risk decisions should require maker-checker review: one admin proposes, another approves.</p>
+<p><strong>Implications:</strong> Build the architecture as a modular monolith first, not microservices. Use NestJS modules with clear boundaries and a shared PostgreSQL transaction where needed. Split into services later only when volume forces it.</p>
+<p><strong>Sources:</strong> [2], [4], [5], [6], [17], [19]</p>
+<hr>
+<div class="section"><h2 class="section-title">Recommended Product Strategy</h2>
+<h3 class="subsection-title">Beachhead</h3>
+<p>Start with protected social-commerce transactions for high-value physical goods in Phnom Penh. Good first categories are used phones, laptops, cameras, electronics accessories, and small business inventory lots. Avoid cars, real estate, regulated financial products, weapons, medicine, crypto, gambling, and high-risk digital accounts at launch.</p>
+<h3 class="subsection-title">Positioning</h3>
+<p>Use &quot;BothSafe protected deal&quot; rather than &quot;escrow bank&quot; in early wording. The promise is simple:</p>
+<ol>
+<li>Buyer and seller agree on item, price, delivery method, and inspection window.</li>
+<li>Buyer pays through a protected bank/payment partner flow.</li>
+<li>Seller ships or hands over only after payment is secured.</li>
+<li>Buyer confirms receipt or raises an issue within the inspection window.</li>
+<li>Money is released, refunded, or escalated based on rules and evidence.</li>
+</ol>
+<h3 class="subsection-title">Launch Motion</h3>
+<p>Do not start with open marketplace discovery. Start with:</p>
+<ul>
+<li>Telegram bot and web link for deal creation.</li>
+<li>Seller verification for trusted early sellers.</li>
+<li>Manual concierge onboarding for 20 to 50 sellers.</li>
+<li>A narrow category campaign: &quot;Buy used phones safely in Phnom Penh.&quot;</li>
+<li>Courier/meetup delivery proof with OTP.</li>
+<li>Visible dispute rules and human admin support.</li>
+</ul>
+<hr>
+<div class="section"><h2 class="section-title">Target Architecture</h2>
+<h3 class="subsection-title">High-Level System</h3>
+<pre><code>flowchart LR
+  Buyer[Buyer Web App / Telegram] --&gt; API[NestJS API]
+  Seller[Seller Web App / Telegram] --&gt; API
+  Admin[Admin Console] --&gt; API
+  API --&gt; Auth[Auth Module]
+  API --&gt; Deal[Deal Module]
+  API --&gt; Payment[Payment Module]
+  API --&gt; Delivery[Delivery Module]
+  API --&gt; Dispute[Dispute Module]
+  API --&gt; Ledger[Ledger Module]
+  API --&gt; Notify[Notification Module]
+  Payment --&gt; PSP[Bank/PSP Adapter: PayWay/KHQR]
+  PSP --&gt; Webhook[Webhook Ingest]
+  Webhook --&gt; Payment
+  Deal --&gt; DB[(PostgreSQL)]
+  Payment --&gt; DB
+  Ledger --&gt; DB
+  Delivery --&gt; DB
+  Dispute --&gt; DB
+  Notify --&gt; Telegram[Telegram Bot]
+  Notify --&gt; SMS[SMS/Email]
+  API --&gt; ObjectStore[Evidence Object Storage]
+  API --&gt; Queue[Redis/BullMQ Jobs]</code></pre>
+<h3 class="subsection-title">Backend Modules</h3>
+<ul>
+<li><code>AuthModule</code>: phone/email/Telegram login, sessions, device records, 2FA for admins.</li>
+<li><code>UserModule</code>: profile, verification tier, trust score, seller payout profile, risk flags.</li>
+<li><code>DealModule</code>: deal creation, counterparty invite, terms, item, price, status.</li>
+<li><code>PaymentModule</code>: provider abstraction, payment intent, KHQR/payment link generation, webhook ingestion, reconciliation, refund, payout.</li>
+<li><code>LedgerModule</code>: append-only double-entry-like obligation ledger.</li>
+<li><code>DeliveryModule</code>: shipping method, pickup/dropoff proof, OTP, buyer receipt confirmation.</li>
+<li><code>DisputeModule</code>: issue reason, evidence, response, admin decision, release/refund instruction.</li>
+<li><code>NotificationModule</code>: Telegram, SMS, email, in-app notifications.</li>
+<li><code>DigitalProductModule</code> (V2): uploads, encrypted storage, signed downloads, license keys.</li>
+<li><code>AdminModule</code>: dashboard, dispute queue, risk review, manual release/refund approvals.</li>
+</ul>
+<h3 class="subsection-title">Frontend Apps</h3>
+<ul>
+<li>Buyer/seller web app: React + TypeScript.</li>
+<li>Admin console: React + TypeScript, separate route and stricter auth.</li>
+<li>Telegram bot: create deals, send payment links, notify status changes, confirm delivery.</li>
+</ul>
+<h3 class="subsection-title">Infrastructure</h3>
+<ul>
+<li>PostgreSQL: source of truth.</li>
+<li>Supabase: acceptable for Postgres, Auth, storage, and realtime in MVP, but use strict row-level security and service-role isolation.</li>
+<li>Redis + BullMQ: payment reconciliation jobs, auto-release timers, notification retries.</li>
+<li>S3-compatible object storage: evidence photos, invoices, digital files in V2.</li>
+<li>OpenTelemetry + structured logs: trace every deal, payment, webhook, and admin decision.</li>
+</ul>
+<hr>
+<div class="section"><h2 class="section-title">Core Data Model</h2>
+<h3 class="subsection-title">Tables</h3>
+<pre><code>users
+- id, phone, email, telegram_id, display_name, role, verification_level
+- trust_score, risk_score, status, created_at
+
+user_verifications
+- id, user_id, type, provider, status, verified_at, metadata_json
+
+deals
+- id, public_code, buyer_id, seller_id, title, description
+- currency, amount_minor, fee_minor, category, inspection_window_hours
+- status, expires_at, created_at, updated_at
+
+deal_terms
+- id, deal_id, delivery_method, delivery_address_json
+- item_condition, return_rules, prohibited_item_check, accepted_at
+
+payment_intents
+- id, deal_id, provider, provider_intent_id, provider_reference
+- amount_minor, currency, status, qr_payload, payment_url
+- expires_at, confirmed_at, raw_provider_json
+
+payment_events
+- id, payment_intent_id, provider_event_id, event_type
+- raw_payload_json, signature_valid, processed_at, idempotency_key
+
+ledger_entries
+- id, deal_id, entry_type, debit_account, credit_account
+- amount_minor, currency, provider_reference, source_event_id
+- created_by, created_at
+
+deliveries
+- id, deal_id, method, courier_provider, tracking_number
+- status, shipped_at, delivered_at, buyer_confirmed_at
+
+delivery_evidence
+- id, delivery_id, actor_id, evidence_type, object_url
+- metadata_json, created_at
+
+disputes
+- id, deal_id, opened_by, reason, status, resolution
+- admin_decision, decided_by, decided_at, created_at
+
+dispute_messages
+- id, dispute_id, sender_id, message, evidence_url, created_at
+
+payouts
+- id, deal_id, seller_id, provider, provider_payout_id
+- amount_minor, currency, status, requested_at, completed_at
+
+audit_events
+- id, actor_id, actor_type, action, entity_type, entity_id
+- before_json, after_json, ip_address, user_agent, created_at</code></pre>
+<h3 class="subsection-title">State Machines</h3>
+<p>Deal status:</p>
+<pre><code>DRAFT
+PENDING_COUNTERPARTY
+PENDING_PAYMENT
+PAYMENT_SECURED
+SELLER_TO_SHIP
+SHIPPED
+DELIVERED
+INSPECTION
+RELEASE_PENDING
+COMPLETED
+DISPUTED
+REFUND_PENDING
+REFUNDED
+CANCELLED
+EXPIRED</code></pre>
+<p>Payment status:</p>
+<pre><code>CREATED
+PENDING
+AUTHORIZED
+PAID
+FAILED
+EXPIRED
+CANCELLED
+REFUND_PENDING
+REFUNDED
+RELEASE_REQUESTED
+RELEASED</code></pre>
+<p>Dispute status:</p>
+<pre><code>NONE
+OPEN
+AWAITING_BUYER_EVIDENCE
+AWAITING_SELLER_RESPONSE
+ADMIN_REVIEW
+RESOLVED_RELEASE
+RESOLVED_REFUND
+RESOLVED_SPLIT
+ESCALATED</code></pre>
+<hr>
+<div class="section"><h2 class="section-title">Payment Flow V1</h2>
+<h3 class="subsection-title">Create Deal</h3>
+<ol>
+<li>Seller or buyer creates a deal with item name, price, photos, delivery method, inspection window, and counterparty phone/Telegram.</li>
+<li>BothSafe generates a public deal code and invite link.</li>
+<li>Counterparty reviews and accepts terms.</li>
+<li>Deal moves to <code>PENDING_PAYMENT</code>.</li>
+</ol>
+<h3 class="subsection-title">Secure Payment</h3>
+<ol>
+<li>BothSafe creates a payment intent through the provider adapter.</li>
+<li>Provider returns a dynamic KHQR/payment link or pre-auth flow.</li>
+<li>Buyer pays through bank app.</li>
+<li>Provider webhook arrives.</li>
+<li>BothSafe verifies webhook, stores raw payload, checks idempotency, and updates payment state.</li>
+<li>Reconciliation job polls provider if webhook is delayed.</li>
+<li>Deal moves to <code>PAYMENT_SECURED</code>.</li>
+</ol>
+<h3 class="subsection-title">Ship and Confirm</h3>
+<ol>
+<li>Seller sees <code>PAYMENT_SECURED</code> and ships or meets buyer.</li>
+<li>Seller marks shipped and uploads evidence.</li>
+<li>Courier or buyer uses OTP/QR handover.</li>
+<li>Buyer confirms receipt.</li>
+<li>Deal enters <code>INSPECTION</code> for 24 to 72 hours depending on category.</li>
+</ol>
+<h3 class="subsection-title">Release</h3>
+<ol>
+<li>If buyer confirms and no dispute exists, release job creates a payout/release instruction.</li>
+<li>Provider releases/captures/transfers/pays seller depending on commercial setup.</li>
+<li>BothSafe records provider result and ledger entries.</li>
+<li>Deal moves to <code>COMPLETED</code>.</li>
+</ol>
+<h3 class="subsection-title">Dispute</h3>
+<ol>
+<li>Buyer clicks &quot;Report issue&quot; before inspection window expires.</li>
+<li>Release is frozen.</li>
+<li>Buyer chooses reason: not received, damaged, wrong item, counterfeit, incomplete, other.</li>
+<li>Seller responds with evidence.</li>
+<li>Admin decides: release, refund, partial split, request more evidence, or escalate.</li>
+<li>PaymentModule executes provider refund/release/payout based on decision.</li>
+</ol>
+<hr>
+<div class="section"><h2 class="section-title">Security and Reliability Requirements</h2>
+<h3 class="subsection-title">Money Safety</h3>
+<ul>
+<li>Never process release from client-side confirmation alone.</li>
+<li>Require provider-confirmed payment state before shipping status can advance.</li>
+<li>Use idempotency keys for all payment intent, refund, and payout operations.</li>
+<li>Store all provider webhooks before processing.</li>
+<li>Reconcile provider transactions on a schedule.</li>
+<li>Use maker-checker review for manual refund/release above threshold.</li>
+<li>Keep ledger append-only; use reversal entries rather than edits.</li>
+</ul>
+<h3 class="subsection-title">Fraud Prevention</h3>
+<ul>
+<li>Phone verification for all users.</li>
+<li>Seller verification tiers with higher limits for verified users.</li>
+<li>New-user transaction limits.</li>
+<li>Device fingerprint and session history.</li>
+<li>Prohibited categories and keyword/photo review.</li>
+<li>Public deal verification page to fight fake links.</li>
+<li>Payment proof only from provider, never screenshots.</li>
+<li>Admin risk queue for high-value deals or repeated disputes.</li>
+</ul>
+<h3 class="subsection-title">Data Protection</h3>
+<ul>
+<li>Encrypt sensitive personal data and evidence metadata.</li>
+<li>Store payment secrets in a secrets manager.</li>
+<li>Limit admin access by role.</li>
+<li>Log every admin view/action on user, deal, payment, and dispute data.</li>
+<li>Set retention rules: ordinary evidence 180 days after completion; dispute evidence 2 to 5 years depending on counsel guidance.</li>
+</ul>
+<h3 class="subsection-title">Reliability</h3>
+<ul>
+<li>Use queues for notification, reconciliation, auto-expiry, auto-release.</li>
+<li>Use transactional outbox for domain events.</li>
+<li>Use database constraints for state transitions.</li>
+<li>Monitor webhook failure rate, payout failure rate, dispute SLA, and reconciliation mismatches.</li>
+</ul>
+<hr>
+<div class="section"><h2 class="section-title">Digital Products V2</h2>
+<p>V2 should start only after V1 payment and dispute operations are stable. Digital goods have lower delivery cost but higher fraud risk because the seller can send invalid files, duplicate license keys, hacked accounts, or non-transferable accounts.</p>
+<p>Digital V2 architecture:</p>
+<ul>
+<li>Seller uploads file to private object storage.</li>
+<li>BothSafe virus-scans file and stores hash.</li>
+<li>Buyer pays.</li>
+<li>Access grant is created only after payment secured.</li>
+<li>Buyer downloads through signed URL with expiry, device/session logging, and download limit.</li>
+<li>License keys are encrypted at rest and revealed once.</li>
+<li>Seller payout releases after buyer confirms or after a shorter auto-release window.</li>
+</ul>
+<p>Avoid account/service resale at first. Start with low-risk files such as templates, eBooks, course files, design assets, and software licenses where seller rights can be documented.</p>
+<hr>
+<div class="section"><h2 class="section-title">Implementation Plan</h2>
+<h3 class="subsection-title">Phase 0: Legal and Partner Readiness - Week 1 to 2</h3>
+<ol>
+<li>Register company and tax profile.</li>
+<li>Confirm e-commerce permit/license requirement with Ministry of Commerce counsel.</li>
+<li>Meet ABA PayWay, Wing, ACLEDA, PPCBank, and at least one KHQR middleware provider.</li>
+<li>Ask each provider:</li>
+<p>- Can you support marketplace escrow or protected payment?    - Who legally holds funds?    - Can funds be held before seller payout?    - Maximum hold/authorization duration?    - Can KHQR be pre-authorized, or only paid/refunded?    - Are split payouts available for marketplace sellers?    - What KYC is required for sellers?    - What dispute/refund workflow is allowed?</p>
+<li>Choose launch payment model:</li>
+<p>- Preferred: bank/PSP controlled protected funds with release/refund API.    - Fallback: pre-auth for supported methods and manual bank-controlled settlement.</p>
+<li>Draft terms, privacy policy, buyer/seller agreement, prohibited item policy, dispute policy, fee schedule.</li>
+</ol>
+<p>Exit criteria: signed sandbox access, written payment flow approval, legal memo on custody/licensing risk.</p>
+<h3 class="subsection-title">Phase 1: Technical Foundation - Week 2 to 4</h3>
+<ol>
+<li>Scaffold NestJS API.</li>
+<li>Add PostgreSQL migrations.</li>
+<li>Add AuthModule with phone/email/Telegram identity.</li>
+<li>Add UserModule and roles.</li>
+<li>Add DealModule with deal creation and acceptance.</li>
+<li>Add AuditModule and immutable audit events.</li>
+<li>Add object storage for product photos and evidence.</li>
+<li>Add basic React app with create deal, join deal, dashboard.</li>
+<li>Add admin console skeleton.</li>
+</ol>
+<p>Exit criteria: user can create and join a deal in staging; all state changes audited.</p>
+<h3 class="subsection-title">Phase 2: Payment MVP - Week 4 to 6</h3>
+<ol>
+<li>Build <code>PaymentProvider</code> interface:</li>
+<p>- <code>createIntent</code>    - <code>getIntent</code>    - <code>handleWebhook</code>    - <code>cancelOrRefund</code>    - <code>releaseOrPayout</code>    - <code>reconcile</code></p>
+<li>Implement sandbox adapter for chosen provider.</li>
+<li>Generate payment link/KHQR.</li>
+<li>Verify webhook signatures or provider authentication method.</li>
+<li>Store raw webhooks.</li>
+<li>Implement idempotency.</li>
+<li>Implement reconciliation polling.</li>
+<li>Implement ledger entries for secured, refund pending, released, refunded, fee earned.</li>
+</ol>
+<p>Exit criteria: sandbox payment can move deal from <code>PENDING_PAYMENT</code> to <code>PAYMENT_SECURED</code> and ledger balances reconcile.</p>
+<h3 class="subsection-title">Phase 3: Delivery and Confirmation - Week 6 to 8</h3>
+<ol>
+<li>Add delivery method: meetup, seller delivery, courier delivery.</li>
+<li>Add OTP/QR handover confirmation.</li>
+<li>Add seller shipped flow.</li>
+<li>Add buyer received flow.</li>
+<li>Add inspection timer.</li>
+<li>Add auto-release job after inspection window if no dispute.</li>
+<li>Add notifications through Telegram and email/SMS.</li>
+</ol>
+<p>Exit criteria: physical deal can complete end-to-end in staging with delivery evidence and release instruction.</p>
+<h3 class="subsection-title">Phase 4: Disputes and Admin Operations - Week 8 to 10</h3>
+<ol>
+<li>Add dispute open flow.</li>
+<li>Add dispute evidence upload.</li>
+<li>Add seller response.</li>
+<li>Add admin dispute queue.</li>
+<li>Add admin decision types: release, refund, split, request evidence.</li>
+<li>Add maker-checker for high-value decisions.</li>
+<li>Add dispute SLA dashboard.</li>
+<li>Add canned Khmer/English communication templates.</li>
+</ol>
+<p>Exit criteria: disputed deal freezes release and can be resolved with an audited decision.</p>
+<h3 class="subsection-title">Phase 5: Private Beta - Week 10 to 12</h3>
+<ol>
+<li>Recruit 20 to 50 sellers in one category.</li>
+<li>Set transaction limits:</li>
+<p>- New users: low cap.    - Verified sellers: higher cap.    - Manual review above threshold.</p>
+<li>Run 100 concierge-supported deals.</li>
+<li>Track:</li>
+<p>- Payment success rate.    - Payment confirmation time.    - Delivery confirmation rate.    - Dispute rate.    - Refund rate.    - Release time.    - Support tickets per deal.</p>
+<li>Interview buyers and sellers after every disputed deal.</li>
+</ol>
+<p>Exit criteria: at least 80 completed deals, dispute rate understood, zero unreconciled money events, support workflow stable.</p>
+<h3 class="subsection-title">Phase 6: Public MVP - Month 4 to 6</h3>
+<ol>
+<li>Launch Telegram bot.</li>
+<li>Launch seller verification badges.</li>
+<li>Launch public deal verification page.</li>
+<li>Launch fee model:</li>
+<p>- Buyer fee or seller fee per deal.    - Optional rush dispute review.    - Optional verified seller subscription later.</p>
+<li>Add referral program for trusted sellers.</li>
+<li>Add category expansion only after operational metrics are stable.</li>
+</ol>
+<p>Exit criteria: repeat sellers, organic buyer invites, stable dispute SLA, positive completed transaction rate.</p>
+<hr>
+<div class="section"><h2 class="section-title">API Surface</h2>
+<pre><code>POST /auth/login
+POST /auth/telegram
+GET  /me
+
+POST /deals
+GET  /deals/:id
+POST /deals/:id/accept
+POST /deals/:id/cancel
+
+POST /deals/:id/payment-intents
+GET  /payment-intents/:id
+POST /webhooks/payway
+
+POST /deals/:id/mark-shipped
+POST /deals/:id/delivery-evidence
+POST /deals/:id/confirm-received
+
+POST /deals/:id/disputes
+POST /disputes/:id/messages
+POST /admin/disputes/:id/decision
+
+GET  /admin/deals
+GET  /admin/payments/reconciliation
+GET  /admin/metrics</code></pre>
+<hr>
+<div class="section"><h2 class="section-title">Trust Score V1</h2>
+<p>Start simple. Do not pretend to have a magic AI trust score.</p>
+<p>Inputs:</p>
+<ul>
+<li>Verified phone.</li>
+<li>Verified Telegram.</li>
+<li>Completed deals.</li>
+<li>Cancelled deals.</li>
+<li>Disputes opened.</li>
+<li>Disputes lost.</li>
+<li>Average response time.</li>
+<li>Seller evidence completeness.</li>
+<li>Admin risk flags.</li>
+</ul>
+<p>Display:</p>
+<ul>
+<li>&quot;New&quot;</li>
+<li>&quot;Verified&quot;</li>
+<li>&quot;Trusted seller&quot;</li>
+<li>&quot;High-value verified&quot;</li>
+</ul>
+<p>Avoid showing exact numeric risk scores to users because scammers can game them.</p>
+<hr>
+<div class="section"><h2 class="section-title">Metrics</h2>
+<h3 class="subsection-title">Product Metrics</h3>
+<ul>
+<li>Created deals.</li>
+<li>Accepted deals.</li>
+<li>Payment conversion.</li>
+<li>Payment confirmation median time.</li>
+<li>Shipped after secured payment.</li>
+<li>Buyer confirmation rate.</li>
+<li>Auto-release rate.</li>
+<li>Dispute rate.</li>
+<li>Refund rate.</li>
+<li>Repeat seller rate.</li>
+<li>Repeat buyer rate.</li>
+</ul>
+<h3 class="subsection-title">Risk Metrics</h3>
+<ul>
+<li>Unreconciled provider transactions.</li>
+<li>Manual release/refund count.</li>
+<li>High-risk category attempts.</li>
+<li>Disputes per seller.</li>
+<li>Disputes per buyer.</li>
+<li>Fake link reports.</li>
+<li>Chargeback/refund loss.</li>
+</ul>
+<h3 class="subsection-title">Business Metrics</h3>
+<ul>
+<li>Gross transaction value.</li>
+<li>Net revenue.</li>
+<li>Take rate.</li>
+<li>Support cost per transaction.</li>
+<li>Average transaction value.</li>
+<li>Seller acquisition cost.</li>
+<li>Buyer invite conversion.</li>
+</ul>
+<hr>
+<div class="section"><h2 class="section-title">Synthesis &amp; Insights</h2>
+<p>BothSafe should be built as a trust layer before it becomes a marketplace. Cambodia&#x27;s payment rails and social commerce adoption are strong, but social commerce lacks the infrastructure that makes strangers comfortable transacting: verified counterparties, secure payment confirmation, delivery proof, and disputes. The fastest route is to meet users inside their existing behavior. A Telegram-first deal link is more natural than asking everyone to browse a new marketplace on day one.</p>
+<p>The most important architecture decision is legal, not technical. The database should never be the authority on money. The payment provider is the authority. BothSafe should record provider-confirmed events, create release/refund instructions, preserve evidence, and maintain an audit ledger. This keeps the product scalable and makes it easier to explain to banks and regulators.</p>
+<p>The second important decision is operational. Escrow creates disputes by design because it gives buyers a way to object and sellers a way to demand evidence. That is the product. If BothSafe cannot resolve disputes quickly, fairly, and consistently, the brand will lose trust. Therefore, the admin console, evidence model, release freeze, and decision audit trail are MVP features, not back-office extras.</p>
+<p>The third decision is category focus. High-value goods create enough pain to justify a fee. Low-value goods will not support the operational cost of human disputes. Start with categories where fraud anxiety is high and evidence is practical: phones, laptops, cameras, electronics, and small inventory lots. Do not start with services, account sales, crypto, vehicles, or medicines.</p>
+<hr>
+<div class="section"><h2 class="section-title">Limitations &amp; Caveats</h2>
+<h3 class="subsection-title">Counterevidence Register</h3>
+<p>The weak point in this research is direct Cambodia-specific social evidence for escrow demand. The <code>last30days</code> run found only five Reddit items, and most were adjacent or non-Cambodia-specific [21]. This means BothSafe should not treat public social chatter as proof of demand. It should validate with direct interviews, concierge deals, seller pilots, and paid experiments.</p>
+<p>The second uncertainty is payment partner capability. Public PayWay documentation shows promising APIs for pre-auth, cancellation, refund, payout, and split payout [3], [5], [6]. It does not by itself prove that ABA will approve BothSafe&#x27;s intended escrow use case for all payment methods or categories. Provider approval is a launch blocker.</p>
+<p>The third uncertainty is licensing classification. The Prakas language is broad enough that BothSafe should assume payment-service scrutiny if it holds, transfers, or controls customer funds [7]. The correct answer depends on actual money flow, contracts, and operations. Get counsel before touching live funds.</p>
+<h3 class="subsection-title">Known Gaps</h3>
+<ul>
+<li>No provider commercial agreement reviewed.</li>
+<li>No Cambodian legal opinion reviewed.</li>
+<li>No direct interviews with Cambodian buyers/sellers yet.</li>
+<li>No logistics partner SLA reviewed.</li>
+<li>No verified MoC/NBC guidance specific to escrow marketplace products found in public sources.</li>
+</ul>
+<h3 class="subsection-title">Assumptions</h3>
+<p>The plan assumes a bank or PSP will support a controlled release/refund flow. If no provider supports it, BothSafe must either pursue licensing, launch as a manual concierge service under a partner&#x27;s custody model, or narrow to a non-custodial trust workflow that confirms payment but does not hold funds.</p>
+<hr>
+<div class="section"><h2 class="section-title">Recommendations</h2>
+<h3 class="subsection-title">Immediate Actions</h3>
+<ol>
+<li>Book meetings with ABA PayWay, Wing, ACLEDA, PPCBank, and Baray-style middleware providers.</li>
+<li>Ask counsel to classify three money-flow models: direct custody, partner-custody, and non-custodial software layer.</li>
+<li>Build clickable prototype for seller creates deal, buyer pays, seller ships, buyer confirms, seller paid.</li>
+<li>Recruit 20 sellers in one high-value category before writing marketplace discovery features.</li>
+<li>Draft terms and dispute rules before private beta.</li>
+</ol>
+<h3 class="subsection-title">Technical Next Steps</h3>
+<ol>
+<li>Scaffold NestJS modular monolith.</li>
+<li>Create PostgreSQL schema and state transition constraints.</li>
+<li>Build PayWay sandbox adapter behind a provider interface.</li>
+<li>Build Telegram bot for deal links and notifications.</li>
+<li>Build admin dispute console before public beta.</li>
+</ol>
+<h3 class="subsection-title">Research Still Needed</h3>
+<ol>
+<li>Provider hold-duration and settlement rules.</li>
+<li>Seller KYC requirements.</li>
+<li>E-commerce license cost and processing time.</li>
+<li>Courier partner APIs and proof-of-delivery quality.</li>
+<li>User interviews with buyers and sellers who currently transact via Facebook, Telegram, and TikTok.</li>
+</ol>
+<hr>
+<div class="section"><h2 class="section-title">Claims-Evidence Table</h2>
+<table><thead><tr><th>Claim</th><th>Evidence</th><th>Confidence</th><th>Build Decision</th></tr></thead><tbody>
+<tr><td>Cambodia has suitable instant-payment rails for protected checkout.</td><td>Bakong supports real-time interbank transfers, and KHQR integration supports dynamic QR, unique transaction IDs, expiry, and status checks [1], [2].</td><td>High</td><td>Use KHQR/payment links for V1 payment initiation.</td></tr>
+<tr><td>BothSafe should not directly hold funds at launch.</td><td>Payment service activity is regulated by NBC&#x27;s payment service Prakas, and the Prakas applies to persons providing payment services [7].</td><td>High</td><td>Launch through a licensed bank/PSP custody model or non-custodial integration model.</td></tr>
+<tr><td>PayWay is the strongest first provider candidate.</td><td>PayWay documents KHQR, webhooks, pre-auth completion/cancellation, refunds, payout, and split-payout APIs [3], [4], [5], [6].</td><td>Medium-high</td><td>Build provider abstraction around PayWay sandbox first.</td></tr>
+<tr><td>Social commerce is the right initial distribution channel.</td><td>Cambodia has 14.0 million active social media user identities, and social commerce/mobile payments have high penetration [11], [13].</td><td>High</td><td>Launch deal links and Telegram bot before marketplace discovery.</td></tr>
+<tr><td>Trust infrastructure is the product wedge.</td><td>Cambodia social commerce lacks consistent buyer protection, seller verification, order tracking, and dispute resolution, while fraud and delivery issues remain market constraints [14], [15], [16].</td><td>Medium-high</td><td>Sell &quot;protected deal&quot; workflow, not a generic marketplace.</td></tr>
+<tr><td>Disputes and audit trail must be MVP features.</td><td>Escrow/payment products need release, refund, and dispute handling; Stripe&#x27;s marketplace docs show disputes/refunds can become platform liabilities depending on payment model [17], [19].</td><td>High</td><td>Build admin dispute console and immutable ledger before public beta.</td></tr>
+<tr><td>Cambodia&#x27;s scam context increases both demand and misuse risk.</td><td>TRC warned about Telegram fraud, and AP reported major 2026 scam-center enforcement with continued concerns about financial networks [16], [18].</td><td>High</td><td>Add fake-link checks, verified deal pages, risk review, and no-screenshot payment proof.</td></tr>
+</tbody></table>
+<hr>
+<div class="section"><h2 class="section-title">Methodology Appendix</h2>
+<p>Research used current web retrieval because payment rails, regulations, and scam enforcement are time-sensitive. Priority was given to official sources from NBC/Bakong, PayWay, the Cambodia National Trade Repository, the Royal Government of Cambodia, TRC, and the Library of Congress. Market and social-commerce evidence used DataReportal, Xinhua, Cambodianess, Tokkae, and AP News. Architecture recommendations were synthesized from these Cambodia-specific sources plus general marketplace payment patterns from Stripe documentation.</p>
+<p>The <code>last30days</code> skill was run with a custom query plan and targeted subreddits. It returned limited evidence, so it was used only for directional product insight and cold-start caution. The saved raw file was updated with a WebSearch supplemental appendix for traceability.</p>
+<p>This report is not legal advice. BothSafe should obtain a Cambodia-specific legal opinion before launching any live-money flow.</p>
+</div></div></div></div></div></div></div></div></div></div></div></div></div></div></div></div></div></div>
+
+            <div class="bibliography">
+                <div class="section-title">Bibliography</div>
+                <div class="bibliography-content">
+<div class="bib-entry">[1] National Bank of Cambodia. &quot;Bakong - The Next-Generation Mobile Payments.&quot; https://bakong.nbc.gov.kh/en/ (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[2] National Bank of Cambodia. &quot;Bakong QR Pay Integration.&quot; https://bakong.nbc.gov.kh/en/download/KHQR/integration/QR%20Payment%20Integration.pdf (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[3] ABA PayWay. &quot;Developer Suite Overview.&quot; https://developer.payway.com.kh/ (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[4] ABA PayWay. &quot;KHQR Guideline.&quot; https://developer.payway.com.kh/khqr-guideline-3192101f0 (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[5] ABA PayWay. &quot;Complete pre-auth transactions.&quot; https://developer.payway.com.kh/complete-pre-auth-transactions-14530835e0 (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[6] ABA PayWay. &quot;Cancel pre-purchase transaction&quot; and &quot;Payout.&quot; https://developer.payway.com.kh/cancel-pre-purchase-transaction-14530836e0 and https://developer.payway.com.kh/payout-3158153f0 (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[7] Cambodia National Trade Repository. &quot;Prakas on the Management of Payment Service Institution.&quot; https://cambodiantr.gov.kh/en/document/?title=prakas-on-the-management-of-payment-service-institution (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[8] Royal Government of Cambodia. &quot;Law on Electronic Commerce.&quot; https://www.khmersme.gov.kh/wp-content/uploads/2022/06/Law-on-E-commerce-EN.pdf (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[9] Library of Congress. &quot;Cambodia: Ministry of Commerce Launches New Licensing Regime for E-commerce Businesses.&quot; https://www.loc.gov/item/global-legal-monitor/2021-08-29/cambodia-ministry-of-commerce-launches-new-licensing-regime-for-e-commerce-businesses/ (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[10] Tilleke &amp; Gibbins. &quot;Cambodia Enacts a New E-commerce Law and a Consumer Protection Law.&quot; https://www.tilleke.com/insights/cambodia-enacts-new-e-commerce-law-and-consumer-protection-law/ (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[11] DataReportal. &quot;Digital 2026: Cambodia.&quot; https://datareportal.com/reports/digital-2026-cambodia (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[12] Royal Government of Cambodia. &quot;Cambodia Digital Economy and Society Policy Framework 2021-2035.&quot; https://itd.mef.gov.kh/assets/uploads/2021/08/Digital-Economy-and-Society-Framework-EN.pdf (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[13] Xinhua. &quot;E-commerce thrives in Cambodia.&quot; https://english.news.cn/20250225/94c1b73ef92d42259165bb97f538cf46/c.html (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[14] Tokkae. &quot;Will Lazada and Shopee Ever Launch in Cambodia? (2026).&quot; https://www.tokkae.com/blog/lazada-shopee-cambodia-2026 (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[15] Cambodianess. &quot;Cambodia&#x27;s E-Commerce Boom Set to Top $1.78B by 2025.&quot; https://cambodianess.com/article/cambodias-e-commerce-boom-set-to-top-178b-by-2025 (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[16] Telecommunication Regulator of Cambodia. &quot;Announcement on Rising Incidents of Fraudulent Activities on Telegram.&quot; https://www.trc.gov.kh/en/media/news-releases/7-news-release (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[17] Stripe. &quot;Accept a payment using separate charges and transfers.&quot; https://docs.stripe.com/connect/marketplace/tasks/accept-payment/separate-charges-and-transfers (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[18] Associated Press. &quot;Cambodia aims to shut down all online scam centers within weeks.&quot; https://apnews.com/article/cambodia-cybercrime-phnom-penh-online-fraud-9bbfe6ee970b5a73529f5f820b931e1f (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[19] Stripe. &quot;Handle refunds and disputes.&quot; https://docs.stripe.com/connect/marketplace/tasks/refunds-disputes (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[20] Multilaw and Tilleke &amp; Gibbins. &quot;Data Protection Guide: Cambodia.&quot; https://multilaw.com/Multilaw/Multilaw/Data_Protection_Laws_Guide/DataProtection_Guide_Cambodia.aspx (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[21] last30days local run. &quot;Cambodia escrow buyer protection marketplace Bakong KHQR.&quot; /home/rayu/Documents/Last30Days/cambodia-escrow-buyer-protection-marketplace-bakong-khqr-raw-bothsafe.md (Generated: 2026-05-03)</div>
+<div class="bib-entry">[22] Phnom Penh Post. &quot;Bakong money transfers, payments exceed 1.3 billion transactions.&quot; https://www.phnompenhpost.com/business/bakong-money-transfers-payments-exceed-1-3-billion-transactions (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">[23] Baray. &quot;Bank API Integration Service for Cambodia.&quot; https://baray.io/ (Retrieved: 2026-05-03)</div>
+<div class="bib-entry">---</div>
+</div>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>
