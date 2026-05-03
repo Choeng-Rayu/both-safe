@@ -1,0 +1,208 @@
+# Installed Skills Inventory
+
+This file captures the skills I installed for you in this chat, along with the source repo link for each one.
+
+## Direct installs
+
+- `memory-design`
+  - https://github.com/thedotmack/claude-mem.git
+  - https://github.com/VoltAgent/awesome-design-md.git
+- `deep-research`
+  - https://github.com/rebyteai-template/rebyte-skills/tree/main/deep-research
+- `last30days`
+  - https://github.com/mvanhorn/last30days-skill.git
+- `playwright-skill`
+  - https://github.com/lackeyjb/playwright-skill.git
+- `nestjs-best-practices`
+  - https://github.com/Kadajett/agent-nestjs-skills.git
+
+## Bundle install
+
+- Source repo: https://github.com/alirezarezvani/claude-skills.git
+- Installed skills from that bundle: 183
+
+### Skills from `alirezarezvani/claude-skills`
+
+- `ab-test-setup`
+- `ad-creative`
+- `adversarial-reviewer`
+- `agent-designer`
+- `agent-protocol`
+- `agent-workflow-designer`
+- `ai-security`
+- `ai-seo`
+- `analytics-tracking`
+- `api-design-reviewer`
+- `api-test-suite-builder`
+- `app-store-optimization`
+- `atlassian-admin`
+- `atlassian-templates`
+- `aws-solution-architect`
+- `azure-cloud-architect`
+- `board-deck-builder`
+- `board-meeting`
+- `brand-guidelines`
+- `browser-automation`
+- `business-growth-skills`
+- `c-level-skills`
+- `campaign-analytics`
+- `capa-officer`
+- `ceo-advisor`
+- `cfo-advisor`
+- `change-management`
+- `changelog-generator`
+- `chief-of-staff`
+- `chro-advisor`
+- `churn-prevention`
+- `ci-cd-pipeline-builder`
+- `ciso-advisor`
+- `cloud-security`
+- `cmo-advisor`
+- `code-reviewer`
+- `codebase-onboarding`
+- `cold-email`
+- `command-guide`
+- `company-os`
+- `competitive-intel`
+- `competitive-teardown`
+- `competitor-alternatives`
+- `confluence-expert`
+- `content-creator`
+- `content-humanizer`
+- `content-production`
+- `content-strategy`
+- `context-engine`
+- `contract-and-proposal-writer`
+- `coo-advisor`
+- `copy-editing`
+- `copywriting`
+- `cpo-advisor`
+- `cro-advisor`
+- `cs-onboard`
+- `cto-advisor`
+- `culture-architect`
+- `customer-success-manager`
+- `database-designer`
+- `database-schema-designer`
+- `decision-logger`
+- `dependency-auditor`
+- `email-sequence`
+- `email-template-builder`
+- `engineering-advanced-skills`
+- `engineering-skills`
+- `env-secrets-manager`
+- `epic-design`
+- `experiment-designer`
+- `fda-consultant-specialist`
+- `finance-skills`
+- `financial-analyst`
+- `focused-fix`
+- `form-cro`
+- `founder-coach`
+- `free-tool-strategy`
+- `full-page-screenshot`
+- `gcp-cloud-architect`
+- `gdpr-dsgvo-expert`
+- `git-worktree-manager`
+- `incident-commander`
+- `incident-response`
+- `information-security-manager-iso27001`
+- `internal-narrative`
+- `interview-system-designer`
+- `intl-expansion`
+- `isms-audit-expert`
+- `jira-expert`
+- `landing-page-generator`
+- `launch-strategy`
+- `ma-playbook`
+- `marketing-context`
+- `marketing-demand-acquisition`
+- `marketing-ideas`
+- `marketing-ops`
+- `marketing-psychology`
+- `marketing-skills`
+- `marketing-strategy-pmm`
+- `mcp-server-builder`
+- `mdr-745-specialist`
+- `meeting-analyzer`
+- `migration-architect`
+- `monorepo-navigator`
+- `ms365-tenant-manager`
+- `observability-designer`
+- `onboarding-cro`
+- `org-health-diagnostic`
+- `page-cro`
+- `paid-ads`
+- `paywall-upgrade-cro`
+- `performance-profiler`
+- `pm-skills`
+- `popup-cro`
+- `pr-review-expert`
+- `pricing-strategy`
+- `product-analytics`
+- `product-discovery`
+- `product-manager-toolkit`
+- `product-skills`
+- `product-strategist`
+- `programmatic-seo`
+- `prompt-engineer-toolkit`
+- `qms-audit-expert`
+- `quality-documentation-manager`
+- `quality-manager-qmr`
+- `quality-manager-qms-iso13485`
+- `ra-qm-skills`
+- `rag-architect`
+- `red-team`
+- `referral-program`
+- `regulatory-affairs-head`
+- `release-manager`
+- `revenue-operations`
+- `risk-management-specialist`
+- `roadmap-communicator`
+- `runbook-generator`
+- `saas-metrics-coach`
+- `saas-scaffolder`
+- `sales-engineer`
+- `scenario-war-room`
+- `schema-markup`
+- `scrum-master`
+- `secrets-vault-manager`
+- `security-pen-testing`
+- `self-eval`
+- `senior-architect`
+- `senior-backend`
+- `senior-computer-vision`
+- `senior-data-engineer`
+- `senior-data-scientist`
+- `senior-devops`
+- `senior-frontend`
+- `senior-fullstack`
+- `senior-ml-engineer`
+- `senior-pm`
+- `senior-prompt-engineer`
+- `senior-qa`
+- `senior-secops`
+- `senior-security`
+- `seo-audit`
+- `signup-flow-cro`
+- `site-architecture`
+- `skill-security-auditor`
+- `skill-tester`
+- `soc2-compliance`
+- `social-content`
+- `social-media-analyzer`
+- `social-media-manager`
+- `spec-driven-workflow`
+- `spec-to-repo`
+- `sql-database-assistant`
+- `strategic-alignment`
+- `stripe-integration-expert`
+- `tc-tracker`
+- `tdd-guide`
+- `team-communications`
+- `tech-debt-tracker`
+- `tech-stack-evaluator`
+- `threat-detection`
+- `ui-design-system`
+- `ux-researcher-designer`
+- `x-twitter-growth`
