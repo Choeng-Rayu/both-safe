@@ -1,0 +1,439 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  BUYER
+  SELLER
+  ADMIN
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum ProductStatus {
+  DRAFT
+  SUBMITTED
+  SCANNING
+  REJECTED
+  APPROVED
+  LISTED
+  ARCHIVED
+}
+
+enum ScanStatus {
+  PENDING
+  CLEAN
+  INFECTED
+  FAILED
+}
+
+enum ProductType {
+  EBOOK
+  TEMPLATE
+  COURSE
+  DESIGN_ASSET
+  SOFTWARE_DOWNLOAD
+  LICENSE_KEY
+}
+
+enum DealStatus {
+  DRAFT
+  AWAITING_PAYMENT
+  PAID_HELD
+  ACCESS_GRANTED
+  BUYER_CONFIRMED
+  RELEASE_REVIEW
+  COMPLETED
+  DISPUTED
+  REFUND_REVIEW
+  REFUNDED
+  CANCELED
+  EXPIRED
+}
+
+enum PaymentProviderName {
+  BINANCE
+  PAYWAY_BAKONG
+}
+
+enum PaymentStatus {
+  ORDER_CREATED
+  PENDING
+  PAID
+  REFUND_REQUESTED
+  REFUNDING
+  REFUNDED
+  PAYOUT_REVIEW
+  PAYOUT_PENDING
+  PAYOUT_SENT
+  RECONCILIATION_FAILED
+  EXPIRED
+  CANCELED
+  FAILED
+}
+
+enum LedgerEntryType {
+  BUYER_PAYMENT
+  PLATFORM_FEE
+  SELLER_PAYABLE
+  RESERVE_HOLD
+  REFUND_LIABILITY
+  PAYOUT_SENT
+  REFUND_SENT
+  REVERSAL
+}
+
+enum EntitlementStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+  DISPUTED
+}
+
+enum EntitlementSource {
+  ONE_TIME_DEAL
+  SUBSCRIPTION
+  ADMIN_OVERRIDE
+}
+
+enum AccessGrantStatus {
+  LOCKED
+  GRANTED
+  VIEWED
+  DOWNLOADED
+  EXPIRED
+  REVOKED
+  REFUNDED_REVOKED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  GRACE
+  CANCELED
+  EXPIRED
+}
+
+enum DisputeStatus {
+  OPENED
+  EVIDENCE_REQUESTED
+  SELLER_RESPONDED
+  ADMIN_REVIEW
+  BUYER_REFUND
+  SELLER_RELEASE
+  SPLIT_DECISION
+  CLOSED
+}
+
+enum AdminTaskType {
+  RELEASE_REVIEW
+  REFUND_REVIEW
+  SPLIT_REVIEW
+  RECONCILIATION_REVIEW
+  SELLER_RISK_REVIEW
+}
+
+enum AdminTaskStatus {
+  OPEN
+  APPROVED
+  REJECTED
+  CANCELED
+}
+
+model User {
+  id            String             @id @default(uuid())
+  email         String?            @unique
+  phone         String?            @unique
+  telegramId    String?            @unique
+  displayName   String?
+  country       String?
+  role          UserRole           @default(BUYER)
+  verification  VerificationStatus @default(UNVERIFIED)
+  trustScore    Int                @default(0)
+  riskScore     Int                @default(0)
+  status        String             @default("active")
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  seller        Seller?
+  boughtDeals   Deal[]             @relation("BuyerDeals")
+  soldDeals     Deal[]             @relation("SellerDeals")
+  entitlements  Entitlement[]
+  subscriptions Subscription[]
+}
+
+model Seller {
+  id                 String             @id @default(uuid())
+  userId             String             @unique
+  businessName       String?
+  country            String?
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  payoutProvider     String?
+  payoutIdentifier   String?
+  riskTier           String             @default("new")
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  user               User               @relation(fields: [userId], references: [id])
+  products           DigitalProduct[]
+}
+
+model DigitalProduct {
+  id           String           @id @default(uuid())
+  sellerId     String
+  title        String
+  description  String?
+  type         ProductType
+  status       ProductStatus    @default(DRAFT)
+  priceMinor   BigInt
+  currency     String
+  category     String
+  refundPolicy String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  seller       Seller           @relation(fields: [sellerId], references: [id])
+  versions     ProductVersion[]
+  licenseKeys  LicenseKey[]
+  deals        Deal[]
+  plans        Plan[]
+  entitlements Entitlement[]
+}
+
+model ProductVersion {
+  id         String         @id @default(uuid())
+  productId  String
+  version    Int            @default(1)
+  storageKey String
+  sha256     String
+  fileSize   BigInt
+  mimeType   String
+  scanStatus ScanStatus     @default(PENDING)
+  createdAt  DateTime       @default(now())
+  product    DigitalProduct @relation(fields: [productId], references: [id])
+}
+
+model LicenseKey {
+  id              String            @id @default(uuid())
+  productId       String
+  encryptedSecret String
+  status          AccessGrantStatus @default(LOCKED)
+  assignedDealId  String?
+  revealedAt      DateTime?
+  product         DigitalProduct    @relation(fields: [productId], references: [id])
+  assignedDeal    Deal?             @relation(fields: [assignedDealId], references: [id])
+}
+
+model Deal {
+  id                String         @id @default(uuid())
+  publicCode        String         @unique
+  buyerId           String
+  sellerId          String
+  productId         String
+  status            DealStatus     @default(AWAITING_PAYMENT)
+  amountMinor       BigInt
+  currency          String
+  releaseAt         DateTime?
+  disputeDeadlineAt DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  buyer             User           @relation("BuyerDeals", fields: [buyerId], references: [id])
+  seller            User           @relation("SellerDeals", fields: [sellerId], references: [id])
+  product           DigitalProduct @relation(fields: [productId], references: [id])
+  payments          Payment[]
+  accessGrants      AccessGrant[]
+  ledgerEntries     LedgerEntry[]
+  disputes          Dispute[]
+  licenseKeys       LicenseKey[]
+  adminTasks        AdminTask[]
+}
+
+model Payment {
+  id              String              @id @default(uuid())
+  dealId          String
+  provider        PaymentProviderName
+  providerOrderId String?
+  merchantTradeNo String              @unique
+  status          PaymentStatus       @default(ORDER_CREATED)
+  amountMinor     BigInt
+  currency        String
+  checkoutUrl     String?
+  qrPayload       String?
+  rawProviderJson Json?
+  confirmedAt     DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  deal            Deal                @relation(fields: [dealId], references: [id])
+  events          PaymentEvent[]
+
+  @@index([provider, providerOrderId])
+}
+
+model PaymentEvent {
+  id               String              @id @default(uuid())
+  paymentId        String?
+  provider         PaymentProviderName
+  providerEventId  String              @unique
+  eventType        String
+  normalizedStatus PaymentStatus?
+  rawPayload       Json
+  rawBodySha256    String
+  signatureValid   Boolean
+  processedAt      DateTime?
+  receivedAt       DateTime            @default(now())
+  payment          Payment?            @relation(fields: [paymentId], references: [id])
+}
+
+model LedgerEntry {
+  id                String          @id @default(uuid())
+  dealId            String
+  entryType         LedgerEntryType
+  debitAccount      String
+  creditAccount     String
+  amountMinor       BigInt
+  currency          String
+  providerReference String?
+  sourceEventId     String?
+  createdBy         String?
+  createdAt         DateTime        @default(now())
+  deal              Deal            @relation(fields: [dealId], references: [id])
+
+  @@index([dealId, entryType])
+}
+
+model AccessGrant {
+  id            String            @id @default(uuid())
+  dealId        String
+  buyerId       String
+  productId     String
+  status        AccessGrantStatus @default(GRANTED)
+  expiresAt     DateTime?
+  downloadLimit Int               @default(3)
+  createdAt     DateTime          @default(now())
+  deal          Deal              @relation(fields: [dealId], references: [id])
+  events        DownloadEvent[]
+}
+
+model DownloadEvent {
+  id            String      @id @default(uuid())
+  accessGrantId String
+  ipHash        String?
+  deviceHash    String?
+  userAgentHash String?
+  downloadedAt  DateTime    @default(now())
+  accessGrant   AccessGrant @relation(fields: [accessGrantId], references: [id])
+}
+
+model Plan {
+  id            String         @id @default(uuid())
+  productId     String
+  name          String
+  interval      String
+  priceMinor    BigInt
+  currency      String
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  product       DigitalProduct @relation(fields: [productId], references: [id])
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                 String               @id @default(uuid())
+  buyerId            String
+  planId             String
+  status             SubscriptionStatus   @default(ACTIVE)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  provider           PaymentProviderName?
+  providerContractId String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  buyer              User                 @relation(fields: [buyerId], references: [id])
+  plan               Plan                 @relation(fields: [planId], references: [id])
+}
+
+model Entitlement {
+  id         String            @id @default(uuid())
+  userId     String
+  productId  String
+  source     EntitlementSource
+  sourceId   String
+  status     EntitlementStatus @default(ACTIVE)
+  startsAt   DateTime          @default(now())
+  endsAt     DateTime?
+  usageLimit Int?
+  usageCount Int               @default(0)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  user       User              @relation(fields: [userId], references: [id])
+  product    DigitalProduct    @relation(fields: [productId], references: [id])
+
+  @@index([userId, productId, status])
+}
+
+model UsageEvent {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+model Dispute {
+  id            String           @id @default(uuid())
+  dealId        String
+  openedById    String
+  reason        String
+  status        DisputeStatus    @default(OPENED)
+  adminDecision String?
+  decisionAt    DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  deal          Deal             @relation(fields: [dealId], references: [id])
+  messages      DisputeMessage[]
+}
+
+model DisputeMessage {
+  id          String   @id @default(uuid())
+  disputeId   String
+  senderId    String
+  message     String
+  evidenceUrl String?
+  createdAt   DateTime @default(now())
+  dispute     Dispute  @relation(fields: [disputeId], references: [id])
+}
+
+model AdminTask {
+  id        String          @id @default(uuid())
+  dealId    String?
+  type      AdminTaskType
+  status    AdminTaskStatus @default(OPEN)
+  reason    String
+  metadata  Json?
+  decidedBy String?
+  decidedAt DateTime?
+  createdAt DateTime        @default(now())
+  deal      Deal?           @relation(fields: [dealId], references: [id])
+}
+
+model AuditEvent {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actorType  String
+  action     String
+  entityType String
+  entityId   String
+  beforeJson Json?
+  afterJson  Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+}
