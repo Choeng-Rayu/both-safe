@@ -41,7 +41,12 @@ const envSchema = z.object({
   SENTRY_DSN: z.string().optional().or(z.literal('')),
   OTEL_EXPORTER_OTLP_ENDPOINT: optionalUrl.optional().or(z.literal('')),
   AUTO_RELEASE_MODE: z.enum(['manual_approval']).default('manual_approval'),
-  SUPPORTED_PAYMENT_RAILS: z.string().default('binance,payway_bakong'),
+  SUPPORTED_PAYMENT_RAILS: z.string().default('binance,payway_bakong,bakong'),
+  BAKONG_MERCHANT_ID: z.string().optional().or(z.literal('')),
+  BAKONG_PHONE_NUMBER: z.string().optional().or(z.literal('')),
+  BAKONG_DEVELOPER_TOKEN: z.string().optional().or(z.literal('')),
+  BAKONG_API_URL: optionalUrl.default('https://api-bakong.nbc.gov.kh/v1'),
+  BAKONG_WEBHOOK_SECRET: z.string().optional().or(z.literal('')),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -160,7 +160,10 @@ export class PaymentService {
     }
 
     if (verification.normalizedStatus === PaymentStatus.PAID) {
-      const providerStatus = await provider.queryOrder(payment.merchantTradeNo);
+      // For Bakong KHQR, providerOrderId holds the MD5 hash needed for status checks.
+      // Other providers use merchantTradeNo. Prefer providerOrderId when set.
+      const queryKey = payment.providerOrderId ?? payment.merchantTradeNo;
+      const providerStatus = await provider.queryOrder(queryKey);
 
       if (providerStatus.status !== PaymentStatus.PAID) {
         await this.prisma.adminTask.create({

@@ -26,7 +26,7 @@ export class EmbedService {
         subcopy:
           'Secured digital delivery with payment confirmation and manual release review.',
       },
-      rails: ['binance', 'payway_bakong'],
+      rails: ['binance', 'payway_bakong', 'bakong'],
     };
   }
 

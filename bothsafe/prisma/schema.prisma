@@ -64,6 +64,7 @@ enum DealStatus {
 enum PaymentProviderName {
   BINANCE
   PAYWAY_BAKONG
+  BAKONG
 }
 
 enum PaymentStatus {

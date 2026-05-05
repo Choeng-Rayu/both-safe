@@ -1,0 +1,12 @@
+node_modules
+dist
+.next
+.turbo
+coverage
+.env
+.env.*
+!.env.example
+*.log
+package-lock.json
+apps/api/generated
+apps/api/prisma/migrations/*/migration_lock.toml

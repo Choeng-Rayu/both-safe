@@ -31,6 +31,16 @@ export class WebhookController {
     });
   }
 
+  @Post('bakong')
+  handleBakong(@Req() request: RawBodyRequest, @Body() body: object) {
+    return this.payments.handleWebhook({
+      providerName: PaymentProviderName.BAKONG,
+      rawBody: this.getRawBody(request, body),
+      parsedBody: body as Record<string, unknown>,
+      headers: request.headers,
+    });
+  }
+
   private getRawBody(request: RawBodyRequest, body: object): string {
     if (Buffer.isBuffer(request.rawBody)) {
       return request.rawBody.toString('utf8');

@@ -4,6 +4,7 @@ import { LedgerModule } from '../ledger/ledger.module';
 import { PaymentController } from './payment.controller';
 import { PAYMENT_PROVIDERS } from './payment-provider.interface';
 import { PaymentService } from './payment.service';
+import { BakongProvider } from './providers/bakong.provider';
 import { BinancePayProvider } from './providers/binance-pay.provider';
 import { PayWayBakongProvider } from './providers/payway-bakong.provider';
 import { WebhookController } from './webhook.controller';
@@ -14,13 +15,15 @@ import { WebhookController } from './webhook.controller';
   providers: [
     BinancePayProvider,
     PayWayBakongProvider,
+    BakongProvider,
     {
       provide: PAYMENT_PROVIDERS,
       useFactory: (
         binance: BinancePayProvider,
         payway: PayWayBakongProvider,
-      ) => [binance, payway],
-      inject: [BinancePayProvider, PayWayBakongProvider],
+        bakong: BakongProvider,
+      ) => [binance, payway, bakong],
+      inject: [BinancePayProvider, PayWayBakongProvider, BakongProvider],
     },
     PaymentService,
   ],

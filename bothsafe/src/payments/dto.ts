@@ -5,6 +5,6 @@ export class CreateCheckoutDto {
   @IsUUID()
   dealId!: string;
 
-  @IsIn(['binance', 'payway_bakong'])
+  @IsIn(['binance', 'payway_bakong', 'bakong'])
   rail!: PaymentRail;
 }

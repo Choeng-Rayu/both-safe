@@ -1,6 +1,6 @@
 import { PaymentProviderName, PaymentStatus } from '@prisma/client';
 
-export type PaymentRail = 'binance' | 'payway_bakong';
+export type PaymentRail = 'binance' | 'payway_bakong' | 'bakong';
 
 export interface CreateOrderInput {
   dealId: string;
