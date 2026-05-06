@@ -431,3 +431,61 @@ npm run dev
 Backend runs on `http://localhost:3001` (or configured port).  
 Frontend runs on `http://localhost:3000`.  
 PostgreSQL is already running in local Docker — do not start a new instance.
+
+
+<claude-mem-context>
+# Memory Context
+
+# [both-safe] recent context, 2026-05-06 11:56am GMT+7
+
+Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
+Format: ID TIME TYPE TITLE
+Fetch details: get_observations([IDs]) | Search: mem-search skill
+
+Stats: 35 obs (13,309t read) | 142,939t work | 91% savings
+
+### May 5, 2026
+1 10:06a 🔵 OpenCode Orchestrator Architecture and Sub-Agent Dispatch Pattern
+2 " 🔵 Global Skills Registry Contains 200+ Pre-Built Agent Skills
+3 10:07a ✅ OpenCode Orchestrator Skill Registration Directory Created
+4 " 🔵 OpenCode Orchestrator Advanced Features: Design Systems and Session Management
+5 10:08a 🟣 OpenCode Orchestrator Skill Installed to Global Registry
+### May 6, 2026
+S2 Create a skill based on Ruflo v3.7.0-alpha.1 release for optimized CLI performance in plugin development (May 6, 11:23 AM)
+S1 Create AGENTS.md architecture guide synthesizing the BothSafe MVP design from task breakdowns (frontend, backend, Telegram bot) (May 6, 11:23 AM)
+7 11:28a 🔵 Ruflo v3.7.0-alpha.1: CLI performance optimization through package splitting
+S3 Create a skill based on Ruflo v3.7.0-alpha.1 CLI tool for optimized performance in plugin development (May 6, 11:29 AM)
+S4 Create Ruflo skill based on v3.7.0-alpha.1 release for token optimization and performance improvement in Claude Code environment (May 6, 11:30 AM)
+8 11:33a 🟣 Ruflo Optimizer skill created for token and performance optimization
+9 " ✅ Comprehensive Ruflo Optimizer skill usage documentation created
+S5 Create Ruflo skill based on v3.7.0-alpha.1 release for token optimization and performance improvement in Claude Code environment (May 6, 11:34 AM)
+10 11:50a 🔵 NestJS Backend Project Structure Baseline
+11 " 🔵 Backend Infrastructure Requirements Identified
+12 " ⚖️ Backend Implementation Roadmap Established
+13 11:51a ✅ Backend Implementation Commenced - B-01 Task Started
+14 " 🟣 Core Dependencies Installed for Backend
+15 " ✅ TypeScript Type Definitions Installed
+16 11:52a ✅ Prisma ORM Initialized
+17 " 🔵 Prisma Schema Initialization Mismatch
+18 " 🟣 Complete Prisma Database Schema Implemented
+19 11:53a ✅ Environment Configuration Updated for MVP
+20 " 🔵 Prisma Migration Command Error
+21 " 🔵 Prisma 7.x Breaking Change: Datasource Configuration
+22 " 🔴 Fixed Prisma 7.x Schema Validation Error
+23 " 🟣 Prisma Database Migration Successful
+24 " ✅ Backend Source Directory Structure Established
+25 11:54a 🟣 Prisma Database Service Layer Implemented
+26 " 🟣 Global Prisma Module Created
+27 " 🟣 Centralized Constants File with Type Safety
+28 " 🟣 Security and Utility Functions Implemented
+29 " 🟣 Global Exception Handler and Request Logging Implemented
+30 " ✅ Sanitization Function Improved for Whitespace Handling
+31 11:55a 🟣 Request Actor Decorator Implemented
+32 " 🟣 Authentication Service Implemented
+33 " 🟣 Auth Module and Admin Guard Implemented
+34 " 🟣 Deal Access Guard and Admin Login Endpoint Implemented
+35 " 🟣 Deal Status State Machine Implemented
+36 " 🟣 Missing Fields Detection Engine Implemented
+
+Access 143k tokens of past work via get_observations([IDs]) or mem-search skill.
+</claude-mem-context>

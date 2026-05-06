@@ -1,0 +1,255 @@
+// BothSafe MVP — Prisma schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Users / Admins ----------
+
+model User {
+  id          String   @id @default(uuid())
+  phone       String?  @unique
+  email       String?  @unique
+  name        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deals       Deal[]
+}
+
+model Admin {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+}
+
+// ---------- Telegram identity ----------
+
+model TelegramIdentity {
+  id            String   @id @default(uuid())
+  chatId        String   @unique
+  username      String?
+  firstName     String?
+  lastName      String?
+  language      String?
+  linkedUserId  String?
+  createdAt     DateTime @default(now())
+}
+
+// ---------- Deal ----------
+// status enum stored as string
+// values: DRAFT|AWAITING_COUNTERPARTY|AWAITING_BOTH_APPROVAL|READY_FOR_PAYMENT|
+//         PAYMENT_PENDING_VERIFICATION|PAID_ESCROWED|SELLER_PREPARING|SHIPPED|
+//         BUYER_CONFIRMED|DISPUTED|RELEASE_PENDING|RELEASED|REFUNDED|CANCELLED|EXPIRED
+
+model Deal {
+  id                       String         @id @default(uuid())
+  publicId                 String         @unique
+  creatorRole              String         // "buyer" | "seller"
+  source                   String         // "web" | "telegram"
+  status                   String         @default("DRAFT")
+  currency                 String         @default("USD")
+  amount                   Float?
+  feeAmount                Float?
+  netSellerAmount          Float?
+  createdByUserId          String?
+  createdByTelegramChatId  String?
+  inviteTokenHash          String?
+  creatorAccessTokenHash   String
+  inviteExpiresAt          DateTime?
+  expiresAt                DateTime?
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+
+  user                     User?          @relation(fields: [createdByUserId], references: [id])
+  product                  Product?
+  participants             Participant[]
+  payments                 Payment[]
+  shipping                 Shipping?
+  disputes                 Dispute[]
+  ledgerEntries            LedgerEntry[]
+  files                    StoredFile[]
+  auditLogs                AuditLog[]
+  notifications            Notification[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Product {
+  id                String  @id @default(uuid())
+  dealId            String  @unique
+  title             String?
+  type              String?
+  description       String?
+  imageUrl          String?
+  quantity          Int     @default(1)
+  condition         String?
+
+  deal              Deal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+}
+
+model Participant {
+  id                  String   @id @default(uuid())
+  dealId              String
+  role                String   // "buyer" | "seller"
+  name                String?
+  phone               String?
+  telegramChatId      String?
+  wechatId            String?
+  messengerName       String?
+  preferredLanguage   String   @default("en") // km|en|zh
+  payoutKhqr          String?
+  payoutBankName      String?
+  payoutAccountName   String?
+  payoutAccountNumber String?
+  accessTokenHash     String
+  approvedAt          DateTime?
+  joinedAt            DateTime?
+  createdAt           DateTime @default(now())
+
+  deal                Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, role])
+  @@index([telegramChatId])
+}
+
+// ---------- Payment ----------
+
+model Payment {
+  id                   String    @id @default(uuid())
+  dealId               String
+  expectedAmount       Float
+  paidAmount           Float?
+  currency             String
+  paymentMethod        String    @default("bakong_khqr")
+  receiverAccountLabel String
+  proofImageUrl        String?
+  buyerNote            String?
+  adminStatus          String    @default("pending") // pending|verified|rejected
+  verifiedByAdminId    String?
+  verifiedAt           DateTime?
+  rejectedReason       String?
+  idempotencyKey       String?   @unique
+  createdAt            DateTime  @default(now())
+
+  deal                 Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([adminStatus])
+}
+
+// ---------- Ledger ----------
+
+model LedgerEntry {
+  id            String   @id @default(uuid())
+  dealId        String
+  entryType     String   // ESCROW_RECEIVED|PLATFORM_FEE_RESERVED|SELLER_PAYOUT_PENDING|SELLER_PAYOUT_SENT|BUYER_REFUND_PENDING|BUYER_REFUND_SENT|ADJUSTMENT
+  amount        Float
+  currency      String
+  reference     String?
+  createdByAdminId String?
+  createdAt     DateTime @default(now())
+
+  deal          Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, entryType])
+}
+
+// ---------- Shipping ----------
+
+model Shipping {
+  id                 String   @id @default(uuid())
+  dealId             String   @unique
+  deliveryCompany    String?
+  trackingNumber     String?
+  packagePhotoUrl    String?
+  deliveryReceiptUrl String?
+  sellerNote         String?
+  createdAt          DateTime @default(now())
+
+  deal               Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+}
+
+// ---------- Dispute ----------
+
+model Dispute {
+  id            String   @id @default(uuid())
+  dealId        String
+  openedByRole  String   // buyer|seller
+  reason        String
+  message       String
+  evidenceUrls  String   // JSON-encoded array (SQLite has no array type)
+  status        String   @default("open") // open|under_review|resolved_release|resolved_refund
+  adminNote     String?
+  createdAt     DateTime @default(now())
+  resolvedAt    DateTime?
+
+  deal          Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+}
+
+// ---------- File ----------
+
+model StoredFile {
+  id           String   @id @default(uuid())
+  dealId       String?
+  category     String   // product|payment_proof|package_photo|delivery_receipt|dispute_evidence
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String   // local path or object key
+  isPublic     Boolean  @default(false)
+  uploadedBy   String?  // role or admin id
+  createdAt    DateTime @default(now())
+
+  deal         Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
+}
+
+// ---------- Audit log ----------
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  dealId       String?
+  actorType    String   // participant|admin|system
+  actorId      String?
+  action       String
+  details      String?  // JSON-encoded
+  createdAt    DateTime @default(now())
+
+  deal         Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
+  @@index([dealId, createdAt])
+}
+
+// ---------- Notification ----------
+
+model Notification {
+  id           String   @id @default(uuid())
+  dealId       String?
+  channel      String   // inapp|telegram|email|sms
+  recipientRef String?  // participant id, telegram chat id, etc.
+  eventKey     String   // COUNTERPARTY_JOINED, PAYMENT_VERIFIED, etc.
+  messageKey   String
+  payload      String?  // JSON
+  delivered    Boolean  @default(false)
+  failureReason String?
+  createdAt    DateTime @default(now())
+
+  deal         Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
+  @@index([dealId, createdAt])
+}
+
+// ---------- Idempotency ----------
+
+model IdempotencyKey {
+  key          String   @id
+  scope        String
+  responseJson String?
+  createdAt    DateTime @default(now())
+}

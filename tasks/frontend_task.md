@@ -680,6 +680,31 @@ Acceptance criteria:
 
 ## 9. Frontend Task List
 
+### Implementation Status — 2026-05-06
+
+| Task | Status | Notes |
+|---|---|---|
+| F-01 Next.js project setup | DONE | Shared app shell, env-aware API client, i18n foundation, routes boot correctly |
+| F-02 Design system MVP | DONE | Mobile-first cards, buttons, forms, sticky action bar, reusable status components |
+| F-03 Create Deal flow | DONE | Buyer/seller creation flow, validation, copy/open/share links |
+| F-04 Deal Room state renderer | DONE | Status-driven shared deal room renderer with timeline, cards, missing fields, safe fallback |
+| F-05 Join Deal flow | DONE | Invite detection, preview mode, join form, participant token storage |
+| F-06 Edit sections | DONE | Inline product / participant / payout / delivery editors wired to backend |
+| F-07 Approval UI | DONE | Approval action rendered from backend `allowed_actions` |
+| F-08 Payment proof UI | DONE | Payment instruction, receipt upload, buyer-only proof submission |
+| F-09 Shipping proof UI | DONE | Seller shipping proof upload and buyer-visible shipping summary |
+| F-10 Buyer confirmation and dispute UI | DONE | Confirm received, dispute form, evidence upload flow |
+| F-11 Admin dashboard UI | DONE | Admin login, deal list, detail view, payment review, release/refund/note actions |
+| F-12 Bot link compatibility | DONE | Deal room resolves `access` / `invite` query links from web or bot-created URLs |
+| F-13 Frontend security and privacy | DONE | Token storage without logging, admin cookie session, seller payout hidden from buyer |
+
+### Verification Status — 2026-05-06
+
+- `frontend`: `npm run lint`
+- `frontend`: `npm run build`
+- `backend`: `npm run build`
+- Runtime smoke: homepage `200`, deal page `200`, admin session login `200`, backend API live on `http://localhost:3003`
+
 ### F-01 Next.js project setup
 
 Requirements:
@@ -922,4 +947,3 @@ Acceptance criteria:
 - subscription escrow UI
 - freelancer milestone escrow UI
 - digital product delivery UI
-
