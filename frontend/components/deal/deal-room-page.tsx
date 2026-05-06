@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ExternalLink, Pencil, RefreshCcw } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import {
   approveDeal,
   confirmReceived,
@@ -87,10 +88,12 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
   const [deal, setDeal] = useState<DealResponse | null>(null);
   const [paymentInstruction, setPaymentInstruction] = useState<{
     receiver_account_label: string | null;
+    receiver_account_id: string | null;
     expected_amount: number | null;
     currency: string;
     reference_note: string;
-    khqr_payload_placeholder: string;
+    khqr_string: string | null;
+    khqr_md5: string | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
@@ -138,7 +141,10 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
     });
 
     let instruction: typeof paymentInstruction = null;
-    if (result.status === "READY_FOR_PAYMENT") {
+    if (
+      result.status === "READY_FOR_PAYMENT" ||
+      result.status === "PAYMENT_PENDING_VERIFICATION"
+    ) {
       try {
         instruction = await getPaymentInstruction(publicId, {
           accessToken: activeAccessToken,
@@ -614,7 +620,8 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
                   {currentRole === "seller" ? (
                     <>
                       <SectionCard
-                        title="Seller payout"
+                        title={t("payout.section.title")}
+                        description={t("payout.section.hint")}
                         action={
                           <EditTrigger
                             onClick={() =>
@@ -623,9 +630,15 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
                           />
                         }
                       >
-                        <p className="text-sm text-[var(--ink-soft)]">
-                          Buyer cannot see your payout details here.
-                        </p>
+                        {deal.participants.find((p) => p.role === "seller")?.has_payout ? (
+                          <p className="text-sm text-[var(--ink-soft)]">
+                            ✓ Payout info saved. Buyer cannot see your details.
+                          </p>
+                        ) : (
+                          <p className="text-sm text-[var(--danger)]">
+                            ⚠ No payout info yet. Add your Bakong ID or bank account so you can receive payment.
+                          </p>
+                        )}
                       </SectionCard>
                       {editor === "payout" ? (
                         <EditorCard
@@ -747,19 +760,44 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
                     >
                       <div id="payment-section" className="space-y-4">
                         {paymentInstruction ? (
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <Info
-                              label={t("payment.amount_due")}
-                              value={formatCurrency(
-                                paymentInstruction.expected_amount,
-                                paymentInstruction.currency,
-                                locale,
-                              )}
-                            />
-                            <Info
-                              label={t("payment.receiver")}
-                              value={paymentInstruction.receiver_account_label || "--"}
-                            />
+                          <div className="space-y-4">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <Info
+                                label={t("payment.amount_due")}
+                                value={formatCurrency(
+                                  paymentInstruction.expected_amount,
+                                  paymentInstruction.currency,
+                                  locale,
+                                )}
+                              />
+                              <Info
+                                label={t("payment.receiver")}
+                                value={paymentInstruction.receiver_account_label || "--"}
+                              />
+                              {paymentInstruction.receiver_account_id ? (
+                                <div className="sm:col-span-2">
+                                  <Info
+                                    label={t("payment.bakong_account")}
+                                    value={paymentInstruction.receiver_account_id}
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                            {paymentInstruction.khqr_string ? (
+                              <div className="flex flex-col items-center gap-3 rounded-xl border border-[var(--border)] bg-white p-5">
+                                <p className="text-sm font-medium text-[var(--ink)]">
+                                  {t("payment.scan_khqr")}
+                                </p>
+                                <QRCodeSVG
+                                  value={paymentInstruction.khqr_string}
+                                  size={200}
+                                  includeMargin
+                                />
+                                <p className="break-all text-center text-xs text-[var(--ink-soft)]">
+                                  {paymentInstruction.reference_note}
+                                </p>
+                              </div>
+                            ) : null}
                           </div>
                         ) : null}
                         {deal.payment_summary ? (

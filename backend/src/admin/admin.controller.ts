@@ -94,4 +94,10 @@ export class AdminController {
   note(@Param('dealId') dealId: string, @Body() dto: NoteDto, @Req() req: any) {
     return this.admin.addNote(dealId, dto.note, req.actor.adminId);
   }
+
+  @Get('payment-proofs/:paymentId/check-bakong')
+  @ApiOperation({ summary: 'Check Bakong transaction by MD5 (confirm real payment received)' })
+  checkBakong(@Param('paymentId') paymentId: string) {
+    return this.admin.checkBakongByPaymentId(paymentId, this.payments);
+  }
 }

@@ -1,5 +1,6 @@
 services:
   postgres:
+    container_name: bothsafe-postgres
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: bothsafe
@@ -16,6 +17,7 @@ services:
       retries: 5
 
   redis:
+    container_name: bothsafe-redis
     image: redis:7-alpine
     ports:
       - "6379:6379"

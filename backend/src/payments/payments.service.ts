@@ -3,9 +3,12 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { BakongKHQR, IndividualInfo, khqrData } = require('bakong-khqr');
 import { PrismaService } from '../prisma/prisma.service';
 import { FilesService } from '../files/files.service';
 import { LedgerService } from '../ledger/ledger.service';
@@ -23,6 +26,9 @@ import { UploadPaymentProofDto } from './dto/upload-payment-proof.dto';
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+  private readonly baker = new BakongKHQR();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cfg: ConfigService,
@@ -31,6 +37,47 @@ export class PaymentsService {
     private readonly audit: AuditService,
     private readonly notif: NotificationService,
   ) {}
+
+  private generateKhqr(amount: number | null, publicId: string): { khqr_string: string; khqr_md5: string } | null {
+    const accountId = this.cfg.get<string>('BAKONG_ACCOUNT_ID');
+    const merchantName = this.cfg.get<string>('BAKONG_MERCHANT_NAME') ?? 'BothSafe Escrow';
+    const merchantCity = this.cfg.get<string>('BAKONG_MERCHANT_CITY') ?? 'Phnom Penh';
+
+    if (!accountId) {
+      this.logger.warn('BAKONG_ACCOUNT_ID is not configured — KHQR generation skipped');
+      return null;
+    }
+
+    try {
+      // Dynamic QR (with amount) requires expirationTimestamp in milliseconds (13 digits)
+      // We set expiry to 60 minutes from now
+      const expirationTimestamp = Date.now() + 60 * 60 * 1000;
+
+      const optional: Record<string, unknown> = {
+        currency: khqrData.currency.usd,
+        storeLabel: 'BothSafe',
+        billNumber: publicId.slice(0, 25), // max 25 chars per spec
+      };
+
+      if (amount && amount > 0) {
+        optional.amount = amount;
+        optional.expirationTimestamp = expirationTimestamp;
+      }
+
+      const info = new IndividualInfo(accountId, merchantName, merchantCity, optional);
+      const result = this.baker.generateIndividual(info);
+
+      if (result.status.code !== 0 || !result.data) {
+        this.logger.warn(`KHQR generation failed: ${result.status.message}`);
+        return null;
+      }
+
+      return { khqr_string: result.data.qr, khqr_md5: result.data.md5 };
+    } catch (err) {
+      this.logger.error('KHQR generation error', err);
+      return null;
+    }
+  }
 
   async paymentInstruction(publicId: string) {
     const deal = await this.prisma.deal.findUnique({
@@ -41,14 +88,18 @@ export class PaymentsService {
     if (!canUploadPaymentProof(deal.status as any)) {
       throw new BadRequestException({ messageKey: MESSAGE_KEYS.PAYMENT_NOT_READY });
     }
+
+    const khqr = this.generateKhqr(deal.amount, deal.publicId);
+
     return {
       method: 'bakong_khqr',
       receiver_account_label: this.cfg.get<string>('RECEIVER_ACCOUNT_LABEL'),
+      receiver_account_id: this.cfg.get<string>('BAKONG_ACCOUNT_ID'),
       currency: deal.currency,
       expected_amount: deal.amount,
       reference_note: `BothSafe Deal ${deal.publicId}`,
-      // For MVP we return a placeholder QR string. Real QR generation is a phase-2 task.
-      khqr_payload_placeholder: `KHQR://bothsafe.app/${deal.publicId}/${deal.amount}`,
+      khqr_string: khqr?.khqr_string ?? null,
+      khqr_md5: khqr?.khqr_md5 ?? null,
     };
   }
 
@@ -251,5 +302,37 @@ export class PaymentsService {
       deal_status: DEAL_STATUS.READY_FOR_PAYMENT,
       rejected_reason: reason,
     };
+  }
+
+  /**
+   * Check a Bakong transaction by MD5 hash via the Bakong Open API.
+   * Used by admin to verify that money actually reached the BothSafe account.
+   * Requires BAKONG_API_TOKEN in env.
+   * Returns raw API response so admin UI can display confirmation.
+   */
+  async checkBakongTransaction(md5: string): Promise<{ confirmed: boolean; data: unknown }> {
+    const token = this.cfg.get<string>('BAKONG_API_TOKEN');
+    if (!token) {
+      return { confirmed: false, data: { error: 'BAKONG_API_TOKEN not configured' } };
+    }
+
+    try {
+      const url = 'https://api-bakong.nbc.gov.kh/v1/check_transaction_by_md5';
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ md5 }),
+      });
+
+      const json = (await response.json()) as { responseCode?: number; data?: unknown };
+      const confirmed = response.ok && json.responseCode === 0;
+      return { confirmed, data: json };
+    } catch (err) {
+      this.logger.error('Bakong API check failed', err);
+      return { confirmed: false, data: { error: 'API request failed' } };
+    }
   }
 }

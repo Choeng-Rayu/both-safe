@@ -153,10 +153,12 @@ export async function getPaymentInstruction(
   return apiGet<{
     method: string;
     receiver_account_label: string | null;
+    receiver_account_id: string | null;
     currency: string;
     expected_amount: number | null;
     reference_note: string;
-    khqr_payload_placeholder: string;
+    khqr_string: string | null;
+    khqr_md5: string | null;
   }>(`/deals/${publicId}/payment-instruction`, options);
 }
 

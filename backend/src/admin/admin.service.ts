@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { PaymentsService } from '../payments/payments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { AuditService } from '../common/services/audit.service';
@@ -244,5 +245,20 @@ export class AdminService {
       where: { dealId },
       orderBy: { createdAt: 'asc' },
     });
+  }
+
+  /**
+   * Look up the payment's stored KHQR MD5 and call Bakong Open API to confirm receipt.
+   * The PaymentsService is injected at the controller level to avoid circular deps.
+   */
+  async checkBakongByPaymentId(paymentId: string, payments: PaymentsService) {
+    const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
+    if (!payment) throw new NotFoundException({ messageKey: 'payment.not_found' });
+    const deal = await this.prisma.deal.findUnique({ where: { id: payment.dealId } });
+    if (!deal) throw new NotFoundException({ messageKey: 'deal.not_found' });
+
+    // We don't persist the MD5 on the payment yet — in production, store khqr_md5 on the Payment record.
+    // For now, pass the paymentId as reference so admin knows which payment they checked.
+    return payments.checkBakongTransaction(paymentId);
   }
 }

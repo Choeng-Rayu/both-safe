@@ -32,6 +32,7 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@types/pg": "^8.20.0",
+    "bakong-khqr": "^1.0.20",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.9.0",
     "class-transformer": "^0.5.1",
