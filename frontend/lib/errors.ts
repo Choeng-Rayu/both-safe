@@ -9,6 +9,9 @@ export function getErrorMessage(
     return translated === `errors.${error.messageKey}` ? error.message : translated;
   }
 
+  if (error instanceof TypeError && error.message.toLowerCase().includes("fetch")) {
+    return translate("errors.network");
+  }
   if (error instanceof Error) {
     return error.message;
   }

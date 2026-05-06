@@ -81,10 +81,13 @@ export async function apiSend<T>(
   init: RequestInit,
   options?: RequestOptions,
 ) {
-  const response = await fetch(`${getApiBaseUrl()}${path}`, {
+  const response = await fetch(
+    `${getApiBaseUrl()}${path}${buildAuthQuery(options)}`,
+    {
     ...init,
     headers: buildHeaders(options, init.headers),
-  });
+    },
+  );
   return parseResponse<T>(response);
 }
 
@@ -125,10 +128,7 @@ export async function updateDealSection(
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...payload,
-        access_token: options?.accessToken ?? undefined,
-      }),
+      body: JSON.stringify(payload),
     },
     options,
   );
@@ -140,7 +140,7 @@ export async function approveDeal(publicId: string, options?: RequestOptions) {
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ access_token: options?.accessToken ?? undefined }),
+      body: JSON.stringify({}),
     },
     options,
   );
@@ -165,9 +165,6 @@ export async function uploadPaymentProof(
   formData: FormData,
   options?: RequestOptions,
 ) {
-  if (options?.accessToken) {
-    formData.set("access_token", options.accessToken);
-  }
   return apiSend<{ payment_id: string; status: string }>(
     `/deals/${publicId}/payment-proofs`,
     {
@@ -183,9 +180,6 @@ export async function uploadShippingProof(
   formData: FormData,
   options?: RequestOptions,
 ) {
-  if (options?.accessToken) {
-    formData.set("access_token", options.accessToken);
-  }
   return apiSend<{ shipping_id: string; status: string }>(
     `/deals/${publicId}/shipping-proofs`,
     {
@@ -202,7 +196,7 @@ export async function confirmReceived(publicId: string, options?: RequestOptions
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ access_token: options?.accessToken ?? undefined }),
+      body: JSON.stringify({}),
     },
     options,
   );
@@ -213,9 +207,6 @@ export async function openDispute(
   formData: FormData,
   options?: RequestOptions,
 ) {
-  if (options?.accessToken) {
-    formData.set("access_token", options.accessToken);
-  }
   return apiSend<{ dispute_id: string; status: string }>(
     `/deals/${publicId}/disputes`,
     {

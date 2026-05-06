@@ -105,6 +105,7 @@ const en: Dictionary = {
   "errors.fallback": "We could not complete that request.",
   "errors.resource.not_found": "We could not find that record.",
   "errors.validation.failed": "Please review the form and try again.",
+  "errors.network": "Connection failed. Please check your internet.",
   "escrow.body": "Buyer pays BothSafe first. Seller gets paid only after the buyer confirms delivery or an admin resolves a dispute.",
   "escrow.title": "How protection works",
   "field.delivery_company": "Delivery company",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ExternalLink, Pencil, RefreshCcw } from "lucide-react";
@@ -131,7 +131,7 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
     [deal?.allowed_actions],
   );
 
-  async function fetchDealState() {
+  const fetchDealState = useCallback(async () => {
     const result = await getDeal(publicId, {
       accessToken: activeAccessToken,
       inviteToken: activeAccessToken ? null : inviteToken,
@@ -150,9 +150,9 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
     }
 
     return { result, instruction };
-  }
+  }, [activeAccessToken, inviteToken, publicId]);
 
-  async function refreshDeal() {
+  const refreshDeal = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -173,7 +173,7 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [accessFromUrl, activeAccessToken, fetchDealState, publicId, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -212,7 +212,7 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [publicId, accessFromUrl, inviteToken, activeAccessToken, t]);
+  }, [accessFromUrl, fetchDealState, inviteToken, publicId, t]);
 
   async function handleJoin() {
     if (!inviteToken || !joinForm.name.trim()) {

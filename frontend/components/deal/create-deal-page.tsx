@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Loader2 } from "lucide-react";
 import { createDeal, updateDealSection } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import { setStoredAccessToken, setStoredInviteLink } from "@/lib/token-store";
@@ -119,7 +119,7 @@ export function CreateDealPage() {
             <p className="mt-3 text-sm leading-6 text-[var(--ink-soft)]">
               {t("deal.create.form_hint")}
             </p>
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
               {(["seller", "buyer"] as CreatorRole[]).map((value) => (
                 <button
                   key={value}
@@ -145,7 +145,7 @@ export function CreateDealPage() {
           </section>
 
           <section className="soft-card rounded-lg p-6">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Field label={t("deal.create.your_name")} required>
                 <Input
                   value={fields.creator_name}
@@ -286,9 +286,20 @@ export function CreateDealPage() {
                 </>
               ) : null}
             </div>
-            {error ? <p className="mt-4 text-sm text-[var(--danger)]">{error}</p> : null}
+            {error ? (
+              <p className="mt-4 rounded-lg border border-[var(--danger)/0.2] bg-[var(--danger)/0.05] p-3 text-sm text-[var(--danger)]">
+                {error}
+              </p>
+            ) : null}
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <Button onClick={handleSubmit} disabled={pending} className="sm:w-auto">
+              <Button 
+                onClick={handleSubmit} 
+                disabled={pending || requiredMissing.length > 0}
+                className="w-full sm:w-auto"
+              >
+                {pending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
                 {t("deal.create.submit")}
               </Button>
             </div>

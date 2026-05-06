@@ -52,7 +52,7 @@ export function getApiBaseUrl() {
   const raw =
     process.env.NEXT_PUBLIC_API_BASE_URL ??
     process.env.API_URL ??
-    "http://localhost:3003/v1";
+    "http://localhost:3001/v1";
   return raw.endsWith("/v1")
     ? raw.replace(/\/$/, "")
     : `${raw.replace(/\/$/, "")}/v1`;
