@@ -253,3 +253,21 @@ model IdempotencyKey {
   responseJson String?
   createdAt    DateTime @default(now())
 }
+
+// ---------- Bot Conversation State ----------
+
+model BotState {
+  id           String   @id @default(uuid())
+  chatId       String   @unique
+  flow         String?  // "newdeal" | null
+  step         String?  // "ask_role" | "ask_title" | "ask_price" | "ask_type" | "ask_note" | "done"
+  creatorRole  String?  // "buyer" | "seller"
+  language     String   @default("en") // km|en|zh
+  productTitle String?
+  amount       String?  // stored as string, parsed on submit
+  productType  String?
+  note         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  expiresAt    DateTime?
+}

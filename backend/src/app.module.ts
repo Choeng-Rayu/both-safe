@@ -16,6 +16,7 @@ import { FilesModule } from './files/files.module';
 import { AuditModule } from './common/services/audit.module';
 import { HealthModule } from './health/health.module';
 import { SeedModule } from './seed/seed.module';
+import { BotModule } from './bot/bot.module';
 
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -39,6 +40,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     AdminModule,
     HealthModule,
     SeedModule,
+    BotModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

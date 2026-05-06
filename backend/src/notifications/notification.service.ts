@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NOTIFICATION_EVENTS } from '../common/constants';
+import { BOT_NOTIFIER, type IBotNotifier } from './bot-notifier.interface';
 
 type EventKey = keyof typeof NOTIFICATION_EVENTS;
 
@@ -19,9 +20,24 @@ export interface NotifyInput {
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() @Inject(BOT_NOTIFIER) private readonly botNotifier: IBotNotifier | null,
+  ) {}
 
   async notify(input: NotifyInput): Promise<void> {
+    // Resolve deal publicId once (needed for Open Deal Room button in Telegram)
+    let dealPublicId: string | undefined;
+    try {
+      const deal = await this.prisma.deal.findUnique({
+        where: { id: input.dealId },
+        select: { publicId: true },
+      });
+      dealPublicId = deal?.publicId;
+    } catch {
+      // non-critical
+    }
+
     for (const r of input.recipients) {
       try {
         await this.prisma.notification.create({
@@ -35,9 +51,25 @@ export class NotificationService {
             delivered: r.channel === 'inapp', // inapp is delivered immediately via timeline
           },
         });
+
         if (r.channel === 'telegram' && r.ref) {
-          // MVP stub: real Telegram sending is handled by the bot service.
-          this.logger.log(`telegram-notify chat=${r.ref} key=${input.messageKey}`);
+          this.logger.log(`telegram-notify chat=${r.ref} event=${String(input.eventKey)}`);
+          // Delegate actual Telegram delivery to bot adapter.
+          // Failures must not propagate back (deal status update must not be rolled back).
+          if (this.botNotifier) {
+            this.botNotifier
+              .sendNotification({
+                chatId: r.ref,
+                eventKey: String(input.eventKey),
+                dealPublicId,
+                dealId: input.dealId,
+              })
+              .catch((err: Error) => {
+                this.logger.warn(
+                  `botNotifier failed chat=${r.ref} event=${String(input.eventKey)}: ${err.message}`,
+                );
+              });
+          }
         }
       } catch (err) {
         this.logger.warn(
