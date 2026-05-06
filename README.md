@@ -1,104 +1,614 @@
-# BOTH SAFE
+# BothSafe
 
-Plan
+## Trust Layer for Chat-Based Commerce in Cambodia
 
-BothSafe Secure Digital Escrow Architecture Plan
-Summary
-Build BothSafe as a Telegram-first protected digital commerce platform with both one-time digital escrow and subscription entitlements in V1. Use a modular NestJS monolith, PostgreSQL, Redis queues, private object storage, provider adapters for Binance Pay and Bakong/PayWay, and an admin-controlled release workflow for the first live version.
+BothSafe is an escrow-based payment protection platform designed for Cambodia’s social commerce ecosystem.
 
-No implementation should start until you explicitly confirm this plan.
+The platform helps buyers and sellers safely transact through Telegram, Facebook Messenger, WeChat, and other chat-based platforms by acting as a trusted middle layer between payment and product delivery.
 
-Key Decisions
-V1 scope: one-time digital products plus subscription access.
-Payment rails: dual provider architecture from day one:
-BinancePayProvider for international digital purchases.
-PayWayBakongProvider for Cambodia KHQR/Bakong/PayWay.
-Custody model: manual release first for seller payout/refund approval. Payment/access automation runs fully, but payout/refund execution requires admin confirmation until legal/provider capability is proven.
-Product wording: use “protected checkout” and “secured digital delivery,” not “licensed escrow,” unless legal counsel and payment partners approve escrow language.
-Digital product policy: allow ebooks, templates, course files, design assets, software downloads, and seller-owned license keys. Block accounts, credentials, hacked services, gambling, financial signals, adult content, and illegal downloads.
-Technology Stack
-Backend: NestJS + TypeScript + Fastify, modular monolith.
-Database: PostgreSQL with Prisma migrations; money stored as integer minor units, not floats.
-Queue/jobs: Redis + BullMQ for webhook retries, reconciliation, scan jobs, renewal reminders, expiry, and auto-release candidates.
-Frontend: Next.js + TypeScript for buyer/seller web app, admin console, and embeddable checkout page.
-Telegram: grammy bot for deal creation, product links, payment notifications, delivery/access alerts, and buyer confirmation.
-Storage: Cloudflare R2 or S3-compatible private bucket with short-lived signed URLs.
-Security/ops: Cloudflare WAF, Sentry, Pino logs, OpenTelemetry, encrypted secrets, admin MFA, append-only audit logs.
-Low-cost deployment: start with managed Postgres, Upstash Redis, Cloudflare R2, and one small API/worker host; split services only after real usage demands it.
-Core Architecture
-AuthModule: email/phone/Telegram login, sessions, admin MFA.
-UserModule / SellerModule: profiles, verification, payout identifiers, risk tier.
-DigitalProductModule: product listing, versions, malware scan status, file hash, license inventory.
-SubscriptionModule: plans, subscriptions, renewal invoices, grace periods, cancellation.
-EntitlementModule: source of truth for access; exposes canAccess(userId, productId, action).
-PaymentModule: provider abstraction, signed webhook ingestion, order query, refund/payout/split capability flags.
-EscrowModule: deal state machine, buyer confirmation, dispute freeze, release candidate creation.
-LedgerModule: append-only obligation ledger for paid, fee, seller payable, refund liability, reserve, payout sent.
-DisputeModule: evidence, buyer/seller messages, admin decision, immutable resolution record.
-AdminModule: review queue, release/refund approval, reconciliation dashboard, seller risk review.
-EmbedModule: signed checkout links and embeddable “Buy with BothSafe” button that opens the hosted secure checkout.
-Main Flows
-One-time digital escrow: seller uploads product → scan/hash/approve → buyer pays via Binance or Bakong/PayWay → verified webhook plus provider query confirms payment → entitlement/access grant is created → buyer downloads/reveals key → buyer confirms or timer creates release candidate → admin approves payout/refund/split.
-Subscription V1: seller creates plan → buyer pays first period → entitlement is active until current_period_end → renewal invoice is generated before expiry → successful renewal extends entitlement → failed renewal enters grace then expires. Auto-debit stays behind a provider capability flag.
-Dispute flow: buyer opens dispute before release → access and payout freeze → evidence collected from download logs, file hashes, reveal logs, screenshots, and messages → admin chooses refund, release, split, or more evidence → ledger records reversal/release entries.
-Automation boundary: access delivery, entitlement checks, reconciliation, reminders, expiry, and release eligibility are automated. Actual money release/refund is manual approval in V1.
-Public Interfaces
-PaymentProvider:
-createOrder, queryOrder, verifyWebhook, refundOrder, createPayout, submitSplit, reconcile, getCapabilities.
-EntitlementService:
-canAccess, grantOneTimeAccess, grantSubscriptionAccess, revokeAccess, recordUsage.
-API surface:
-/auth/*, /products/*, /plans/*, /subscriptions/*, /deals/*, /payments/*, /webhooks/binance, /webhooks/payway, /disputes/*, /admin/*, /embed/*.
-Environment Draft
-Create .env.example with placeholders for:
+Instead of buyers sending money directly to sellers, BothSafe temporarily holds the payment in escrow until the transaction is completed successfully.
 
-APP_URL=
-API_URL=
-ADMIN_URL=
-DATABASE_URL=
-REDIS_URL=
-JWT_SECRET=
-SESSION_SECRET=
-ENCRYPTION_MASTER_KEY=
+---
 
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_WEBHOOK_SECRET=
+# Vision
 
-BINANCE_PAY_BASE_URL=
-BINANCE_PAY_API_KEY=
-BINANCE_PAY_SECRET_KEY=
-BINANCE_PAY_MERCHANT_ID=
-BINANCE_PAY_WEBHOOK_URL=
+Build the trust infrastructure for digital and social commerce in Cambodia.
 
-PAYWAY_BASE_URL=
-PAYWAY_MERCHANT_ID=
-PAYWAY_API_KEY=
-PAYWAY_PUBLIC_KEY=
-PAYWAY_WEBHOOK_SECRET=
+BothSafe aims to reduce scams, fake orders, payment fraud, and trust issues between online buyers and sellers.
 
-OBJECT_STORAGE_ENDPOINT=
-OBJECT_STORAGE_BUCKET=
-OBJECT_STORAGE_ACCESS_KEY_ID=
-OBJECT_STORAGE_SECRET_ACCESS_KEY=
+---
 
-CLAMAV_URL=
-SENTRY_DSN=
-OTEL_EXPORTER_OTLP_ENDPOINT=
-AUTO_RELEASE_MODE=manual_approval
-SUPPORTED_PAYMENT_RAILS=binance,payway_bakong
-Test Plan
-Webhook signature verification rejects spoofed Binance/PayWay callbacks.
-Duplicate webhooks are idempotent and do not double-grant access or double-write ledger entries.
-Frontend redirects never unlock access without verified backend payment confirmation.
-Digital file upload rejects unsafe file types, failed malware scans, and oversized files.
-Signed download URLs expire and enforce download/reveal limits.
-Subscription renewal extends entitlement; failed renewal enters grace then expires.
-Dispute freezes release and prevents payout approval.
-Auto-release creates an admin approval task, not an automatic payout, in V1.
-Ledger entries remain append-only and balanced for payment, fee, refund, reserve, and payout scenarios.
-Reconciliation detects provider/order mismatch and sends it to admin review.
-Assumptions
-Binance Pay merchant approval, recurring/direct-debit support, payout, and split features depend on merchant eligibility and country approval.
-Bakong/PayWay release/refund behavior must be confirmed with ABA PayWay or another licensed Cambodian payment partner before production.
-Direct custody is out of scope for V1.
-Official references checked: Binance Pay Create Order, Webhook, Query Order, and Profit Sharing docs; PayWay KHQR, Pre-auth, Payout, and Refund docs; Bakong KHQR documentation.
+# Problem
+
+In Cambodia, a large amount of commerce happens through:
+
+* Telegram
+* Facebook pages
+* Facebook Messenger
+* WeChat
+* TikTok live selling
+* Informal online shops
+
+Current issues:
+
+* Buyers fear fake sellers
+* Sellers fear fake buyers
+* No payment protection
+* No dispute system
+* No trusted escrow layer
+* Payments are usually sent directly via KHQR
+* No transaction tracking
+
+This creates a high-risk environment for online commerce.
+
+---
+
+# Solution
+
+BothSafe introduces a Deal Room escrow system.
+
+Either the buyer or seller can create a protected transaction link called a Deal Room.
+
+The Deal Room contains:
+
+* Product information
+* Price
+* Payment protection rules
+* Buyer and seller confirmation flow
+* Escrow payment flow
+* Shipping proof
+* Delivery confirmation
+* Dispute handling
+
+The Deal Room link can be shared directly inside:
+
+* Telegram chats
+* Messenger chats
+* WeChat chats
+* Facebook comments
+* Other social platforms
+
+Buyer pays into BothSafe escrow.
+Seller ships the product.
+Buyer confirms delivery.
+BothSafe releases the payment.
+
+---
+
+# MVP Goals
+
+The MVP focuses on validating:
+
+1. Will Cambodian users use escrow payment links?
+2. Will sellers trust BothSafe?
+3. Will buyers trust BothSafe?
+4. Can manual escrow operations work efficiently?
+5. What types of disputes happen most often?
+
+The MVP intentionally avoids over-engineering.
+
+---
+
+# Core MVP Features
+
+## Deal Room Link
+
+A protected transaction page that can be created by either buyer or seller.
+
+### Features
+
+* Create deal
+* Share deal link
+* Add product information
+* Add delivery information
+* Upload payment proof
+* Upload shipping proof
+* Confirm delivery
+* Open dispute
+* Admin escrow management
+
+---
+
+## Escrow Payment Flow
+
+Buyer payment is temporarily held by BothSafe.
+
+### Flow
+
+1. Deal created
+2. Deal shared
+3. Buyer reviews deal
+4. Buyer pays KHQR
+5. Payment verified
+6. Seller ships product
+7. Buyer confirms delivery
+8. Payment released to seller
+
+---
+
+## Telegram Bot Integration
+
+BothSafe supports Telegram bot integration for:
+
+* Deal creation
+* Deal notifications
+* Status updates
+* Quick deal sharing
+* Payment reminders
+* Dispute notifications
+
+---
+
+## Website Dashboard
+
+The web application provides:
+
+* Deal creation
+* Deal management
+* Payment proof upload
+* Shipping tracking
+* Buyer confirmation
+* Admin dispute handling
+
+---
+
+# Target Users
+
+## Sellers
+
+* Facebook sellers
+* Telegram shops
+* Clothing sellers
+* Cosmetics sellers
+* Electronics sellers
+* Small online businesses
+* Independent online merchants
+
+---
+
+## Buyers
+
+* Online shoppers
+* Telegram users
+* Facebook marketplace users
+* Social commerce buyers
+
+---
+
+# Supported Payment System
+
+## MVP Payment Method
+
+### KHQR (Bakong Ecosystem)
+
+The MVP uses Cambodia’s KHQR ecosystem.
+
+Buyer pays to BothSafe escrow account.
+Seller receives payout after transaction completion.
+
+### MVP Payment Validation
+
+Initial MVP validation is manual or semi-manual:
+
+* Buyer uploads payment screenshot
+* Admin verifies payment
+* Admin releases payout manually
+
+Future versions will support:
+
+* Dynamic KHQR
+* Payment webhook integration
+* Automatic payment verification
+* Automatic payout system
+
+---
+
+# Deal Room Flow
+
+## 1. Deal Creation
+
+Either buyer or seller can create a deal.
+
+### Required Information
+
+* Product title
+* Price
+* Product category
+* Product description
+* Delivery method
+* Seller payout KHQR
+
+### Optional Information
+
+* Product image
+* Buyer note
+* Delivery company
+* Tracking number
+
+---
+
+## 2. Deal Approval
+
+The other party reviews the deal.
+
+They can:
+
+* Accept deal
+* Reject deal
+* Update deal information
+
+Once both sides agree:
+
+Deal becomes active.
+
+---
+
+## 3. Payment
+
+Buyer pays using KHQR.
+
+### MVP Process
+
+* Buyer scans BothSafe KHQR
+* Buyer uploads receipt screenshot
+* Admin verifies payment manually
+
+Status changes to:
+
+PAID_ESCROWED
+
+---
+
+## 4. Shipping
+
+Seller ships product.
+
+Seller uploads:
+
+* Tracking number
+* Shipping photo
+* Delivery proof
+
+Status changes to:
+
+SHIPPED
+
+---
+
+## 5. Delivery Confirmation
+
+Buyer receives product.
+
+Buyer can:
+
+* Confirm delivery
+* Open dispute
+
+If buyer confirms:
+
+Status changes to:
+
+BUYER_CONFIRMED
+
+---
+
+## 6. Payment Release
+
+Admin releases payment to seller payout KHQR.
+
+Status changes to:
+
+RELEASED
+
+---
+
+# Dispute System
+
+The MVP dispute system is intentionally simple.
+
+Buyer can dispute:
+
+* Item not received
+* Wrong item
+* Damaged item
+* Fake product
+
+Admin manually reviews:
+
+* Payment proof
+* Tracking information
+* Product images
+* Chat screenshots
+
+Admin decides:
+
+* Refund buyer
+* Release payment to seller
+
+---
+
+# Technology Stack
+
+# Frontend
+
+## Next.js
+
+Frontend web application.
+
+### Responsibilities
+
+* Deal Room UI
+* Buyer flow
+* Seller flow
+* Admin dashboard
+* Localization
+* Responsive mobile UX
+
+---
+
+# Backend
+
+## NestJS
+
+Main backend service.
+
+### Responsibilities
+
+* Business logic
+* Authentication
+* Escrow flow
+* Deal management
+* Payment management
+* Admin operations
+* Telegram bot integration
+* API management
+
+---
+
+# Database
+
+## PostgreSQL
+
+Primary relational database.
+
+---
+
+# ORM
+
+## Prisma
+
+Database ORM and migrations.
+
+---
+
+# File Storage
+
+## Supabase Storage or Cloudflare R2
+
+Stores:
+
+* Payment screenshots
+* Product images
+* Shipping proof
+* Dispute evidence
+
+---
+
+# Telegram Integration
+
+## Telegram Bot API
+
+Integrated directly through NestJS.
+
+### Bot Features
+
+* Create deals
+* View deals
+* Share deal links
+* Receive notifications
+* Update deal status
+
+---
+
+# Multi-language Support
+
+The MVP supports:
+
+* Khmer
+* English
+* Chinese
+
+Localization is important because Cambodian social commerce is multilingual.
+
+---
+
+# UX Philosophy
+
+BothSafe is designed mobile-first.
+
+Most Cambodian users use smartphones for:
+
+* Telegram
+* Facebook
+* KHQR payments
+* Online shopping
+
+UX priorities:
+
+* Simple UI
+* Fast loading
+* Clear trust indicators
+* Minimal steps
+* Khmer-friendly experience
+* Easy QR payment flow
+
+---
+
+# Security Principles
+
+## MVP Security Goals
+
+* Secure authentication
+* Protected file uploads
+* Escrow status validation
+* Admin action logging
+* Rate limiting
+* Secure webhook handling
+* API validation
+* Transaction history tracking
+
+---
+
+# Scalability Philosophy
+
+The MVP is intentionally manual-first.
+
+The system is designed to scale later through:
+
+* Payment automation
+* Dynamic KHQR
+* Automatic payouts
+* Telegram Mini App
+* Merchant APIs
+* Embedded widgets
+* Reputation system
+* Fraud detection
+* Subscription escrow
+
+---
+
+# Future Roadmap
+
+# Phase 1 — MVP
+
+* Deal Room
+* Manual escrow
+* KHQR payments
+* Telegram bot
+* Admin dashboard
+* Basic disputes
+
+---
+
+# Phase 2 — Automation
+
+* Dynamic KHQR
+* Payment verification API
+* Automatic payout
+* Delivery integration
+* Seller ratings
+* Buyer ratings
+
+---
+
+# Phase 3 — Platform Expansion
+
+* Telegram Mini App
+* Merchant API
+* Embeddable widget
+* Subscription escrow
+* Digital goods escrow
+* Freelancer escrow
+
+---
+
+# Phase 4 — International Payments
+
+* Binance Pay integration
+* Cross-border escrow
+* Multi-currency support
+* International merchant onboarding
+
+---
+
+# Architecture Overview
+
+```text
+Frontend (Next.js)
+        |
+        |
+API Gateway
+        |
+        |
+Backend (NestJS)
+   |       |       |
+   |       |       |
+Postgres  Storage  Telegram Bot
+```
+
+---
+
+# Repository Structure
+
+```text
+/apps
+  /web
+  /api
+  /bot
+
+/packages
+  /shared-types
+  /shared-utils
+  /i18n
+
+/docs
+  backend_task.md
+  frontend_task.md
+  bot_task.md
+```
+
+---
+
+# Why BothSafe Matters
+
+BothSafe is not just a payment tool.
+
+It is a trust infrastructure layer for Cambodia’s informal online economy.
+
+The platform aims to help:
+
+* Reduce online scams
+* Improve buyer confidence
+* Improve seller confidence
+* Enable safer digital commerce
+* Create a trusted online transaction ecosystem
+
+---
+
+# Initial Focus Strategy
+
+The first target market should be:
+
+* Telegram sellers
+* Facebook clothing sellers
+* Small electronics sellers
+* Mid-value online transactions
+
+Avoid initially:
+
+* High-risk luxury goods
+* Cryptocurrency escrow
+* Large-value transactions
+* International payments
+
+---
+
+# Product Philosophy
+
+Build trust first.
+
+Automate later.
+
+The first success metric is not technology.
+
+The first success metric is:
+
+"Do users trust BothSafe enough to use it repeatedly?"
+
+---
+
+# Status
+
+Current Stage:
+
+MVP Planning & System Architecture Design
