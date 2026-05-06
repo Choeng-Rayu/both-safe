@@ -12,13 +12,50 @@ datasource db {
 // ---------- Users / Admins ----------
 
 model User {
-  id          String   @id @default(uuid())
-  phone       String?  @unique
-  email       String?  @unique
-  name        String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deals       Deal[]
+  id             String         @id @default(uuid())
+  email          String?        @unique
+  passwordHash   String?        // null for OAuth-only users
+  name           String?
+  avatarUrl      String?
+  phone          String?        @unique
+  emailVerified  Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deals          Deal[]
+  oauthAccounts  OAuthAccount[]
+  sessions       UserSession[]
+}
+
+// OAuth account link (Telegram OIDC, Google)
+model OAuthAccount {
+  id           String   @id @default(uuid())
+  userId       String
+  provider     String   // "telegram" | "google"
+  providerSub  String   // "sub" claim from ID token
+  email        String?
+  name         String?
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSub])
+  @@index([userId])
+}
+
+// Server-side session for invalidation support
+model UserSession {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Admin {
