@@ -1,0 +1,7 @@
+{
+  "expectations": [
+    {"text": "Are 3D transitions/effects visible?", "passed": true, "evidence": "Uses GSAP for transitions and .clay-card with perspective."},
+    {"text": "Is the claymorphism style (soft UI) applied?", "passed": true, "evidence": "Implements .clay-card with complex box-shadows for tactile feel."},
+    {"text": "Is the design system format followed?", "passed": true, "evidence": "DESIGN_SYSTEM.md is present and follows the new format."}
+  ]
+}

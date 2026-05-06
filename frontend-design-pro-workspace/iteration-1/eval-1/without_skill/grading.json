@@ -1,0 +1,8 @@
+{
+  "expectations": [
+    {"text": "Does the output include the 'TARGET: [Project Name] - RECOMMENDED DESIGN SYSTEM' block?", "passed": false, "evidence": "No design system block present."},
+    {"text": "Does the design avoid generic purple/pink 'AI' gradients?", "passed": true, "evidence": "Uses standard blues."},
+    {"text": "Are Lucide icons (SVG) used instead of emojis?", "passed": true, "evidence": "Uses Lucide."},
+    {"text": "Is there a mention or evidence of the Pre-delivery Checklist being run?", "passed": false, "evidence": "No checklist present."}
+  ]
+}

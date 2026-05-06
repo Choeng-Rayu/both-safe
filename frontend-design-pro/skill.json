@@ -1,0 +1,24 @@
+{
+  "name": "frontend-design-pro",
+  "displayName": "Frontend Design Pro (UI/UX Pro Max)",
+  "description": "AI-powered design intelligence with 67 UI styles, 161 color palettes, industry-specific reasoning, and professional UX guidelines.",
+  "version": "2.5.0",
+  "author": "NextLevelBuilder (Adapted by Gemini CLI)",
+  "license": "MIT",
+  "keywords": [
+    "ui",
+    "ux",
+    "design",
+    "design-system",
+    "color-palette",
+    "typography",
+    "accessibility",
+    "ai-skill"
+  ],
+  "platforms": [
+    "gemini",
+    "claude",
+    "cursor",
+    "opencode"
+  ]
+}

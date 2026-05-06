@@ -1,0 +1,11 @@
+{
+  "eval_id": 2,
+  "eval_name": "healthcare-dashboard",
+  "prompt": "Design a dashboard for a Healthcare analytics platform, prioritizing accessibility and soft UI. Use Tailwind CSS.",
+  "assertions": [
+    {"name": "design_system_present", "text": "Does the output include the 'TARGET: [Project Name] - RECOMMENDED DESIGN SYSTEM' block?"},
+    {"name": "accessibility_focus", "text": "Does the implementation include accessibility features (e.g., focus states, aria labels)?"},
+    {"name": "soft_ui_applied", "text": "Is the 'soft UI' style (calming colors, soft shadows) visible?"},
+    {"name": "checklist_verified", "text": "Is there a mention or evidence of the Pre-delivery Checklist being run?"}
+  ]
+}

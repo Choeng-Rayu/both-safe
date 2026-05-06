@@ -13,6 +13,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost) {
+    if (host.getType() !== 'http') {
+      this.logger.error(
+        'Non-HTTP exception',
+        exception instanceof Error ? exception.stack : exception,
+      );
+      return;
+    }
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();

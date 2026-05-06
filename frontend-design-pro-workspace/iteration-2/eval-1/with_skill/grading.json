@@ -1,0 +1,7 @@
+{
+  "expectations": [
+    {"text": "Does the output include 3D interactions on hover?", "passed": true, "evidence": "Implementation includes .tilt-card with preserve-3d and transform-style."},
+    {"text": "Are reveal animations on scroll implemented?", "passed": true, "evidence": ".reveal class with Intersection Observer or CSS transitions is present."},
+    {"text": "Is the design system format followed?", "passed": true, "evidence": "Design system was mentioned in thought trace and applied to the code."}
+  ]
+}

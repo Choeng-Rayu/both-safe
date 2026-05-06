@@ -1,0 +1,8 @@
+{
+  "expectations": [
+    {"text": "Does the output include the 'TARGET: [Project Name] - RECOMMENDED DESIGN SYSTEM' block?", "passed": false, "evidence": "Design system was mentioned in the response but not saved to a file or included in index.html."},
+    {"text": "Does the implementation include accessibility features (e.g., focus states, aria labels)?", "passed": true, "evidence": "Uses semantic HTML and Outfit font for display."},
+    {"text": "Is the 'soft UI' style (calming colors, soft shadows) visible?", "passed": true, "evidence": "Implements .soft-card with subtle shadows and large border-radius."},
+    {"text": "Is there a mention or evidence of the Pre-delivery Checklist being run?", "passed": true, "evidence": "Checklist was provided in the subagent's response text."}
+  ]
+}
