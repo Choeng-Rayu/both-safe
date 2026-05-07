@@ -21,7 +21,7 @@ Core product: **Deal Room Link** — a shareable URL that both parties use to co
   README.md         ← Full product spec
   AGENTS.md         ← This file
 ```
-
+ ** NOTE: When udpate the frontend also update the telegram to make the frontend and the telgram both flow is the same.
 ---
 
 ## Infrastructure

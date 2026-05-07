@@ -226,6 +226,19 @@ if (
     };
   }, [accessFromUrl, fetchDealState, inviteToken, publicId, t]);
 
+  // Auto-poll every 10 seconds while payment is awaiting Bakong verification.
+  // The backend PaymentPollerService checks Bakong every 30s and auto-verifies.
+  // This keeps the buyer's page in sync without requiring a manual refresh.
+  useEffect(() => {
+    if (deal?.status !== "PAYMENT_PENDING_VERIFICATION") return;
+
+    const intervalId = setInterval(() => {
+      void refreshDeal();
+    }, 10_000);
+
+    return () => clearInterval(intervalId);
+  }, [deal?.status, refreshDeal]);
+
   async function handleJoin() {
     if (!inviteToken || !joinForm.name.trim()) {
       setError(t("errors.validation.failed"));
@@ -852,9 +865,30 @@ if (
                         ) : null}
                         {deal.payment_summary ? (
                           <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4">
-                            <div className="text-sm font-medium text-[var(--ink)]">
-                              {t("payment.awaiting_admin")}
-                            </div>
+                            {deal.status === "PAYMENT_PENDING_VERIFICATION" ? (
+                              <div className="flex items-center gap-3">
+                                {/* Animated pulse — indicates live Bakong polling */}
+                                <span className="relative flex h-3 w-3 flex-shrink-0">
+                                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                                  <span className="relative inline-flex h-3 w-3 rounded-full bg-amber-500" />
+                                </span>
+                                <div>
+                                  <div className="text-sm font-semibold text-[var(--ink)]">
+                                    {t("payment.auto_checking")}
+                                  </div>
+                                  <div className="mt-0.5 text-xs text-[var(--ink-soft)]">
+                                    {t("payment.auto_checking_hint")}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-3">
+                                <span className="text-lg">✅</span>
+                                <div className="text-sm font-semibold text-emerald-700">
+                                  {t("payment.verified_success")}
+                                </div>
+                              </div>
+                            )}
                             {deal.payment_summary.proof_image_url ? (
                               <img
                                 src={deal.payment_summary.proof_image_url}
@@ -895,6 +929,11 @@ if (
                                   }
                                   if (paymentFile) {
                                     formData.set("proof_image", paymentFile);
+                                  }
+                                  // Pass the KHQR MD5 so the backend poller can auto-verify
+                                  // via Bakong's check_transaction_by_md5 API
+                                  if (paymentInstruction?.khqr_md5) {
+                                    formData.set("khqr_md5", paymentInstruction.khqr_md5);
                                   }
                                   await uploadPaymentProof(publicId, formData, {
                                     accessToken: activeAccessToken,
