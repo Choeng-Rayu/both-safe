@@ -15,6 +15,10 @@ export class UploadPaymentProofDto {
   @ApiPropertyOptional({ description: 'Idempotency key (UUID)' })
   @IsOptional() @IsString() @MaxLength(120)
   idempotency_key?: string;
+
+  @ApiPropertyOptional({ description: 'KHQR MD5 hash if provided' })
+  @IsOptional() @IsString() @MaxLength(32)
+  khqr_md5?: string;
 }
 
 export class RejectPaymentDto {

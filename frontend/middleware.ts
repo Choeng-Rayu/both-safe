@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 const SESSION_COOKIE = "bothsafe_session";
 
 // Routes that require authentication
-const PROTECTED_ROUTES = ["/deals/new"];
+const PROTECTED_ROUTES = ["/deals/new", "/dashboard"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -31,5 +31,7 @@ export const config = {
     // Match protected routes only
     "/deals/new",
     "/deals/new/:path*",
+    "/dashboard",
+    "/dashboard/:path*",
   ],
 };

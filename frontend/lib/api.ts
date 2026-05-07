@@ -84,8 +84,8 @@ export async function apiSend<T>(
   const response = await fetch(
     `${getApiBaseUrl()}${path}${buildAuthQuery(options)}`,
     {
-    ...init,
-    headers: buildHeaders(options, init.headers),
+      ...init,
+      headers: buildHeaders(options, init.headers),
     },
   );
   return parseResponse<T>(response);
@@ -193,7 +193,7 @@ export async function uploadShippingProof(
 }
 
 export async function confirmReceived(publicId: string, options?: RequestOptions) {
-  return apiSend<{ status: string }>(
+  return apiSend<{ status: string; message_key: string }>(
     `/deals/${publicId}/confirm-received`,
     {
       method: "POST",
@@ -246,4 +246,54 @@ export async function adminGetDeals(params: {
 
 export async function adminGetDeal(dealId: string, adminToken: string) {
   return apiGet<AdminDealDetail>(`/admin/deals/${dealId}`, { adminToken });
+}
+
+// New API functions
+export async function sellerAccept(
+  publicId: string,
+  payload: Record<string, unknown>,
+  options?: RequestOptions,
+) {
+  return apiSend<{ status: string; message_key: string }>(
+    `/deals/${publicId}/seller-accept`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+    options,
+  );
+}
+
+export async function sellerReject(publicId: string, options?: RequestOptions) {
+  return apiSend<{ status: string; message_key: string }>(
+    `/deals/${publicId}/seller-reject`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    },
+    options,
+  );
+}
+
+export async function cancelDeal(publicId: string, options?: RequestOptions) {
+  return apiSend<{ status: string; message_key: string; refund_required: boolean }>(
+    `/deals/${publicId}/cancel`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    },
+    options,
+  );
+}
+
+export async function getMyDeals() {
+  return apiGet<{
+    pending_action: unknown[];
+    active: unknown[];
+    disputed: unknown[];
+    completed: unknown[];
+  }>("/users/me/deals");
 }

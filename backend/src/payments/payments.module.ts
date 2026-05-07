@@ -2,12 +2,16 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
+import { PaymentPollerService } from './payment-poller.service';
 import { AuthModule } from '../auth/auth.module';
+import { LedgerModule } from '../ledger/ledger.module';
+import { AuditModule } from '../common/services/audit.module';
+import { NotificationModule } from '../notifications/notification.module';
 
 @Module({
-  imports: [ConfigModule, AuthModule],
+  imports: [ConfigModule, AuthModule, LedgerModule, AuditModule, NotificationModule],
   controllers: [PaymentsController],
-  providers: [PaymentsService],
+  providers: [PaymentsService, PaymentPollerService],
   exports: [PaymentsService],
 })
 export class PaymentsModule {}

@@ -3,12 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/providers/app-providers";
+import { Button } from "@/components/ui/button";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3003/v1";
 const BACKEND_BASE = API_BASE.replace("/v1", "");
-
-type Tab = "telegram" | "google" | "email";
 
 // ─── Auth API calls ───────────────────────────────────────────────────────────
 
@@ -45,14 +44,15 @@ function TelegramButton({ redirectAfter }: { redirectAfter: string }) {
   };
 
   return (
-    <button
+    <Button
       onClick={handleClick}
-      className="auth-oauth-btn auth-telegram-btn"
+      variant="primary"
+      className="w-full flex items-center justify-center gap-2 mb-3"
       id="btn-telegram-login"
     >
-      <TelegramIcon />
+      <div className="w-5 h-5 flex items-center justify-center"><TelegramIcon /></div>
       <span>Continue with Telegram</span>
-    </button>
+    </Button>
   );
 }
 
@@ -63,14 +63,15 @@ function GoogleButton({ redirectAfter }: { redirectAfter: string }) {
   };
 
   return (
-    <button
+    <Button
       onClick={handleClick}
-      className="auth-oauth-btn auth-google-btn"
+      variant="secondary"
+      className="w-full flex items-center justify-center gap-2 mb-3"
       id="btn-google-login"
     >
-      <GoogleIcon />
+      <div className="w-5 h-5 flex items-center justify-center"><GoogleIcon /></div>
       <span>Continue with Google</span>
-    </button>
+    </Button>
   );
 }
 
@@ -105,10 +106,10 @@ function EmailForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="auth-email-form">
+    <form onSubmit={handleSubmit} className="auth-email-form mt-4">
       {mode === "register" && (
-        <div className="auth-field">
-          <label htmlFor="auth-name">Full Name</label>
+        <div className="auth-field mb-4">
+          <label htmlFor="auth-name" className="block text-sm font-medium text-[var(--ink)] mb-1">Full Name</label>
           <input
             id="auth-name"
             type="text"
@@ -116,12 +117,13 @@ function EmailForm({
             onChange={(e) => setName(e.target.value)}
             placeholder="Your name"
             autoComplete="name"
+            className="w-full px-3 py-2 border border-[var(--border)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--brand)]"
           />
         </div>
       )}
 
-      <div className="auth-field">
-        <label htmlFor="auth-email">Email</label>
+      <div className="auth-field mb-4">
+        <label htmlFor="auth-email" className="block text-sm font-medium text-[var(--ink)] mb-1">Email</label>
         <input
           id="auth-email"
           type="email"
@@ -130,11 +132,12 @@ function EmailForm({
           placeholder="you@example.com"
           required
           autoComplete="email"
+          className="w-full px-3 py-2 border border-[var(--border)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--brand)]"
         />
       </div>
 
-      <div className="auth-field">
-        <label htmlFor="auth-password">Password</label>
+      <div className="auth-field mb-4">
+        <label htmlFor="auth-password" className="block text-sm font-medium text-[var(--ink)] mb-1">Password</label>
         <input
           id="auth-password"
           type="password"
@@ -144,15 +147,16 @@ function EmailForm({
           required
           autoComplete={mode === "register" ? "new-password" : "current-password"}
           minLength={mode === "register" ? 8 : 1}
+          className="w-full px-3 py-2 border border-[var(--border)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--brand)]"
         />
       </div>
 
-      {error && <p className="auth-error">{error}</p>}
+      {error && <p className="auth-error text-[var(--danger)] text-sm mb-4">{error}</p>}
 
-      <button
+      <Button
         type="submit"
         disabled={isPending}
-        className="auth-submit-btn"
+        className="w-full"
         id={`btn-${mode}-submit`}
       >
         {isPending
@@ -160,16 +164,16 @@ function EmailForm({
           : mode === "register"
           ? "Create Account"
           : "Sign In"}
-      </button>
+      </Button>
 
-      <p className="auth-toggle">
+      <p className="auth-toggle text-center mt-4 text-sm text-[var(--ink-muted)]">
         {mode === "login" ? (
           <>
             No account?{" "}
             <button
               type="button"
               onClick={() => { setMode("register"); setError(""); }}
-              className="auth-toggle-btn"
+              className="text-[var(--brand)] font-semibold hover:underline"
               id="btn-switch-register"
             >
               Sign up
@@ -181,7 +185,7 @@ function EmailForm({
             <button
               type="button"
               onClick={() => { setMode("login"); setError(""); }}
-              className="auth-toggle-btn"
+              className="text-[var(--brand)] font-semibold hover:underline"
               id="btn-switch-login"
             >
               Sign in
@@ -196,7 +200,6 @@ function EmailForm({
 // ─── Main Login Page Component ────────────────────────────────────────────────
 
 export function LoginPageComponent() {
-  const [activeTab, setActiveTab] = useState<Tab>("telegram");
   const { setUser } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -213,80 +216,46 @@ export function LoginPageComponent() {
     router.push(redirectTo);
   };
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "telegram", label: "Telegram" },
-    { id: "google", label: "Google" },
-    { id: "email", label: "Email" },
-  ];
-
   return (
-    <div className="auth-page">
+    <div className="auth-page flex min-h-screen items-center justify-center px-4 py-12">
       {/* Background elements */}
-      <div className="auth-bg">
+      <div className="auth-bg absolute inset-0 -z-10 overflow-hidden">
         <div className="auth-bg-orb auth-bg-orb-1" />
         <div className="auth-bg-orb auth-bg-orb-2" />
         <div className="auth-bg-orb auth-bg-orb-3" />
       </div>
 
-      <div className="auth-card">
+      <div className="auth-card bg-white w-full max-w-md p-8 rounded-2xl shadow-xl border border-[var(--border)]">
         {/* Logo / Brand */}
-        <div className="auth-brand">
-          <div className="auth-brand-icon">
+        <div className="auth-brand flex flex-col items-center mb-8">
+          <div className="auth-brand-icon w-12 h-12 text-[var(--brand)] mb-4">
             <ShieldIcon />
           </div>
-          <h1 className="auth-brand-name">BothSafe</h1>
-          <p className="auth-brand-tagline">Sign in to protect your deals</p>
+          <h1 className="auth-brand-name text-2xl font-bold text-[var(--ink)] mb-2">BothSafe</h1>
+          <p className="auth-brand-tagline text-[var(--ink-muted)] text-center">Sign in to protect your deals</p>
         </div>
 
-        {/* Tabs */}
-        <div className="auth-tabs" role="tablist">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`auth-tab ${activeTab === tab.id ? "auth-tab--active" : ""}`}
-              id={`tab-${tab.id}`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab Content */}
-        <div className="auth-tab-content">
-          {activeTab === "telegram" && (
-            <div className="auth-oauth-panel">
-              <p className="auth-oauth-hint">
-                Sign in instantly using your Telegram account. No password needed.
-              </p>
-              <TelegramButton redirectAfter={redirectTo} />
-              <p className="auth-oauth-note">
-                You&apos;ll be redirected to Telegram to confirm.
-              </p>
+        {/* Auth Methods List */}
+        <div className="flex flex-col w-full">
+          <TelegramButton redirectAfter={redirectTo} />
+          <GoogleButton redirectAfter={redirectTo} />
+          
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-[var(--border)]" />
             </div>
-          )}
-
-          {activeTab === "google" && (
-            <div className="auth-oauth-panel">
-              <p className="auth-oauth-hint">
-                Sign in using your Google account. Quick and secure.
-              </p>
-              <GoogleButton redirectAfter={redirectTo} />
-              <p className="auth-oauth-note">
-                You&apos;ll be redirected to Google to confirm.
-              </p>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-[var(--ink-muted)]">
+                Or continue with email
+              </span>
             </div>
-          )}
-
-          {activeTab === "email" && (
-            <EmailForm redirectAfter={redirectTo} onSuccess={handleEmailSuccess} />
-          )}
+          </div>
+          
+          <EmailForm redirectAfter={redirectTo} onSuccess={handleEmailSuccess} />
         </div>
 
         {/* Footer */}
-        <p className="auth-footer">
+        <p className="auth-footer text-center text-xs text-[var(--ink-muted)] mt-8">
           By signing in, you agree to BothSafe&apos;s terms of service and privacy policy.
         </p>
       </div>
@@ -298,7 +267,7 @@ export function LoginPageComponent() {
 
 function ShieldIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="w-full h-full">
       <path
         d="M12 2L4 5v6c0 5.25 3.5 10.15 8 11.35C16.5 21.15 20 16.25 20 11V5l-8-3z"
         fill="currentColor"
@@ -324,7 +293,7 @@ function ShieldIcon() {
 
 function TelegramIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="w-full h-full">
       <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z" />
     </svg>
   );
@@ -332,7 +301,7 @@ function TelegramIcon() {
 
 function GoogleIcon() {
   return (
-    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="w-full h-full">
       <path
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
         fill="#4285F4"

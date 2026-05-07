@@ -1,37 +1,32 @@
-"use client";
+import type { FC } from 'react';
 
-import type { DealStatus } from "@/types/api";
-import { cn } from "@/lib/utils";
-import { useI18n } from "@/components/providers/app-providers";
+type StatusBadgeProps = { status: string; className?: string };
 
-const colorMap: Record<DealStatus, string> = {
-  DRAFT: "bg-slate-100 text-slate-700",
-  AWAITING_COUNTERPARTY: "bg-amber-100 text-amber-800",
-  AWAITING_BOTH_APPROVAL: "bg-yellow-100 text-yellow-800",
-  READY_FOR_PAYMENT: "bg-emerald-100 text-emerald-800",
-  PAYMENT_PENDING_VERIFICATION: "bg-orange-100 text-orange-800",
-  PAID_ESCROWED: "bg-teal-100 text-teal-800",
-  SELLER_PREPARING: "bg-cyan-100 text-cyan-800",
-  SHIPPED: "bg-sky-100 text-sky-800",
-  BUYER_CONFIRMED: "bg-indigo-100 text-indigo-800",
-  DISPUTED: "bg-red-100 text-red-800",
-  RELEASE_PENDING: "bg-violet-100 text-violet-800",
-  RELEASED: "bg-green-100 text-green-800",
-  REFUNDED: "bg-zinc-200 text-zinc-800",
-  CANCELLED: "bg-zinc-200 text-zinc-700",
-  EXPIRED: "bg-zinc-200 text-zinc-700",
+const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
+  DRAFT:                        { label: 'Draft',               bg: 'bg-gray-100',                   text: 'text-gray-600',   dot: 'bg-gray-400' },
+  PENDING_BUYER_PAYMENT:        { label: 'Awaiting Payment',    bg: 'bg-amber-50',                   text: 'text-amber-700',  dot: 'bg-amber-500' },
+  PENDING_SELLER_APPROVAL:      { label: 'Awaiting Seller',     bg: 'bg-blue-50',                    text: 'text-blue-700',   dot: 'bg-blue-500' },
+  PAYMENT_PENDING_VERIFICATION: { label: 'Verifying Payment',   bg: 'bg-purple-50',                  text: 'text-purple-700', dot: 'bg-purple-500' },
+  PAID_WAITING_SELLER_APPROVAL: { label: 'Paid — Seller Must Accept', bg: 'bg-indigo-50',           text: 'text-indigo-700', dot: 'bg-indigo-500' },
+  SELLER_REJECTED:              { label: 'Seller Rejected',     bg: 'bg-red-50',                     text: 'text-red-700',    dot: 'bg-red-500' },
+  SELLER_ACCEPTED_PACKING:      { label: 'Packing',             bg: 'bg-teal-50',                    text: 'text-teal-700',   dot: 'bg-teal-500' },
+  PAID_ESCROWED:                { label: 'Paid & Escrowed',     bg: 'bg-green-50',                   text: 'text-green-700',  dot: 'bg-green-500' },
+  SHIPPED:                      { label: 'Shipped',             bg: 'bg-cyan-50',                    text: 'text-cyan-700',   dot: 'bg-cyan-500' },
+  BUYER_CONFIRMED:              { label: 'Received',            bg: 'bg-emerald-50',                 text: 'text-emerald-700',dot: 'bg-emerald-500' },
+  DISPUTED:                     { label: 'Disputed',            bg: 'bg-orange-50',                  text: 'text-orange-700', dot: 'bg-orange-500' },
+  RELEASE_PENDING:              { label: 'Releasing',           bg: 'bg-lime-50',                    text: 'text-lime-700',   dot: 'bg-lime-500' },
+  RELEASED:                     { label: 'Released',            bg: 'bg-green-100',                  text: 'text-green-800',  dot: 'bg-green-600' },
+  REFUNDED:                     { label: 'Refunded',            bg: 'bg-sky-50',                     text: 'text-sky-700',    dot: 'bg-sky-500' },
+  CANCELLED:                    { label: 'Cancelled',           bg: 'bg-gray-100',                   text: 'text-gray-500',   dot: 'bg-gray-400' },
+  EXPIRED:                      { label: 'Expired',             bg: 'bg-gray-100',                   text: 'text-gray-400',   dot: 'bg-gray-300' },
 };
 
-export function StatusBadge({ status }: { status: DealStatus }) {
-  const { t } = useI18n();
+export const StatusBadge: FC<StatusBadgeProps> = ({ status, className = '' }) => {
+  const cfg = STATUS_CONFIG[status] ?? { label: status, bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' };
   return (
-    <span
-      className={cn(
-        "inline-flex min-h-9 items-center rounded-full px-3 text-xs font-semibold",
-        colorMap[status] ?? "bg-zinc-100 text-zinc-700",
-      )}
-    >
-      {t(`deal.status.${status.toLowerCase()}`)}
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${cfg.bg} ${cfg.text} ${className}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+      {cfg.label}
     </span>
   );
-}
+};

@@ -1,0 +1,40 @@
+# BothSafe Development Report
+
+## What Has Been Implemented
+
+1. **Bakong Auto-Verification Poller (`B-AUTO`)**
+   - Added `khqrMd5` and `autoVerified` fields to the `Payment` database schema.
+   - Generated new Prisma client to reflect schema changes.
+   - Created `PaymentPollerService` (`src/payments/payment-poller.service.ts`) using NestJS scheduling.
+   - The poller runs every 30 seconds, queries the Bakong Open API (`/check_transaction_by_md5`), and automatically advances the deal status when a payment is confirmed.
+   - Automatically handles ledger entries and notifications upon verification, bypassing the need for manual admin intervention.
+   - Fixed typing errors in the background service successfully.
+
+2. **Buyer "Confirm Received" Flow (`B-CONFIRM` & `F-CONFIRM`)**
+   - Added `confirmReceived` method to `deals.service.ts` to transition deals from `SHIPPED` to `BUYER_CONFIRMED`.
+   - Exposed `POST /deals/:publicId/confirm-received` in the backend API.
+   - Added corresponding `confirmReceived` API call in the frontend `api.ts`.
+   - Wired the UI in `deal-room-page.tsx` so the buyer can instantly mark the item as received.
+
+---
+
+## Unresolved Issue: 401 Unauthorized on Login
+
+You reported an issue where logging into the frontend with the `ADMIN_BOOTSTRAP_EMAIL` (`admin@bothsafe.local`) results in a `401 (Unauthorized)` error.
+
+### Root Cause Analysis
+The issue is caused by a **mismatch between the account type and the login endpoint** being used on the frontend:
+
+1. **Bootstrap Creates an Admin:** The `SeedService` creates the account `admin@bothsafe.local` inside the **`Admin`** database table.
+2. **Frontend Calls User Login:** The frontend `login-page.tsx` is calling the `POST /v1/auth/login` endpoint.
+3. **User Auth vs Admin Auth:** The `/v1/auth/login` endpoint strictly checks the **`User`** table. Since `admin@bothsafe.local` does not exist in the `User` table, it correctly throws a `401 Unauthorized` error (`auth.invalid_credentials`).
+
+### How to Fix It (Next Steps)
+
+You have two ways to proceed depending on what you want to achieve:
+
+**Option A: If you want to log into the Admin Dashboard**
+The frontend needs an Admin Login page (e.g., `/admin/login`) that calls the specific `POST /v1/auth/admin/login` endpoint. The current regular user login page is not meant for admins.
+
+**Option B: If you just want to test the regular user flow (Deal Room)**
+You should use the frontend registration form to register a brand new regular user (e.g., `testbuyer@gmail.com`). The regular user login form will work perfectly for accounts created via the frontend register button.

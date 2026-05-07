@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 import { PrismaModule } from './prisma/prisma.module';
@@ -17,6 +18,7 @@ import { AuditModule } from './common/services/audit.module';
 import { HealthModule } from './health/health.module';
 import { SeedModule } from './seed/seed.module';
 import { BotModule } from './bot/bot.module';
+import { UsersModule } from './users/users.module';
 
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -26,6 +28,7 @@ import { HttpThrottlerGuard } from './common/guards/http-throttler.guard';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    ScheduleModule.forRoot(),
 
     PrismaModule,
     AuditModule,
@@ -42,6 +45,7 @@ import { HttpThrottlerGuard } from './common/guards/http-throttler.guard';
     HealthModule,
     SeedModule,
     BotModule,
+    UsersModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: HttpThrottlerGuard },

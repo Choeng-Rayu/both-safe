@@ -85,7 +85,8 @@ export class PaymentsService {
       include: { participants: true, product: true },
     });
     if (!deal) throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
-    if (!canUploadPaymentProof(deal.status as any)) {
+    // Allow viewing payment instruction in PAYMENT_PENDING_VERIFICATION state too
+    if (!canUploadPaymentProof(deal.status as any) && deal.status !== DEAL_STATUS.PAYMENT_PENDING_VERIFICATION) {
       throw new BadRequestException({ messageKey: MESSAGE_KEYS.PAYMENT_NOT_READY });
     }
 
@@ -152,13 +153,20 @@ export class PaymentsService {
         proofImageUrl: this.files.signedUrlFor(stored),
         buyerNote: dto.buyer_note ?? null,
         adminStatus: 'pending',
-        idempotencyKey: dto.idempotency_key ?? null,
-      },
+idempotencyKey: dto.idempotency_key ?? null,
+        khqrMd5: dto.khqr_md5 ?? null,
+        autoVerified: false,
+        },
     });
 
     await this.prisma.deal.update({
       where: { id: deal.id },
       data: { status: DEAL_STATUS.PAYMENT_PENDING_VERIFICATION },
+    });
+    // Store the creator_role on payment so adminVerify knows which path to take
+    await this.prisma.deal.update({
+      where: { id: deal.id },
+      data: { updatedAt: new Date() },
     });
 
     await this.audit.record({
@@ -200,6 +208,13 @@ export class PaymentsService {
     const fee = +((payment.paidAmount ?? deal.amount ?? 0) * (platformFeePct / 100)).toFixed(2);
     const sellerNet = +((payment.paidAmount ?? deal.amount ?? 0) - fee).toFixed(2);
 
+    // Determine next status based on creator role:
+    // - Seller created deal → PAID_ESCROWED (seller can pack immediately)
+    // - Buyer created deal → PAID_WAITING_SELLER_APPROVAL (seller must still accept)
+    const nextStatus = deal.creatorRole === 'seller'
+      ? DEAL_STATUS.PAID_ESCROWED
+      : DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL;
+
     await this.prisma.$transaction([
       this.prisma.payment.update({
         where: { id: paymentId },
@@ -208,7 +223,7 @@ export class PaymentsService {
       this.prisma.deal.update({
         where: { id: deal.id },
         data: {
-          status: DEAL_STATUS.SELLER_PREPARING,
+          status: nextStatus,
           feeAmount: fee,
           netSellerAmount: sellerNet,
         },
@@ -252,7 +267,7 @@ export class PaymentsService {
     });
 
     return {
-      deal_status: DEAL_STATUS.SELLER_PREPARING,
+      deal_status: nextStatus,
       ledger_entries: await this.ledger.list(deal.id),
     };
   }
@@ -264,6 +279,10 @@ export class PaymentsService {
       throw new ConflictException({ messageKey: 'payment.already_decided' });
     }
 
+    const deal = await this.prisma.deal.findUnique({ where: { id: payment.dealId }, include: { participants: true } });
+    if (!deal) throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
+    const revertStatus = deal.creatorRole === 'seller' ? DEAL_STATUS.PENDING_BUYER_PAYMENT : DEAL_STATUS.PENDING_SELLER_APPROVAL;
+
     await this.prisma.$transaction([
       this.prisma.payment.update({
         where: { id: paymentId },
@@ -271,7 +290,7 @@ export class PaymentsService {
       }),
       this.prisma.deal.update({
         where: { id: payment.dealId },
-        data: { status: DEAL_STATUS.READY_FOR_PAYMENT },
+        data: { status: revertStatus },
       }),
     ]);
 
@@ -283,25 +302,19 @@ export class PaymentsService {
       details: { payment_id: payment.id, reason },
     });
 
-    const deal = await this.prisma.deal.findUnique({ where: { id: payment.dealId }, include: { participants: true } });
-    const buyer = deal?.participants.find((p) => p.role === 'buyer');
-    if (deal) {
-      await this.notif.notify({
-        dealId: deal.id,
-        eventKey: NOTIFICATION_EVENTS.PAYMENT_REJECTED,
-        messageKey: MESSAGE_KEYS.PAYMENT_REJECTED,
-        recipients: [
-          ...(buyer ? [{ channel: 'inapp' as const, ref: buyer.id }] : []),
-          ...(buyer?.telegramChatId ? [{ channel: 'telegram' as const, ref: buyer.telegramChatId }] : []),
-        ],
-        payload: { reason },
-      });
-    }
+    const buyer = deal.participants.find((p) => p.role === 'buyer');
+    await this.notif.notify({
+      dealId: deal.id,
+      eventKey: NOTIFICATION_EVENTS.PAYMENT_REJECTED,
+      messageKey: MESSAGE_KEYS.PAYMENT_REJECTED,
+      recipients: [
+        ...(buyer ? [{ channel: 'inapp' as const, ref: buyer.id }] : []),
+        ...(buyer?.telegramChatId ? [{ channel: 'telegram' as const, ref: buyer.telegramChatId }] : []),
+      ],
+      payload: { reason },
+    });
 
-    return {
-      deal_status: DEAL_STATUS.READY_FOR_PAYMENT,
-      rejected_reason: reason,
-    };
+    return { deal_status: revertStatus, rejected_reason: reason };
   }
 
   /**

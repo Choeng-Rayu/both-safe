@@ -175,6 +175,8 @@ model Payment {
   verifiedAt           DateTime?
   rejectedReason       String?
   idempotencyKey       String?   @unique
+  khqrMd5              String?   // MD5 of KHQR string — used for Bakong auto-verification
+  autoVerified         Boolean   @default(false) // true if verified by background poller not admin
   createdAt            DateTime  @default(now())
 
   deal                 Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
