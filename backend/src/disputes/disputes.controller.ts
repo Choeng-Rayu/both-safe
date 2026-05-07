@@ -12,6 +12,7 @@ import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
 import { Throttle } from '@nestjs/throttler';
 import { DealAccessGuard } from '../auth/guards/deal-access.guard';
+import { UserSessionGuard } from '../auth/guards/user-session.guard';
 import { CurrentActor } from '../common/decorators/current-actor.decorator';
 import type { RequestActor } from '../common/decorators/current-actor.decorator';
 import { DisputesService } from './disputes.service';
@@ -23,7 +24,7 @@ export class DisputesController {
 
   @Post()
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
-  @UseGuards(DealAccessGuard)
+  @UseGuards(UserSessionGuard, DealAccessGuard)
   @UseInterceptors(
     FilesInterceptor('evidence_files', 5, {
       storage: memoryStorage(),

@@ -7,9 +7,10 @@ import { AuthModule } from '../auth/auth.module';
 import { LedgerModule } from '../ledger/ledger.module';
 import { AuditModule } from '../common/services/audit.module';
 import { NotificationModule } from '../notifications/notification.module';
+import { TransfersModule } from '../transfers/transfers.module';
 
 @Module({
-  imports: [ConfigModule, AuthModule, LedgerModule, AuditModule, NotificationModule],
+  imports: [ConfigModule, AuthModule, LedgerModule, AuditModule, NotificationModule, TransfersModule],
   controllers: [PaymentsController],
   providers: [PaymentsService, PaymentPollerService],
   exports: [PaymentsService],

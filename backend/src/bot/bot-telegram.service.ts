@@ -32,6 +32,7 @@ export class BotTelegramService {
     eventKey: string;
     dealPublicId?: string;
     dealId?: string;
+    payload?: Record<string, unknown>;
   }): Promise<void> {
     if (!this.bot) {
       this.logger.warn('Bot not initialised — skipping Telegram notification');
@@ -41,11 +42,28 @@ export class BotTelegramService {
     try {
       const lang = await this.getLang(opts.chatId);
       const msgKey = `bot.notify.${opts.eventKey}`;
-      const text = t(msgKey, lang);
+      let text = t(msgKey, lang);
 
-      const inlineKeyboard = opts.dealPublicId
-        ? [[{ text: t('bot.link.open_deal_room', lang), url: `${this.appBase}/d/${opts.dealPublicId}` }]]
-        : undefined;
+      // For admin payout alerts, append seller info to the message
+      if (opts.eventKey === 'BUYER_CONFIRMED_PAYOUT_REQUIRED' && opts.payload) {
+        const p = opts.payload as Record<string, string | number | null>;
+        const lines: string[] = [text, ''];
+        lines.push(`📋 *Deal:* \`${String(p['deal_public_id'] ?? '')}\``);
+        lines.push(`👤 *Seller:* ${String(p['seller_name'] ?? 'Unknown')}`);
+        lines.push(`💰 *Amount:* ${String(p['amount'] ?? '0')} ${String(p['currency'] ?? 'USD')}`);
+        if (p['payout_khqr']) lines.push(`📱 *Bakong ID:* \`${String(p['payout_khqr'])}\``);
+        if (p['payout_bank']) lines.push(`🏦 *Bank:* ${String(p['payout_bank'])}`);
+        if (p['payout_account']) lines.push(`💳 *Account:* \`${String(p['payout_account'])}\``);
+        text = lines.join('\n');
+      }
+
+      // Build inline keyboard — admin payout event gets Admin Panel button, others get Deal Room
+      let inlineKeyboard: Array<Array<{ text: string; url: string }>> | undefined;
+      if (opts.eventKey === 'BUYER_CONFIRMED_PAYOUT_REQUIRED' && opts.payload?.['admin_url']) {
+        inlineKeyboard = [[{ text: '🔐 Open Admin Panel', url: String(opts.payload['admin_url']) }]];
+      } else if (opts.dealPublicId) {
+        inlineKeyboard = [[{ text: t('bot.link.open_deal_room', lang), url: `${this.appBase}/d/${opts.dealPublicId}` }]];
+      }
 
       await this.bot.telegram.sendMessage(opts.chatId, text, {
         parse_mode: 'Markdown',

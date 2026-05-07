@@ -8,8 +8,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
-  Swords,
   Archive,
+  UserPlus,
 } from "lucide-react";
 import { getMyDeals } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
@@ -31,20 +31,20 @@ type DealCard = {
 };
 
 type DashboardData = {
-  pending_action: DealCard[];
+  created: DealCard[];
+  waiting_my_approval: DealCard[];
   active: DealCard[];
-  disputed: DealCard[];
-  completed: DealCard[];
+  completed_cancelled: DealCard[];
 };
 
 const TABS = [
-  { id: "pending_action" as const, label: "Needs Action", icon: Clock, color: "text-amber-600" },
+  { id: "created" as const, label: "Deals I Created", icon: Clock, color: "text-amber-600" },
+  { id: "waiting_my_approval" as const, label: "Waiting My Approval", icon: UserPlus, color: "text-blue-600" },
   { id: "active" as const, label: "Active", icon: CheckCircle2, color: "text-green-600" },
-  { id: "disputed" as const, label: "Disputed", icon: Swords, color: "text-orange-600" },
-  { id: "completed" as const, label: "Completed", icon: Archive, color: "text-gray-500" },
+  { id: "completed_cancelled" as const, label: "Completed & Cancelled", icon: Archive, color: "text-gray-500" },
 ];
 
-type TabId = "pending_action" | "active" | "disputed" | "completed";
+type TabId = "created" | "waiting_my_approval" | "active" | "completed_cancelled";
 
 function DealCardItem({ deal, locale }: { deal: DealCard; locale: string }) {
   const counterparty = deal.participants.find((p) => p.role !== deal.creator_role);
@@ -87,7 +87,7 @@ function EmptyTab({ tab }: { tab: (typeof TABS)[number] }) {
       <p className="font-medium text-[var(--ink-soft)]">
         No {tab.label.toLowerCase()} deals
       </p>
-      {tab.id === "pending_action" && (
+      {tab.id === "created" && (
         <Link href="/deals/new" className="mt-4">
           <Button className="gap-2 px-3 py-1.5 text-sm">
             <Plus className="h-3.5 w-3.5" />
@@ -104,7 +104,7 @@ export function DashboardPage({ user }: { user: SessionUser }) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TabId>("pending_action");
+  const [activeTab, setActiveTab] = useState<TabId>("created");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -124,7 +124,7 @@ export function DashboardPage({ user }: { user: SessionUser }) {
   }, [load]);
 
   const currentDeals: DealCard[] = data ? (data[activeTab] as DealCard[]) : [];
-  const totalNeedingAction = data?.pending_action.length ?? 0;
+  const totalNeedingAction = data?.waiting_my_approval.length ?? 0;
 
   return (
     <div className="min-h-screen">

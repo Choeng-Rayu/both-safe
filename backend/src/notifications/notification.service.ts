@@ -63,6 +63,7 @@ export class NotificationService {
                 eventKey: String(input.eventKey),
                 dealPublicId,
                 dealId: input.dealId,
+                payload: input.payload,
               })
               .catch((err: Error) => {
                 this.logger.warn(

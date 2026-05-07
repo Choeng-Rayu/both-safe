@@ -72,7 +72,7 @@ export class AdminService {
     if (deal.status === DEAL_STATUS.RELEASED) {
       throw new ConflictException({ messageKey: 'deal.already_released' });
     }
-    if (![DEAL_STATUS.RELEASE_PENDING, DEAL_STATUS.DISPUTED].includes(deal.status as any)) {
+    if (![DEAL_STATUS.DISPUTED, DEAL_STATUS.SHIPPED].includes(deal.status as any)) {
       throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
     }
 
@@ -150,11 +150,11 @@ export class AdminService {
     }
     if (
       ![
+        DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL,
         DEAL_STATUS.PAID_ESCROWED,
         DEAL_STATUS.SELLER_ACCEPTED_PACKING,
         DEAL_STATUS.SHIPPED,
         DEAL_STATUS.DISPUTED,
-        DEAL_STATUS.RELEASE_PENDING,
       ].includes(deal.status as any)
     ) {
       throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });

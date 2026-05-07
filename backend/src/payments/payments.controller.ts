@@ -13,6 +13,7 @@ import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
 import { Throttle } from '@nestjs/throttler';
 import { DealAccessGuard } from '../auth/guards/deal-access.guard';
+import { UserSessionGuard } from '../auth/guards/user-session.guard';
 import { CurrentActor } from '../common/decorators/current-actor.decorator';
 import type { RequestActor } from '../common/decorators/current-actor.decorator';
 import { UploadPaymentProofDto } from './dto/upload-payment-proof.dto';
@@ -24,17 +25,17 @@ export class PaymentsController {
   constructor(private readonly payments: PaymentsService) {}
 
   @Get('payment-instruction')
-  @UseGuards(DealAccessGuard)
-  @ApiOperation({ summary: 'Get KHQR payment instruction (visible after READY_FOR_PAYMENT)' })
-  instruction(@Param('publicId') publicId: string) {
-    return this.payments.paymentInstruction(publicId);
+  @UseGuards(UserSessionGuard, DealAccessGuard)
+  @ApiOperation({ summary: 'Get or create KHQR payment intent for automatic Bakong verification' })
+  instruction(@Param('publicId') publicId: string, @CurrentActor() actor: RequestActor) {
+    return this.payments.paymentInstruction(publicId, actor);
   }
 
   @Post('payment-proofs')
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
-  @UseGuards(DealAccessGuard)
+  @UseGuards(UserSessionGuard, DealAccessGuard)
   @UseInterceptors(FileInterceptor('proof_image', { storage: memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }))
-  @ApiOperation({ summary: 'Buyer uploads payment proof' })
+  @ApiOperation({ summary: 'Buyer optionally uploads a payment receipt for an automatic payment intent' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -45,7 +46,7 @@ export class PaymentsController {
         buyer_note: { type: 'string' },
         idempotency_key: { type: 'string' },
       },
-      required: ['proof_image', 'paid_amount'],
+      required: [],
     },
   })
   uploadProof(

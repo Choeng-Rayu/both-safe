@@ -137,6 +137,10 @@ export type AdminDealRecord = {
     approvedAt: string | null;
     joinedAt: string | null;
     payoutKhqr?: string | null;
+    payoutBankName?: string | null;
+    payoutAccountName?: string | null;
+    payoutAccountNumber?: string | null;
+    payoutKhqrImage?: string | null;
   }>;
   product: {
     title: string | null;
@@ -147,6 +151,7 @@ export type AdminDealRecord = {
 };
 
 export type AdminDealDetail = AdminDealRecord & {
+  netSellerAmount: number | null;
   payments: Array<{
     id: string;
     adminStatus: string;

@@ -109,11 +109,18 @@ export class PaymentPollerService {
       }),
     ]);
 
-    // Create ledger entry for escrow receipt
+    // Create ledger entries for escrow receipt and fee reservation.
     await this.ledger.append({
       dealId: deal.id,
       entryType: LEDGER_ENTRY_TYPES.ESCROW_RECEIVED,
       amount: paidAmount,
+      currency: deal.currency,
+      reference: `auto-verified:${payment.id}`,
+    });
+    await this.ledger.append({
+      dealId: deal.id,
+      entryType: LEDGER_ENTRY_TYPES.PLATFORM_FEE_RESERVED,
+      amount: feeAmount,
       currency: deal.currency,
       reference: `auto-verified:${payment.id}`,
     });

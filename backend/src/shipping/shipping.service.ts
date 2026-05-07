@@ -14,9 +14,8 @@ import {
   MESSAGE_KEYS,
   NOTIFICATION_EVENTS,
 } from '../common/constants';
-import { canUploadShippingProof, canConfirmReceived } from '../deals/status.engine';
+import { canUploadShippingProof } from '../deals/status.engine';
 import type { RequestActor } from '../common/decorators/current-actor.decorator';
-import { LedgerService } from '../ledger/ledger.service';
 import { sanitizeText } from '../common/utils/sanitize';
 
 @Injectable()
@@ -26,7 +25,6 @@ export class ShippingService {
     private readonly files: FilesService,
     private readonly audit: AuditService,
     private readonly notif: NotificationService,
-    private readonly ledger: LedgerService,
   ) {}
 
   async uploadShippingProof(
@@ -114,53 +112,5 @@ export class ShippingService {
     });
 
     return { status: DEAL_STATUS.SHIPPED, shipping_id: shipping.id };
-  }
-
-  async confirmReceived(publicId: string, actor: RequestActor) {
-    if (actor.role !== 'buyer') {
-      throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
-    }
-    const deal = await this.prisma.deal.findUnique({
-      where: { publicId },
-      include: { participants: true },
-    });
-    if (!deal) throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
-    if (!canConfirmReceived(deal.status as any)) {
-      throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
-    }
-
-    await this.prisma.deal.update({
-      where: { id: deal.id },
-      data: { status: DEAL_STATUS.RELEASE_PENDING },
-    });
-
-    if (!(await this.ledger.hasEntry(deal.id, 'SELLER_PAYOUT_PENDING'))) {
-      await this.ledger.append({
-        dealId: deal.id,
-        entryType: 'SELLER_PAYOUT_PENDING',
-        amount: deal.netSellerAmount ?? deal.amount ?? 0,
-        currency: deal.currency,
-      });
-    }
-
-    await this.audit.record({
-      dealId: deal.id,
-      actorType: 'participant',
-      actorId: actor.participantId ?? null,
-      action: 'buyer.confirmed_received',
-    });
-
-    const seller = deal.participants.find((p) => p.role === 'seller');
-    await this.notif.notify({
-      dealId: deal.id,
-      eventKey: NOTIFICATION_EVENTS.BUYER_CONFIRMED,
-      messageKey: MESSAGE_KEYS.BUYER_CONFIRMED,
-      recipients: [
-        { channel: 'inapp', ref: 'admin' },
-        ...(seller ? [{ channel: 'inapp' as const, ref: seller.id }] : []),
-      ],
-    });
-
-    return { status: DEAL_STATUS.RELEASE_PENDING, message_key: MESSAGE_KEYS.BUYER_CONFIRMED };
   }
 }

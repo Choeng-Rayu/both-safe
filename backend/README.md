@@ -23,7 +23,20 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+BothSafe NestJS API for automated escrow Deal Rooms.
+
+The happy path is automated: Bakong KHQR payment intents are persisted with an MD5, the poller confirms incoming payment, buyer confirmation triggers seller payout, and seller rejection or buyer cancellation before seller acceptance triggers buyer refund.
+
+Outbound payout/refund calls use a configurable transfer provider:
+
+```bash
+TRANSFER_API_BASE_URL=https://provider.example
+TRANSFER_API_ENDPOINT=/transfers
+TRANSFER_API_KEY=...
+TRANSFER_API_SECRET=...
+```
+
+The provider is called with `POST {TRANSFER_API_BASE_URL}{TRANSFER_API_ENDPOINT}` and headers `X-API-Key`, `X-API-Secret`, and `Idempotency-Key`. The JSON body includes `type`, `deal_public_id`, `amount`, `currency`, `destination`, and `metadata`. A transfer is treated as successful only when the provider returns HTTP 2xx and either `success: true` or `status: "success" | "succeeded" | "completed"`. Deals are not marked `RELEASED` or `REFUNDED` unless that success condition is met.
 
 ## Project setup
 

@@ -41,12 +41,11 @@ export function computeMissingFields(deal: DealLike): MissingFieldReport {
   else if (!seller) next = 'invite.seller';
   else if (status === DEAL_STATUS.PENDING_BUYER_PAYMENT) next = 'buyer.pay';
   else if (status === DEAL_STATUS.PENDING_SELLER_APPROVAL) next = 'buyer.pay_or_wait_seller';
-  else if (status === DEAL_STATUS.PAYMENT_PENDING_VERIFICATION) next = 'wait.admin_verify';
+  else if (status === DEAL_STATUS.PAYMENT_PENDING_VERIFICATION) next = 'wait.payment_auto_verify';
   else if (status === DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL) next = 'wait.seller_accept';
   else if (status === DEAL_STATUS.SELLER_ACCEPTED_PACKING) next = 'seller.ship';
   else if (status === DEAL_STATUS.PAID_ESCROWED) next = 'seller.ship';
   else if (status === DEAL_STATUS.SHIPPED) next = 'buyer.confirm';
-  else if (status === DEAL_STATUS.BUYER_CONFIRMED) next = 'wait.admin_release';
   else if (status === DEAL_STATUS.DISPUTED) next = 'wait.admin_dispute';
   else next = 'deal.complete';
 

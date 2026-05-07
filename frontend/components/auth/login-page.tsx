@@ -46,12 +46,12 @@ function TelegramButton({ redirectAfter }: { redirectAfter: string }) {
   return (
     <Button
       onClick={handleClick}
-      variant="primary"
-      className="w-full flex items-center justify-center gap-2 mb-3"
+      variant="outline"
+      className="w-full flex items-center justify-center gap-3 h-12 text-[var(--ink)] bg-[#E3F2FD] border-transparent hover:bg-[#BBDEFB] transition-colors shadow-sm"
       id="btn-telegram-login"
     >
-      <div className="w-5 h-5 flex items-center justify-center"><TelegramIcon /></div>
-      <span>Continue with Telegram</span>
+      <div className="w-5 h-5 flex items-center justify-center text-[#1e88e5]"><TelegramIcon /></div>
+      <span className="font-semibold">Continue with Telegram</span>
     </Button>
   );
 }
@@ -65,18 +65,17 @@ function GoogleButton({ redirectAfter }: { redirectAfter: string }) {
   return (
     <Button
       onClick={handleClick}
-      variant="secondary"
-      className="w-full flex items-center justify-center gap-2 mb-3"
+      variant="outline"
+      className="w-full flex items-center justify-center gap-3 h-12 mt-3 text-[var(--ink)] bg-white border-[var(--border)] hover:bg-[var(--surface-muted)] transition-colors shadow-sm"
       id="btn-google-login"
     >
       <div className="w-5 h-5 flex items-center justify-center"><GoogleIcon /></div>
-      <span>Continue with Google</span>
+      <span className="font-semibold">Continue with Google</span>
     </Button>
   );
 }
 
 function EmailForm({
-  redirectAfter,
   onSuccess,
 }: {
   redirectAfter: string;
@@ -106,10 +105,10 @@ function EmailForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="auth-email-form mt-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-4 w-full">
       {mode === "register" && (
-        <div className="auth-field mb-4">
-          <label htmlFor="auth-name" className="block text-sm font-medium text-[var(--ink)] mb-1">Full Name</label>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="auth-name" className="text-sm font-medium text-[var(--ink)]">Full Name</label>
           <input
             id="auth-name"
             type="text"
@@ -117,13 +116,13 @@ function EmailForm({
             onChange={(e) => setName(e.target.value)}
             placeholder="Your name"
             autoComplete="name"
-            className="w-full px-3 py-2 border border-[var(--border)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--brand)]"
+            className="w-full px-4 py-3 border border-[var(--border)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:border-transparent bg-[var(--surface)] text-[var(--ink)] placeholder:text-[var(--ink-soft)]/50 transition-all"
           />
         </div>
       )}
 
-      <div className="auth-field mb-4">
-        <label htmlFor="auth-email" className="block text-sm font-medium text-[var(--ink)] mb-1">Email</label>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="auth-email" className="text-sm font-medium text-[var(--ink)]">Email</label>
         <input
           id="auth-email"
           type="email"
@@ -132,12 +131,12 @@ function EmailForm({
           placeholder="you@example.com"
           required
           autoComplete="email"
-          className="w-full px-3 py-2 border border-[var(--border)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--brand)]"
+          className="w-full px-4 py-3 border border-[var(--border)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:border-transparent bg-[var(--surface)] text-[var(--ink)] placeholder:text-[var(--ink-soft)]/50 transition-all"
         />
       </div>
 
-      <div className="auth-field mb-4">
-        <label htmlFor="auth-password" className="block text-sm font-medium text-[var(--ink)] mb-1">Password</label>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="auth-password" className="text-sm font-medium text-[var(--ink)]">Password</label>
         <input
           id="auth-password"
           type="password"
@@ -147,16 +146,20 @@ function EmailForm({
           required
           autoComplete={mode === "register" ? "new-password" : "current-password"}
           minLength={mode === "register" ? 8 : 1}
-          className="w-full px-3 py-2 border border-[var(--border)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--brand)]"
+          className="w-full px-4 py-3 border border-[var(--border)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:border-transparent bg-[var(--surface)] text-[var(--ink)] placeholder:text-[var(--ink-soft)]/50 transition-all"
         />
       </div>
 
-      {error && <p className="auth-error text-[var(--danger)] text-sm mb-4">{error}</p>}
+      {error && (
+        <p className="text-[var(--danger)] text-sm bg-[var(--danger)]/10 border border-[var(--danger)]/20 rounded-lg p-3 mt-1">
+          {error}
+        </p>
+      )}
 
       <Button
         type="submit"
         disabled={isPending}
-        className="w-full"
+        className="w-full h-12 mt-2 text-base rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-strong)] text-white shadow-md transition-all"
         id={`btn-${mode}-submit`}
       >
         {isPending
@@ -166,7 +169,7 @@ function EmailForm({
           : "Sign In"}
       </Button>
 
-      <p className="auth-toggle text-center mt-4 text-sm text-[var(--ink-muted)]">
+      <div className="text-center mt-4 text-sm text-[var(--ink-soft)]">
         {mode === "login" ? (
           <>
             No account?{" "}
@@ -192,7 +195,7 @@ function EmailForm({
             </button>
           </>
         )}
-      </p>
+      </div>
     </form>
   );
 }
@@ -217,35 +220,31 @@ export function LoginPageComponent() {
   };
 
   return (
-    <div className="auth-page flex min-h-screen items-center justify-center px-4 py-12">
-      {/* Background elements */}
-      <div className="auth-bg absolute inset-0 -z-10 overflow-hidden">
-        <div className="auth-bg-orb auth-bg-orb-1" />
-        <div className="auth-bg-orb auth-bg-orb-2" />
-        <div className="auth-bg-orb auth-bg-orb-3" />
-      </div>
+    <div className="flex min-h-screen items-center justify-center px-4 py-12 bg-[var(--page)] relative overflow-hidden">
+      {/* Soft gradient background matching landing page */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[var(--surface-muted)]/50 to-transparent -z-10" />
 
-      <div className="auth-card bg-white w-full max-w-md p-8 rounded-2xl shadow-xl border border-[var(--border)]">
+      <div className="w-full max-w-md p-8 sm:p-10 rounded-[2rem] bg-[var(--surface-strong)] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[var(--border)] relative z-10">
         {/* Logo / Brand */}
-        <div className="auth-brand flex flex-col items-center mb-8">
-          <div className="auth-brand-icon w-12 h-12 text-[var(--brand)] mb-4">
+        <div className="flex flex-col items-center mb-10 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--brand)]/10 text-[var(--brand)] mb-6 border border-[var(--brand)]/20 shadow-sm">
             <ShieldIcon />
           </div>
-          <h1 className="auth-brand-name text-2xl font-bold text-[var(--ink)] mb-2">BothSafe</h1>
-          <p className="auth-brand-tagline text-[var(--ink-muted)] text-center">Sign in to protect your deals</p>
+          <h1 className="text-3xl font-bold text-[var(--ink)] mb-3">BothSafe</h1>
+          <p className="text-[var(--ink-soft)] text-base">Sign in to protect your deals</p>
         </div>
 
         {/* Auth Methods List */}
-        <div className="flex flex-col w-full">
+        <div className="flex flex-col w-full items-center">
           <TelegramButton redirectAfter={redirectTo} />
           <GoogleButton redirectAfter={redirectTo} />
           
-          <div className="relative my-6">
+          <div className="relative my-8 w-full">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t border-[var(--border)]" />
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-[var(--ink-muted)]">
+            <div className="relative flex justify-center text-xs uppercase font-medium">
+              <span className="bg-[var(--surface-strong)] px-3 text-[var(--ink-soft)]">
                 Or continue with email
               </span>
             </div>
@@ -255,7 +254,7 @@ export function LoginPageComponent() {
         </div>
 
         {/* Footer */}
-        <p className="auth-footer text-center text-xs text-[var(--ink-muted)] mt-8">
+        <p className="text-center text-xs text-[var(--ink-soft)]/70 mt-10">
           By signing in, you agree to BothSafe&apos;s terms of service and privacy policy.
         </p>
       </div>
@@ -267,7 +266,7 @@ export function LoginPageComponent() {
 
 function ShieldIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="w-full h-full">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="w-8 h-8">
       <path
         d="M12 2L4 5v6c0 5.25 3.5 10.15 8 11.35C16.5 21.15 20 16.25 20 11V5l-8-3z"
         fill="currentColor"

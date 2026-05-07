@@ -19,6 +19,10 @@ export class SellerAcceptDto {
 
   @IsOptional()
   @IsString()
+  payout_khqr_image?: string;
+
+  @IsOptional()
+  @IsString()
   expected_shipping_date?: string;
 
   @IsOptional()

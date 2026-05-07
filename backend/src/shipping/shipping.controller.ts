@@ -12,6 +12,7 @@ import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
 import { Throttle } from '@nestjs/throttler';
 import { DealAccessGuard } from '../auth/guards/deal-access.guard';
+import { UserSessionGuard } from '../auth/guards/user-session.guard';
 import { CurrentActor } from '../common/decorators/current-actor.decorator';
 import type { RequestActor } from '../common/decorators/current-actor.decorator';
 import { ShippingService } from './shipping.service';
@@ -23,7 +24,7 @@ export class ShippingController {
 
   @Post('shipping-proofs')
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
-  @UseGuards(DealAccessGuard)
+  @UseGuards(UserSessionGuard, DealAccessGuard)
   @UseInterceptors(
     FileFieldsInterceptor(
       [
@@ -58,16 +59,5 @@ export class ShippingController {
       package_photo: files.package_photo?.[0],
       delivery_receipt: files.delivery_receipt?.[0],
     });
-  }
-
-  @Post('confirm-received')
-  @Throttle({ default: { ttl: 60_000, limit: 10 } })
-  @UseGuards(DealAccessGuard)
-  @ApiOperation({ summary: 'Buyer confirms received → RELEASE_PENDING' })
-  confirmReceived(
-    @Param('publicId') publicId: string,
-    @CurrentActor() actor: RequestActor,
-  ) {
-    return this.shipping.confirmReceived(publicId, actor);
   }
 }

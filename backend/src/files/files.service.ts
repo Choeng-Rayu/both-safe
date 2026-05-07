@@ -72,8 +72,10 @@ export class FilesService {
   }
 
   // For MVP, "signed URL" = our own /v1/files/:id endpoint that re-checks access.
+  // Must return absolute URL since frontend runs on a different origin.
   signedUrlFor(file: { id: string; isPublic: boolean }): string {
-    return `/v1/files/${file.id}`;
+    const apiBase = this.cfg.get<string>('API_URL') ?? 'http://localhost:3001';
+    return `${apiBase}/v1/files/${file.id}`;
   }
 
   async findById(id: string) {

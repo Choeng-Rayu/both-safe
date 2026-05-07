@@ -10,5 +10,6 @@ export interface IBotNotifier {
     eventKey: string;
     dealPublicId?: string;
     dealId?: string;
+    payload?: Record<string, unknown>;
   }): Promise<void>;
 }

@@ -14,9 +14,6 @@ export const DEAL_STATUS = {
   // Admin verified payment (buyer-created flow) — seller still needs to accept
   PAID_WAITING_SELLER_APPROVAL: 'PAID_WAITING_SELLER_APPROVAL',
 
-  // Seller rejected the deal — triggers refund
-  SELLER_REJECTED: 'SELLER_REJECTED',
-
   // Seller accepted and committed to ship (buyer-created flow, after payment verified)
   SELLER_ACCEPTED_PACKING: 'SELLER_ACCEPTED_PACKING',
 
@@ -26,14 +23,8 @@ export const DEAL_STATUS = {
   // Seller uploaded shipping proof
   SHIPPED: 'SHIPPED',
 
-  // Buyer confirmed delivery
-  BUYER_CONFIRMED: 'BUYER_CONFIRMED',
-
   // Dispute opened
   DISPUTED: 'DISPUTED',
-
-  // Admin is about to release funds
-  RELEASE_PENDING: 'RELEASE_PENDING',
 
   // Money sent to seller
   RELEASED: 'RELEASED',
@@ -80,8 +71,10 @@ export const NOTIFICATION_EVENTS = {
   SELLER_ACCEPTED: 'SELLER_ACCEPTED',
   SELLER_REJECTED_DEAL: 'SELLER_REJECTED_DEAL',
   DEAL_CANCELLED_BY_BUYER: 'DEAL_CANCELLED_BY_BUYER',
+  TRANSFER_FAILED: 'TRANSFER_FAILED',
   SHIPPING_UPLOADED: 'SHIPPING_UPLOADED',
   BUYER_CONFIRMED: 'BUYER_CONFIRMED',
+  BUYER_CONFIRMED_PAYOUT_REQUIRED: 'BUYER_CONFIRMED_PAYOUT_REQUIRED', // admin action needed
   DISPUTE_OPENED: 'DISPUTE_OPENED',
   PAYOUT_RELEASED: 'PAYOUT_RELEASED',
   REFUND_COMPLETED: 'REFUND_COMPLETED',
@@ -122,11 +115,13 @@ export const MESSAGE_KEYS = {
   PAYMENT_PROOF_UPLOADED: 'payment.proof_uploaded',
   PAYMENT_VERIFIED: 'payment.verified',
   PAYMENT_REJECTED: 'payment.rejected',
+  PAYMENT_INTENT_READY: 'payment.intent_ready',
   SHIPPING_UPLOADED: 'shipping.uploaded',
   BUYER_CONFIRMED: 'buyer.confirmed',
   DISPUTE_OPENED: 'dispute.opened',
   RELEASED: 'deal.released',
   REFUNDED: 'deal.refunded',
+  TRANSFER_FAILED: 'transfer.failed',
   FORBIDDEN: 'auth.forbidden',
   RATE_LIMITED: 'auth.rate_limited',
   VALIDATION_FAILED: 'validation.failed',

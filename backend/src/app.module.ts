@@ -19,6 +19,8 @@ import { HealthModule } from './health/health.module';
 import { SeedModule } from './seed/seed.module';
 import { BotModule } from './bot/bot.module';
 import { UsersModule } from './users/users.module';
+import { TransfersModule } from './transfers/transfers.module';
+import { BakongModule } from './bakong/bakong.module';
 
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -46,6 +48,8 @@ import { HttpThrottlerGuard } from './common/guards/http-throttler.guard';
     SeedModule,
     BotModule,
     UsersModule,
+    TransfersModule,
+    BakongModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: HttpThrottlerGuard },

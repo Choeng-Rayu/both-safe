@@ -72,6 +72,7 @@ export async function apiGet<T>(path: string, options?: RequestOptions) {
   const response = await fetch(`${getApiBaseUrl()}${path}${buildAuthQuery(options)}`, {
     headers: buildHeaders(options),
     cache: "no-store",
+    credentials: "include",
   });
   return parseResponse<T>(response);
 }
@@ -86,6 +87,7 @@ export async function apiSend<T>(
     {
       ...init,
       headers: buildHeaders(options, init.headers),
+      credentials: "include",
     },
   );
   return parseResponse<T>(response);
@@ -291,9 +293,26 @@ export async function cancelDeal(publicId: string, options?: RequestOptions) {
 
 export async function getMyDeals() {
   return apiGet<{
-    pending_action: unknown[];
+    created: unknown[];
+    waiting_my_approval: unknown[];
     active: unknown[];
-    disputed: unknown[];
-    completed: unknown[];
+    completed_cancelled: unknown[];
   }>("/users/me/deals");
+}
+
+export async function adminGeneratePayoutDeeplink(dealId: string, adminToken: string) {
+  return apiGet<{
+    deeplink: string;
+    md5: string;
+    seller_name: string | null;
+    seller_payout_method: "khqr_id" | "bank_account" | "khqr_image" | "none";
+    seller_bank_name: string | null;
+    seller_account_name: string | null;
+    seller_account_number: string | null;
+    seller_khqr: string | null;
+    seller_khqr_image: string | null;
+    amount: number;
+    currency: string;
+    deal_public_id: string;
+  }>(`/admin/deals/${dealId}/payout-deeplink`, { adminToken });
 }

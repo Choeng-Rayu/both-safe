@@ -18,6 +18,7 @@ import { SellerAcceptDto } from './dto/seller-accept.dto';
 import { computeMissingFields, type DealLike } from './missing-fields';
 import { assertTransition, canBuyerCancel, canSellerAccept, canSellerReject, isPostPayment } from './status.engine';
 import type { RequestActor } from '../common/decorators/current-actor.decorator';
+import { TransfersService } from '../transfers/transfers.service';
 
 @Injectable()
 export class DealsService {
@@ -26,6 +27,7 @@ export class DealsService {
     private readonly cfg: ConfigService,
     private readonly audit: AuditService,
     private readonly notif: NotificationService,
+    private readonly transfers: TransfersService,
   ) {}
 
   private appBase(): string { return this.cfg.get<string>('APP_BASE_URL') ?? 'http://localhost:3000'; }
@@ -64,7 +66,7 @@ export class DealsService {
       acts.push('upload_shipping_proof');
     }
     if (status === DEAL_STATUS.SHIPPED && role === 'buyer') acts.push('confirm_received', 'open_dispute');
-    if (['PAYMENT_PENDING_VERIFICATION','PAID_WAITING_SELLER_APPROVAL','SELLER_ACCEPTED_PACKING','PAID_ESCROWED','SHIPPED'].includes(status)) {
+    if (['PAID_WAITING_SELLER_APPROVAL','SELLER_ACCEPTED_PACKING','PAID_ESCROWED','SHIPPED'].includes(status)) {
       acts.push('open_dispute');
     }
     if (actor.type === 'admin') acts.push('admin_review');
@@ -92,7 +94,7 @@ export class DealsService {
         preferred_language: p.preferredLanguage,
         approved_at: p.approvedAt,
         joined_at: p.joinedAt,
-        has_payout: !!(p.payoutKhqr || (p.payoutBankName && p.payoutAccountNumber)),
+        has_payout: !!(p.payoutKhqr || p.payoutKhqrImage || (p.payoutBankName && p.payoutAccountNumber)),
       })),
       product: deal.product ? {
         title: deal.product.title,
@@ -143,6 +145,7 @@ export class DealsService {
         participants: {
           create: {
             role: dto.creator_role,
+            userId: userId ?? null,
             name: sanitizeText(dto.creator_name) ?? null,
             phone: sanitizeText(dto.creator_phone) ?? null,
             telegramChatId: dto.telegram_chat_id ?? null,
@@ -174,17 +177,25 @@ export class DealsService {
     };
   }
 
+  /** Ensure file URLs are absolute (handles old relative paths stored before the fix). */
+  private fileUrl(url: string | null | undefined): string | null {
+    if (!url) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const apiBase = this.cfg.get<string>('API_URL') ?? 'http://localhost:3001';
+    return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
+  }
+
   private async paymentSummary(dealId: string) {
     const payments = await this.prisma.payment.findMany({ where: { dealId } });
     if (!payments.length) return null;
     const latest = payments[payments.length - 1];
-    return { payment_id: latest.id, admin_status: latest.adminStatus, paid_amount: latest.paidAmount, expected_amount: latest.expectedAmount, receiver_account_label: latest.receiverAccountLabel, proof_image_url: latest.proofImageUrl, rejected_reason: latest.rejectedReason };
+    return { payment_id: latest.id, admin_status: latest.adminStatus, paid_amount: latest.paidAmount, expected_amount: latest.expectedAmount, receiver_account_label: latest.receiverAccountLabel, proof_image_url: this.fileUrl(latest.proofImageUrl), rejected_reason: latest.rejectedReason };
   }
 
   private async shippingSummary(dealId: string) {
     const s = await this.prisma.shipping.findUnique({ where: { dealId } });
     if (!s) return null;
-    return { shipping_id: s.id, delivery_company: s.deliveryCompany, tracking_number: s.trackingNumber, package_photo_url: s.packagePhotoUrl, delivery_receipt_url: s.deliveryReceiptUrl, seller_note: s.sellerNote };
+    return { shipping_id: s.id, delivery_company: s.deliveryCompany, tracking_number: s.trackingNumber, package_photo_url: this.fileUrl(s.packagePhotoUrl), delivery_receipt_url: this.fileUrl(s.deliveryReceiptUrl), seller_note: s.sellerNote };
   }
 
   private async disputeSummary(dealId: string) {
@@ -193,7 +204,7 @@ export class DealsService {
     return list.map((d) => ({ dispute_id: d.id, reason: d.reason, message: d.message, status: d.status, opened_by_role: d.openedByRole, created_at: d.createdAt, resolved_at: d.resolvedAt }));
   }
 
-  async joinDeal(publicId: string, dto: JoinDealDto, actor: RequestActor) {
+  async joinDeal(publicId: string, dto: JoinDealDto, actor: RequestActor, userId?: string) {
     if (actor.type !== 'invite') throw new ForbiddenException({ messageKey: MESSAGE_KEYS.INVALID_TOKEN });
     const deal = await this.loadDeal(publicId);
     if (dto.role === deal.creatorRole) throw new BadRequestException({ messageKey: 'deal.role_conflict', details: { creator_role: deal.creatorRole } });
@@ -204,9 +215,9 @@ export class DealsService {
     const accessToken = generateOpaqueToken();
     let participant: any;
     if (existing) {
-      participant = await this.prisma.participant.update({ where: { id: existing.id }, data: { name: sanitizeText(dto.name) ?? existing.name, phone: sanitizeText(dto.phone) ?? existing.phone, telegramChatId: dto.telegram_chat_id ?? existing.telegramChatId, preferredLanguage: dto.preferred_language, accessTokenHash: hashToken(accessToken), joinedAt: new Date() } });
+      participant = await this.prisma.participant.update({ where: { id: existing.id }, data: { userId: userId ?? existing.userId, name: sanitizeText(dto.name) ?? existing.name, phone: sanitizeText(dto.phone) ?? existing.phone, telegramChatId: dto.telegram_chat_id ?? existing.telegramChatId, preferredLanguage: dto.preferred_language, accessTokenHash: hashToken(accessToken), joinedAt: new Date() } });
     } else {
-      participant = await this.prisma.participant.create({ data: { dealId: deal.id, role: dto.role, name: sanitizeText(dto.name) ?? '', phone: sanitizeText(dto.phone) ?? null, telegramChatId: dto.telegram_chat_id ?? null, preferredLanguage: dto.preferred_language, accessTokenHash: hashToken(accessToken), joinedAt: new Date() } });
+      participant = await this.prisma.participant.create({ data: { dealId: deal.id, userId: userId ?? null, role: dto.role, name: sanitizeText(dto.name) ?? '', phone: sanitizeText(dto.phone) ?? null, telegramChatId: dto.telegram_chat_id ?? null, preferredLanguage: dto.preferred_language, accessTokenHash: hashToken(accessToken), joinedAt: new Date() } });
     }
 
     await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: participant.id, action: 'participant.joined', details: { role: dto.role } });
@@ -235,6 +246,7 @@ export class DealsService {
 
   async updateProduct(publicId: string, dto: UpdateProductDto, actor: RequestActor) {
     const deal = await this.loadDeal(publicId);
+    if (!actor.role) throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
     this.assertCanEdit(deal, 'product');
     const productData: any = {};
     if (dto.title !== undefined) productData.title = sanitizeText(dto.title);
@@ -269,13 +281,14 @@ export class DealsService {
     if (isPostPayment(deal.status as DealStatus)) throw new ForbiddenException({ messageKey: MESSAGE_KEYS.CANNOT_UPDATE_LOCKED });
     const seller = deal.participants.find((p) => p.role === 'seller');
     if (!seller) throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
-    await this.prisma.participant.update({ where: { id: seller.id }, data: { payoutKhqr: dto.payout_khqr ?? seller.payoutKhqr, payoutBankName: dto.payout_bank_name ?? seller.payoutBankName, payoutAccountName: dto.payout_account_name ?? seller.payoutAccountName, payoutAccountNumber: dto.payout_account_number ?? seller.payoutAccountNumber } });
+    await this.prisma.participant.update({ where: { id: seller.id }, data: { payoutKhqr: dto.payout_khqr ?? seller.payoutKhqr, payoutBankName: dto.payout_bank_name ?? seller.payoutBankName, payoutAccountName: dto.payout_account_name ?? seller.payoutAccountName, payoutAccountNumber: dto.payout_account_number ?? seller.payoutAccountNumber, payoutKhqrImage: dto.payout_khqr_image ?? seller.payoutKhqrImage } });
     await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: seller.id, action: 'payout.updated' });
     await this.recomputeStatusAfterEdit(deal.id);
     return this.summary(await this.loadDeal(publicId), actor);
   }
 
   async updateDelivery(publicId: string, _dto: UpdateDeliveryDto, actor: RequestActor) {
+    if (!actor.role) throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
     return this.summary(await this.loadDeal(publicId), actor);
   }
 
@@ -289,8 +302,8 @@ export class DealsService {
     if (!seller) throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
 
     // Save payout if provided
-    if (dto.payout_khqr || dto.payout_bank_name || dto.payout_account_number) {
-      await this.prisma.participant.update({ where: { id: seller.id }, data: { payoutKhqr: dto.payout_khqr ?? seller.payoutKhqr, payoutBankName: dto.payout_bank_name ?? seller.payoutBankName, payoutAccountName: dto.payout_account_name ?? seller.payoutAccountName, payoutAccountNumber: dto.payout_account_number ?? seller.payoutAccountNumber } });
+    if (dto.payout_khqr || dto.payout_bank_name || dto.payout_account_number || dto.payout_khqr_image) {
+      await this.prisma.participant.update({ where: { id: seller.id }, data: { payoutKhqr: dto.payout_khqr ?? seller.payoutKhqr, payoutBankName: dto.payout_bank_name ?? seller.payoutBankName, payoutAccountName: dto.payout_account_name ?? seller.payoutAccountName, payoutAccountNumber: dto.payout_account_number ?? seller.payoutAccountNumber, payoutKhqrImage: dto.payout_khqr_image ?? seller.payoutKhqrImage } });
     }
 
     await this.transitionStatus(deal.id, deal.status as DealStatus, DEAL_STATUS.SELLER_ACCEPTED_PACKING);
@@ -303,21 +316,19 @@ export class DealsService {
     return { status: fresh.status, message_key: MESSAGE_KEYS.SELLER_ACCEPTED, allowed_actions: this.allowedActions(fresh, actor) };
   }
 
-  /** Seller rejects deal — transitions PAID_WAITING_SELLER_APPROVAL → SELLER_REJECTED */
+  /** Seller rejects a paid buyer-created deal; refund must succeed before REFUNDED is stored. */
   async sellerReject(publicId: string, actor: RequestActor) {
     if (actor.role !== 'seller') throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
     const deal = await this.loadDeal(publicId);
     if (!canSellerReject(deal.status as DealStatus)) throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
 
     const seller = deal.participants.find((p) => p.role === 'seller');
-    await this.transitionStatus(deal.id, deal.status as DealStatus, DEAL_STATUS.SELLER_REJECTED);
     await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: seller?.id ?? null, action: 'seller.rejected' });
 
     const buyer = deal.participants.find((p) => p.role === 'buyer');
-    await this.notif.notify({ dealId: deal.id, eventKey: NOTIFICATION_EVENTS.SELLER_REJECTED_DEAL, messageKey: MESSAGE_KEYS.SELLER_REJECTED, recipients: [{ channel: 'inapp', ref: buyer?.id ?? null }, { channel: 'inapp', ref: 'admin' }] });
+    await this.notif.notify({ dealId: deal.id, eventKey: NOTIFICATION_EVENTS.SELLER_REJECTED_DEAL, messageKey: MESSAGE_KEYS.SELLER_REJECTED, recipients: [{ channel: 'inapp', ref: buyer?.id ?? null }] });
 
-    const fresh = await this.loadDeal(publicId);
-    return { status: fresh.status, message_key: MESSAGE_KEYS.SELLER_REJECTED };
+    return this.transfers.refundBuyer(deal.id, 'seller_rejected');
   }
 
   /** Buyer cancels deal — only allowed before seller accepts */
@@ -326,44 +337,66 @@ export class DealsService {
     const deal = await this.loadDeal(publicId);
     if (!canBuyerCancel(deal.status as DealStatus)) throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
 
+    const payment = await this.prisma.payment.findFirst({ where: { dealId: deal.id, adminStatus: 'verified' } });
+    if (payment) {
+      await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: actor.participantId ?? null, action: 'deal.cancelled_by_buyer_refund_requested' });
+      await this.notif.notify({ dealId: deal.id, eventKey: NOTIFICATION_EVENTS.DEAL_CANCELLED_BY_BUYER, messageKey: MESSAGE_KEYS.DEAL_CANCELLED, recipients: deal.participants.map((p) => ({ channel: 'inapp' as const, ref: p.id })) });
+      return this.transfers.refundBuyer(deal.id, 'buyer_cancelled_before_seller_accept');
+    }
+
     const buyer = deal.participants.find((p) => p.role === 'buyer');
     await this.transitionStatus(deal.id, deal.status as DealStatus, DEAL_STATUS.CANCELLED);
     await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: buyer?.id ?? null, action: 'deal.cancelled_by_buyer' });
 
-    // If money was paid, notify admin for refund
-    const payment = await this.prisma.payment.findFirst({ where: { dealId: deal.id, adminStatus: 'verified' } });
-    if (payment) {
-      await this.notif.notify({ dealId: deal.id, eventKey: NOTIFICATION_EVENTS.DEAL_CANCELLED_BY_BUYER, messageKey: MESSAGE_KEYS.DEAL_CANCELLED, recipients: [{ channel: 'inapp', ref: 'admin' }] });
-    }
-
     const fresh = await this.loadDeal(publicId);
-    return { status: fresh.status, message_key: MESSAGE_KEYS.DEAL_CANCELLED, refund_required: !!payment };
+    return { status: fresh.status, message_key: MESSAGE_KEYS.DEAL_CANCELLED, refund_required: false };
   }
 
-  /** Buyer confirms they received the product — transitions SHIPPED → BUYER_CONFIRMED */
+  /** Buyer confirms receipt; seller payout must succeed before RELEASED is stored. */
   async confirmReceived(publicId: string, actor: RequestActor) {
     if (actor.role !== 'buyer') throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
     const deal = await this.loadDeal(publicId);
     if (deal.status !== 'SHIPPED') throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
 
     const buyer = deal.participants.find((p) => p.role === 'buyer');
-    await this.transitionStatus(deal.id, deal.status as DealStatus, DEAL_STATUS.BUYER_CONFIRMED);
     await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: buyer?.id ?? null, action: 'buyer.confirmed_received' });
 
     const seller = deal.participants.find((p) => p.role === 'seller');
+
+    // 1. Notify seller that buyer confirmed
     await this.notif.notify({
       dealId: deal.id,
       eventKey: NOTIFICATION_EVENTS.BUYER_CONFIRMED,
       messageKey: MESSAGE_KEYS.BUYER_CONFIRMED,
       recipients: [
         ...(seller ? [{ channel: 'inapp' as const, ref: seller.id }] : []),
-        { channel: 'inapp' as const, ref: 'admin' },
         ...(seller?.telegramChatId ? [{ channel: 'telegram' as const, ref: seller.telegramChatId }] : []),
       ],
     });
 
-    const fresh = await this.loadDeal(publicId);
-    return { status: fresh.status, message_key: MESSAGE_KEYS.BUYER_CONFIRMED };
+    // 2. Alert admin to process seller payout via Bakong deeplink
+    const adminChatId = this.cfg.get<string>('ADMIN_TELEGRAM_CHAT_ID');
+    const appBase = this.cfg.get<string>('APP_BASE_URL') ?? 'http://localhost:3000';
+    if (adminChatId) {
+      await this.notif.notify({
+        dealId: deal.id,
+        eventKey: NOTIFICATION_EVENTS.BUYER_CONFIRMED_PAYOUT_REQUIRED,
+        messageKey: 'admin.payout_required',
+        recipients: [{ channel: 'telegram' as const, ref: adminChatId }],
+        payload: {
+          deal_public_id: deal.publicId,
+          seller_name: seller?.name ?? 'Unknown',
+          amount: deal.netSellerAmount ?? deal.amount ?? 0,
+          currency: deal.currency,
+          admin_url: `${appBase}/admin/deals/${deal.id}`,
+          payout_khqr: seller?.payoutKhqr ?? null,
+          payout_bank: seller?.payoutBankName ?? null,
+          payout_account: seller?.payoutAccountNumber ?? null,
+        },
+      });
+    }
+
+    return this.transfers.payoutSeller(deal.id, 'buyer_confirmed_received');
   }
 
 async transitionStatus(dealId: string, from: DealStatus, to: DealStatus) {
@@ -377,7 +410,7 @@ async transitionStatus(dealId: string, from: DealStatus, to: DealStatus) {
     if (!fresh) return;
     const status = fresh.status as DealStatus;
     if (isPostPayment(status)) return;
-    if (['CANCELLED', 'EXPIRED', 'SELLER_REJECTED'].includes(status)) return;
+    if (['CANCELLED', 'EXPIRED'].includes(status)) return;
     if (status !== DEAL_STATUS.DRAFT) return;
 
     // Advance DRAFT to proper initial status once product + amount are ready
@@ -390,21 +423,26 @@ async transitionStatus(dealId: string, from: DealStatus, to: DealStatus) {
   /** Get all deals for a user grouped by state */
   async getMyDeals(userId: string) {
     const deals = await this.prisma.deal.findMany({
-      where: { createdByUserId: userId },
+      where: {
+        OR: [
+          { createdByUserId: userId },
+          { participants: { some: { userId } } },
+        ],
+      },
       include: { participants: true, product: true },
       orderBy: { updatedAt: 'desc' },
     });
 
-    const pendingAction: any[] = [];
+    const created: any[] = [];
+    const waitingMyApproval: any[] = [];
     const active: any[] = [];
-    const disputed: any[] = [];
-    const completed: any[] = [];
+    const completedCancelled: any[] = [];
 
-    const PENDING_STATUSES = [DEAL_STATUS.PENDING_BUYER_PAYMENT, DEAL_STATUS.PENDING_SELLER_APPROVAL, DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL, DEAL_STATUS.PAYMENT_PENDING_VERIFICATION];
-    const ACTIVE_STATUSES = [DEAL_STATUS.SELLER_ACCEPTED_PACKING, DEAL_STATUS.PAID_ESCROWED, DEAL_STATUS.SHIPPED, DEAL_STATUS.BUYER_CONFIRMED, DEAL_STATUS.RELEASE_PENDING];
-    const TERMINAL_STATUSES = [DEAL_STATUS.RELEASED, DEAL_STATUS.REFUNDED, DEAL_STATUS.CANCELLED, DEAL_STATUS.EXPIRED, DEAL_STATUS.SELLER_REJECTED];
+    const ACTIVE_STATUSES = [DEAL_STATUS.PAYMENT_PENDING_VERIFICATION, DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL, DEAL_STATUS.SELLER_ACCEPTED_PACKING, DEAL_STATUS.PAID_ESCROWED, DEAL_STATUS.SHIPPED, DEAL_STATUS.DISPUTED];
+    const TERMINAL_STATUSES = [DEAL_STATUS.RELEASED, DEAL_STATUS.REFUNDED, DEAL_STATUS.CANCELLED, DEAL_STATUS.EXPIRED];
 
     for (const deal of deals) {
+      const currentParticipant = deal.participants.find((p) => p.userId === userId);
       const card = {
         public_id: deal.publicId,
         status: deal.status,
@@ -415,12 +453,16 @@ async transitionStatus(dealId: string, from: DealStatus, to: DealStatus) {
         participants: deal.participants.map((p) => ({ role: p.role, name: p.name })),
         updated_at: deal.updatedAt,
       };
-      if ((deal.status as string) === DEAL_STATUS.DISPUTED) disputed.push(card);
-      else if (PENDING_STATUSES.includes(deal.status as any)) pendingAction.push(card);
-      else if (ACTIVE_STATUSES.includes(deal.status as any)) active.push(card);
-      else if (TERMINAL_STATUSES.includes(deal.status as any)) completed.push(card);
+      if (deal.createdByUserId === userId) created.push(card);
+      if (currentParticipant && currentParticipant.role !== deal.creatorRole && deal.status === DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL) {
+        waitingMyApproval.push(card);
+      } else if (ACTIVE_STATUSES.includes(deal.status as any)) {
+        active.push(card);
+      } else if (TERMINAL_STATUSES.includes(deal.status as any)) {
+        completedCancelled.push(card);
+      }
     }
 
-    return { pending_action: pendingAction, active, disputed, completed };
+    return { created, waiting_my_approval: waitingMyApproval, active, completed_cancelled: completedCancelled };
   }
 }

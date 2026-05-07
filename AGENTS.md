@@ -1,5 +1,6 @@
 # BothSafe — Agent Guide
 
+
 ## Project Overview
 
 BothSafe is an escrow-based payment protection platform for Cambodia's social commerce ecosystem. Buyers and sellers transact through chat apps (Telegram, Messenger, WeChat, Facebook). BothSafe holds payment in escrow until delivery is confirmed.

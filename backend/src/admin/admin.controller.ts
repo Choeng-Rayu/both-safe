@@ -15,6 +15,7 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 import { AdminService } from './admin.service';
 import { PaymentsService } from '../payments/payments.service';
 import { RejectPaymentDto } from '../payments/dto/upload-payment-proof.dto';
+import { BakongDeeplinkService } from '../bakong/bakong-deeplink.service';
 
 class ReleaseDto {
   @IsString() @MaxLength(120) payout_reference!: string;
@@ -39,6 +40,7 @@ export class AdminController {
   constructor(
     private readonly admin: AdminService,
     private readonly payments: PaymentsService,
+    private readonly bakong: BakongDeeplinkService,
   ) {}
 
   @Get('deals')
@@ -99,5 +101,13 @@ export class AdminController {
   @ApiOperation({ summary: 'Check Bakong transaction by MD5 (confirm real payment received)' })
   checkBakong(@Param('paymentId') paymentId: string) {
     return this.admin.checkBakongByPaymentId(paymentId, this.payments);
+  }
+
+  @Get('deals/:dealId/payout-deeplink')
+  @ApiOperation({
+    summary: 'Generate Bakong deeplink for admin to send seller payout. Open deeplink on phone with Bakong app installed.',
+  })
+  payoutDeeplink(@Param('dealId') dealId: string) {
+    return this.bakong.generatePayoutDeeplink(dealId);
   }
 }

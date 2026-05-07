@@ -79,18 +79,20 @@ export class PaymentsService {
     }
   }
 
-  async paymentInstruction(publicId: string) {
+  async paymentInstruction(publicId: string, actor: RequestActor) {
+    if (actor.role !== 'buyer') {
+      throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
+    }
     const deal = await this.prisma.deal.findUnique({
       where: { publicId },
       include: { participants: true, product: true },
     });
     if (!deal) throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
-    // Allow viewing payment instruction in PAYMENT_PENDING_VERIFICATION state too
-    if (!canUploadPaymentProof(deal.status as any) && deal.status !== DEAL_STATUS.PAYMENT_PENDING_VERIFICATION) {
+    if (!canUploadPaymentProof(deal.status as any)) {
       throw new BadRequestException({ messageKey: MESSAGE_KEYS.PAYMENT_NOT_READY });
     }
 
-    const khqr = this.generateKhqr(deal.amount, deal.publicId);
+    const payment = await this.ensurePaymentIntent(deal);
 
     return {
       method: 'bakong_khqr',
@@ -99,14 +101,15 @@ export class PaymentsService {
       currency: deal.currency,
       expected_amount: deal.amount,
       reference_note: `BothSafe Deal ${deal.publicId}`,
-      khqr_string: khqr?.khqr_string ?? null,
-      khqr_md5: khqr?.khqr_md5 ?? null,
+      payment_id: payment.id,
+      khqr_string: payment.khqrString ?? null,
+      khqr_md5: payment.khqrMd5 ?? null,
     };
   }
 
   async uploadProof(
     publicId: string,
-    file: Express.Multer.File,
+    file: Express.Multer.File | undefined,
     dto: UploadPaymentProofDto,
     actor: RequestActor,
   ) {
@@ -135,54 +138,42 @@ export class PaymentsService {
       }
     }
 
-    const stored = await this.files.store(file, {
-      dealId: deal.id,
-      category: FILE_CATEGORIES.PAYMENT_PROOF,
-      isPublic: false,
-      uploadedBy: actor.participantId ?? 'buyer',
-    });
-
-    const payment = await this.prisma.payment.create({
-      data: {
+    let proofImageUrl: string | undefined;
+    if (file) {
+      const stored = await this.files.store(file, {
         dealId: deal.id,
-        expectedAmount: deal.amount ?? 0,
-        paidAmount: dto.paid_amount,
-        currency: deal.currency,
-        paymentMethod: 'bakong_khqr',
-        receiverAccountLabel: this.cfg.get<string>('RECEIVER_ACCOUNT_LABEL') ?? 'BothSafe Escrow',
-        proofImageUrl: this.files.signedUrlFor(stored),
-        buyerNote: dto.buyer_note ?? null,
-        adminStatus: 'pending',
-idempotencyKey: dto.idempotency_key ?? null,
-        khqrMd5: dto.khqr_md5 ?? null,
-        autoVerified: false,
-        },
-    });
+        category: FILE_CATEGORIES.PAYMENT_PROOF,
+        isPublic: false,
+        uploadedBy: actor.participantId ?? 'buyer',
+      });
+      proofImageUrl = this.files.signedUrlFor(stored);
+    }
 
-    await this.prisma.deal.update({
-      where: { id: deal.id },
-      data: { status: DEAL_STATUS.PAYMENT_PENDING_VERIFICATION },
-    });
-    // Store the creator_role on payment so adminVerify knows which path to take
-    await this.prisma.deal.update({
-      where: { id: deal.id },
-      data: { updatedAt: new Date() },
+    const intent = await this.ensurePaymentIntent(deal);
+    const payment = await this.prisma.payment.update({
+      where: { id: intent.id },
+      data: {
+        paidAmount: dto.paid_amount ?? intent.paidAmount,
+        proofImageUrl: proofImageUrl ?? intent.proofImageUrl,
+        buyerNote: dto.buyer_note ?? intent.buyerNote,
+        idempotencyKey: dto.idempotency_key ?? intent.idempotencyKey,
+        khqrMd5: dto.khqr_md5 ?? intent.khqrMd5,
+      },
     });
 
     await this.audit.record({
       dealId: deal.id,
       actorType: 'participant',
       actorId: actor.participantId ?? null,
-      action: 'payment.proof_uploaded',
+      action: proofImageUrl ? 'payment.receipt_uploaded' : 'payment.intent_confirmed',
       details: { payment_id: payment.id, paid_amount: dto.paid_amount },
     });
 
-    // notify admin (channel: inapp; admin dashboard can list pending verifications)
     await this.notif.notify({
       dealId: deal.id,
       eventKey: NOTIFICATION_EVENTS.PAYMENT_PROOF_UPLOADED,
       messageKey: MESSAGE_KEYS.PAYMENT_PROOF_UPLOADED,
-      recipients: [{ channel: 'inapp', ref: 'admin' }],
+      recipients: deal.participants.map((p) => ({ channel: 'inapp' as const, ref: p.id })),
     });
 
     return {
@@ -190,6 +181,60 @@ idempotencyKey: dto.idempotency_key ?? null,
       status: DEAL_STATUS.PAYMENT_PENDING_VERIFICATION,
       message_key: MESSAGE_KEYS.PAYMENT_PROOF_UPLOADED,
     };
+  }
+
+  private async ensurePaymentIntent(deal: {
+    id: string;
+    publicId: string;
+    amount: number | null;
+    currency: string;
+    status: string;
+  }) {
+    const existing = await this.prisma.payment.findFirst({
+      where: {
+        dealId: deal.id,
+        adminStatus: { in: ['pending', 'verified'] },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (existing) {
+      if (deal.status !== DEAL_STATUS.PAYMENT_PENDING_VERIFICATION && existing.adminStatus === 'pending') {
+        await this.prisma.deal.update({
+          where: { id: deal.id },
+          data: { status: DEAL_STATUS.PAYMENT_PENDING_VERIFICATION },
+        });
+      }
+      return existing;
+    }
+
+    const khqr = this.generateKhqr(deal.amount, deal.publicId);
+    const payment = await this.prisma.payment.create({
+      data: {
+        dealId: deal.id,
+        expectedAmount: deal.amount ?? 0,
+        currency: deal.currency,
+        paymentMethod: 'bakong_khqr',
+        receiverAccountLabel: this.cfg.get<string>('RECEIVER_ACCOUNT_LABEL') ?? 'BothSafe Escrow',
+        adminStatus: 'pending',
+        khqrMd5: khqr?.khqr_md5 ?? null,
+        khqrString: khqr?.khqr_string ?? null,
+        autoVerified: false,
+      },
+    });
+
+    await this.prisma.deal.update({
+      where: { id: deal.id },
+      data: { status: DEAL_STATUS.PAYMENT_PENDING_VERIFICATION },
+    });
+
+    await this.audit.record({
+      dealId: deal.id,
+      actorType: 'system',
+      action: 'payment.intent_created',
+      details: { payment_id: payment.id, khqr_md5: payment.khqrMd5 },
+    });
+
+    return payment;
   }
 
   // --- admin actions ---

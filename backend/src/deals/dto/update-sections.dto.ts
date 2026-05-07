@@ -26,6 +26,7 @@ export class UpdatePayoutDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(120) payout_bank_name?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(120) payout_account_name?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(60) payout_account_number?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(500) payout_khqr_image?: string;
 }
 
 export class UpdateDeliveryDto {

@@ -319,7 +319,7 @@ describe('BotTelegramService', () => {
 
       expect(bot.telegram.sendMessage).toHaveBeenCalledWith(
         '111',
-        expect.stringContaining('Payment verified'),
+        expect.stringContaining('Payment confirmed automatically'),
         expect.objectContaining({
           reply_markup: expect.objectContaining({
             inline_keyboard: expect.arrayContaining([
@@ -844,11 +844,11 @@ describe('Notification event message key coverage', () => {
     ['COUNTERPARTY_JOINED', 'joined your deal'],
     ['DEAL_UPDATED', 'updated'],
     ['BOTH_APPROVED', 'Both parties approved'],
-    ['PAYMENT_PROOF_UPLOADED', 'payment proof'],
-    ['PAYMENT_VERIFIED', 'Payment verified'],
+    ['PAYMENT_PROOF_UPLOADED', 'payment details'],
+    ['PAYMENT_VERIFIED', 'Payment confirmed automatically'],
     ['PAYMENT_REJECTED', 'rejected'],
     ['SHIPPING_UPLOADED', 'shipping proof'],
-    ['BUYER_CONFIRMED', 'Buyer confirmed'],
+    ['BUYER_CONFIRMED', 'Buyer confirmed receipt'],
     ['DISPUTE_OPENED', 'dispute'],
     ['PAYOUT_RELEASED', 'Payout released'],
     ['REFUND_COMPLETED', 'Refund completed'],

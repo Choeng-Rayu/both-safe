@@ -185,16 +185,14 @@ const messages: Record<string, Record<BotLang, string>> = {
   },
   // ── status labels ─────────────────────────────────────────────────────
   'bot.status.DRAFT': { km: '📝 ព្រាង', en: '📝 Draft', zh: '📝 草稿' },
-  'bot.status.AWAITING_COUNTERPARTY': { km: '⏳ រង់ចាំភាគីម្ខាងទៀត', en: '⏳ Awaiting Counterparty', zh: '⏳ 等待对方' },
-  'bot.status.AWAITING_BOTH_APPROVAL': { km: '⏳ រង់ចាំការអនុម័តពីគ្រប់ភាគី', en: '⏳ Awaiting Both Approval', zh: '⏳ 等待双方确认' },
-  'bot.status.READY_FOR_PAYMENT': { km: '💳 រៀបចំទូទាត់', en: '💳 Ready for Payment', zh: '💳 可以付款' },
-  'bot.status.PAYMENT_PENDING_VERIFICATION': { km: '🔍 ការទូទាត់កំពុងត្រូវបានផ្ទៀងផ្ទាត់', en: '🔍 Payment Pending Verification', zh: '🔍 付款待验证' },
+  'bot.status.PENDING_BUYER_PAYMENT': { km: '💳 រង់ចាំអ្នកទិញបង់ប្រាក់', en: '💳 Waiting for buyer payment', zh: '💳 等待买家付款' },
+  'bot.status.PENDING_SELLER_APPROVAL': { km: '⏳ រង់ចាំអ្នកលក់យល់ព្រម', en: '⏳ Waiting for seller approval', zh: '⏳ 等待卖家确认' },
+  'bot.status.PAYMENT_PENDING_VERIFICATION': { km: '🔍 កំពុងពិនិត្យការទូទាត់ដោយស្វ័យប្រវត្តិ', en: '🔍 Checking payment automatically', zh: '🔍 正在自动验证付款' },
+  'bot.status.PAID_WAITING_SELLER_APPROVAL': { km: '🔒 បានបង់ប្រាក់ រង់ចាំអ្នកលក់', en: '🔒 Paid, waiting for seller', zh: '🔒 已付款，等待卖家' },
+  'bot.status.SELLER_ACCEPTED_PACKING': { km: '📦 អ្នកលក់កំពុងរៀបចំ', en: '📦 Seller packing', zh: '📦 卖家备货中' },
   'bot.status.PAID_ESCROWED': { km: '🔒 ការទូទាត់ Escrow ហើយ', en: '🔒 Paid & Escrowed', zh: '🔒 已付款托管' },
-  'bot.status.SELLER_PREPARING': { km: '📦 អ្នកលក់កំពុងរៀបចំ', en: '📦 Seller Preparing', zh: '📦 卖家准备中' },
   'bot.status.SHIPPED': { km: '🚚 ផ្ញើទំនិញហើយ', en: '🚚 Shipped', zh: '🚚 已发货' },
-  'bot.status.BUYER_CONFIRMED': { km: '✅ អ្នកទិញបញ្ជាក់ហើយ', en: '✅ Buyer Confirmed', zh: '✅ 买家已确认' },
   'bot.status.DISPUTED': { km: '⚠️ មានវិវាទ', en: '⚠️ Disputed', zh: '⚠️ 有争议' },
-  'bot.status.RELEASE_PENDING': { km: '🔄 ការផ្ញើប្រាក់កំពុងដំណើរការ', en: '🔄 Release Pending', zh: '🔄 等待释放' },
   'bot.status.RELEASED': { km: '✅ ប្រាក់ត្រូវបានផ្ញើ', en: '✅ Released', zh: '✅ 已释放' },
   'bot.status.REFUNDED': { km: '↩️ ប្រាក់ត្រូវបានដង', en: '↩️ Refunded', zh: '↩️ 已退款' },
   'bot.status.CANCELLED': { km: '❌ បានលុបចោល', en: '❌ Cancelled', zh: '❌ 已取消' },
@@ -216,13 +214,13 @@ const messages: Record<string, Record<BotLang, string>> = {
     zh: '✅ 双方均已确认！买家现在可以付款了。',
   },
   'bot.notify.PAYMENT_PROOF_UPLOADED': {
-    km: '💳 អ្នកទិញបានបញ្ជូនភស្តុតាងការទូទាត់។ Admin កំពុងផ្ទៀងផ្ទាត់។',
-    en: '💳 Buyer submitted payment proof. Admin is verifying.',
-    zh: '💳 买家已提交付款凭证，管理员正在验证。',
+    km: '💳 អ្នកទិញបានរក្សាទុកព័ត៌មានបង់ប្រាក់។ ប្រព័ន្ធកំពុងពិនិត្យ Bakong។',
+    en: '💳 Buyer saved payment details. Bakong checking is running automatically.',
+    zh: '💳 买家已保存付款信息，系统正在自动检查 Bakong。',
   },
   'bot.notify.PAYMENT_VERIFIED': {
-    km: '✅ ការទូទាត់ត្រូវបានផ្ទៀងផ្ទាត់! សូមរៀបចំផ្ញើទំនិញ។',
-    en: '✅ Payment verified! Please ship the item now.',
+    km: '✅ ការទូទាត់ត្រូវបានបញ្ជាក់ដោយស្វ័យប្រវត្តិ! សូមបន្តជំហានបន្ទាប់។',
+    en: '✅ Payment confirmed automatically! Please continue to the next step.',
     zh: '✅ 付款已验证！请现在发货。',
   },
   'bot.notify.PAYMENT_REJECTED': {
@@ -236,9 +234,9 @@ const messages: Record<string, Record<BotLang, string>> = {
     zh: '🚚 卖家已上传发货凭证，收到后请确认。',
   },
   'bot.notify.BUYER_CONFIRMED': {
-    km: '✅ អ្នកទិញបានបញ្ជាក់ហើយ! Admin នឹងដំណើរការការផ្ញើប្រាក់ក្នុងពេលឆាប់ៗ។',
-    en: '✅ Buyer confirmed received! Admin will release payout soon.',
-    zh: '✅ 买家已确认收货！管理员将很快释放款项。',
+    km: '✅ អ្នកទិញបានបញ្ជាក់ថាទទួលបានហើយ។ ប្រព័ន្ធកំពុងផ្ញើប្រាក់ទៅអ្នកលក់។',
+    en: '✅ Buyer confirmed receipt. The system is sending the seller payout.',
+    zh: '✅ 买家已确认收货，系统正在向卖家付款。',
   },
   'bot.notify.DISPUTE_OPENED': {
     km: '⚠️ ការទូទាត់ត្រូវបានដាក់ជាវិវាទ។ Admin នឹងពិនិត្យ។',
@@ -254,6 +252,11 @@ const messages: Record<string, Record<BotLang, string>> = {
     km: '↩️ ការដង់ប្រាក់ត្រូវបានដំណើរការ! ប្រាក់ត្រូវបានផ្ញើត្រលប់ទៅអ្នកទិញ។',
     en: '↩️ Refund completed! Funds sent back to buyer.',
     zh: '↩️ 退款已完成！资金已退回给买家。',
+  },
+  'bot.notify.BUYER_CONFIRMED_PAYOUT_REQUIRED': {
+    km: '🔔 *ត្រូវការផ្ញើប្រាក់ទៅអ្នកលក់!*\n\nអ្នកទិញបានបញ្ជាក់ទទួលបានទំនិញ។ សូម login ទៅ Admin Dashboard ហើយប្រើ Bakong Deeplink ដើម្បីផ្ញើប្រាក់ទៅអ្នកលក់។',
+    en: '🔔 *Payout Required!*\n\nBuyer has confirmed receipt. Please open the Admin Dashboard and use the Bakong Deeplink button to send payment to the seller.',
+    zh: '🔔 *需要付款！*\n\n买家已确认收货。请打开管理员面板，使用 Bakong 深度链接按钮向卖家付款。',
   },
   // ── admin dev ─────────────────────────────────────────────────────────
   'bot.dev.chat_id': {

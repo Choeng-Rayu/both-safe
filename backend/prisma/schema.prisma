@@ -22,6 +22,7 @@ model User {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   deals          Deal[]
+  participants   Participant[]
   oauthAccounts  OAuthAccount[]
   sessions       UserSession[]
 }
@@ -82,9 +83,10 @@ model TelegramIdentity {
 
 // ---------- Deal ----------
 // status enum stored as string
-// values: DRAFT|AWAITING_COUNTERPARTY|AWAITING_BOTH_APPROVAL|READY_FOR_PAYMENT|
-//         PAYMENT_PENDING_VERIFICATION|PAID_ESCROWED|SELLER_PREPARING|SHIPPED|
-//         BUYER_CONFIRMED|DISPUTED|RELEASE_PENDING|RELEASED|REFUNDED|CANCELLED|EXPIRED
+// values: DRAFT|PENDING_BUYER_PAYMENT|PENDING_SELLER_APPROVAL|
+//         PAYMENT_PENDING_VERIFICATION|PAID_WAITING_SELLER_APPROVAL|
+//         SELLER_ACCEPTED_PACKING|PAID_ESCROWED|SHIPPED|DISPUTED|
+//         RELEASED|REFUNDED|CANCELLED|EXPIRED
 
 model Deal {
   id                       String         @id @default(uuid())
@@ -112,6 +114,7 @@ model Deal {
   shipping                 Shipping?
   disputes                 Dispute[]
   ledgerEntries            LedgerEntry[]
+  transferAttempts         TransferAttempt[]
   files                    StoredFile[]
   auditLogs                AuditLog[]
   notifications            Notification[]
@@ -136,6 +139,7 @@ model Product {
 model Participant {
   id                  String   @id @default(uuid())
   dealId              String
+  userId              String?
   role                String   // "buyer" | "seller"
   name                String?
   phone               String?
@@ -147,14 +151,17 @@ model Participant {
   payoutBankName      String?
   payoutAccountName   String?
   payoutAccountNumber String?
+  payoutKhqrImage     String?    // URL to uploaded KHQR image (alternative to typed KHQR string)
   accessTokenHash     String
   approvedAt          DateTime?
   joinedAt            DateTime?
   createdAt           DateTime @default(now())
 
   deal                Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  user                User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([dealId, role])
+  @@index([userId])
   @@index([telegramChatId])
 }
 
@@ -176,6 +183,7 @@ model Payment {
   rejectedReason       String?
   idempotencyKey       String?   @unique
   khqrMd5              String?   // MD5 of KHQR string — used for Bakong auto-verification
+  khqrString           String?   // dynamic KHQR payload shown to buyer
   autoVerified         Boolean   @default(false) // true if verified by background poller not admin
   createdAt            DateTime  @default(now())
 
@@ -199,6 +207,30 @@ model LedgerEntry {
   deal          Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   @@index([dealId, entryType])
+}
+
+// ---------- Outbound transfer attempts ----------
+
+model TransferAttempt {
+  id                   String   @id @default(uuid())
+  dealId               String
+  purpose              String   // seller_payout|buyer_refund
+  amount               Float
+  currency             String
+  status               String   @default("pending") // pending|succeeded|failed
+  idempotencyKey       String   @unique
+  providerReference    String?
+  providerRequestJson  String?
+  providerResponseJson String?
+  failureReason        String?
+  attemptCount         Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  deal                 Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, purpose])
+  @@index([status])
 }
 
 // ---------- Shipping ----------
