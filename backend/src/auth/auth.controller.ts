@@ -56,6 +56,7 @@ export class AuthController {
   // ─── Admin login (existing) ────────────────────────────────────────────────
 
   @Post('admin/login')
+  @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @ApiOperation({ summary: 'Admin login (returns JWT)' })
   async adminLogin(@Body() dto: AdminLoginDto) {

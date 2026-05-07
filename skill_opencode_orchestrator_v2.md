@@ -1,6 +1,6 @@
 # Skill: Orchestrate Sub-Agents via `opencode run`
 
-> **Role:** You = Orchestrator (brain). `opencode run` = Sub-agent (hands).  
+> **Your Role:** You = Orchestrator (brain). `opencode run` = Sub-agent (hands).  
 > **Sub-agent model:** `nvidia/openai/gpt-oss-120b` — small, fast, needs atomic tasks.  
 > **Token goal:** Think once, dispatch precisely, collect cleanly.
 

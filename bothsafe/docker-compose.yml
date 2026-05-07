@@ -7,7 +7,8 @@ services:
       POSTGRES_PASSWORD: bothsafe
       POSTGRES_DB: bothsafe
     ports:
-      - "5432:5432"
+        # 35 for fedora and 32 for ubuntu
+      - "5435:5432" 
     volumes:
       - bothsafe_postgres:/var/lib/postgresql/data
     healthcheck:
@@ -20,7 +21,7 @@ services:
     container_name: bothsafe-redis
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "6382:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s

@@ -18,9 +18,18 @@ import { BOT_NOTIFIER } from '../notifications/bot-notifier.interface';
       inject: [ConfigService],
       useFactory: (cfg: ConfigService) => {
         const token = cfg.get<string>('TELEGRAM_BOT_TOKEN') ?? '';
+        const isEnabled = cfg.get<string>('TELEGRAM_BOT_ENABLED') !== 'false' && token.length > 10;
         const webhookUrl = cfg.get<string>('TELEGRAM_WEBHOOK_URL') ?? '';
         const webhookSecret = cfg.get<string>('TELEGRAM_WEBHOOK_SECRET') ?? '';
         const isDev = cfg.get<string>('NODE_ENV') !== 'production';
+
+        // If bot is disabled (no token or explicitly disabled), skip launch entirely
+        if (!isEnabled) {
+          return {
+            token: 'DISABLED:placeholder_token_bot_not_enabled',
+            launchOptions: false as unknown as undefined,
+          };
+        }
 
         if (isDev || !webhookUrl) {
           // Use long polling in development

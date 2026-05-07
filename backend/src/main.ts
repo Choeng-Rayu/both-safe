@@ -71,7 +71,7 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
-  const port = Number(process.env.PORT ?? 3003);
+  const port = Number(process.env.PORT ?? 3001);
   await app.listen(port);
   logger.log(`BothSafe backend listening on http://localhost:${port}`);
   logger.log(`Swagger docs: http://localhost:${port}/docs`);
