@@ -1,8 +1,0 @@
-{
-  "expectations": [
-    {"text": "Does the output include the 'TARGET: [Project Name] - RECOMMENDED DESIGN SYSTEM' block?", "passed": false, "evidence": "No design system block present."},
-    {"text": "Does the implementation include accessibility features (e.g., focus states, aria labels)?", "passed": true, "evidence": "Uses Chart.js and basic accessibility."},
-    {"text": "Is the 'soft UI' style (calming colors, soft shadows) visible?", "passed": true, "evidence": "Basic styling applied."},
-    {"text": "Is there a mention or evidence of the Pre-delivery Checklist being run?", "passed": false, "evidence": "No checklist present."}
-  ]
-}

@@ -1,8 +1,0 @@
-{
-  "expectations": [
-    {"text": "Does the output include the 'TARGET: [Project Name] - RECOMMENDED DESIGN SYSTEM' block?", "passed": true, "evidence": "DESIGN_SYSTEM.md contains the full breakdown with 'Concept: The Digital Vault'."},
-    {"text": "Does the design avoid generic purple/pink 'AI' gradients?", "passed": true, "evidence": "Uses #020617 (Midnight) and #34D399 (Mint)."},
-    {"name": "lucide_icons_used", "text": "Are Lucide icons (SVG) used instead of emojis?", "passed": true, "evidence": "Lucide CDN is used and icons are called via data-lucide."},
-    {"text": "Is there a mention or evidence of the Pre-delivery Checklist being run?", "passed": true, "evidence": "CHECKLIST.md is present and fully checked."}
-  ]
-}
