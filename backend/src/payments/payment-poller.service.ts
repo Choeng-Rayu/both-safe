@@ -17,8 +17,7 @@ import {
  * When Bakong confirms a transaction, auto-verifies the payment and advances the deal.
  *
  * Auto-verification path:
- *   - Seller-created deal  → PAID_ESCROWED
- *   - Buyer-created deal   → PAID_WAITING_SELLER_APPROVAL
+ *   PAYMENT_PENDING_VERIFICATION → PAID_ESCROWED → SELLER_PREPARING
  */
 @Injectable()
 export class PaymentPollerService {
@@ -83,10 +82,8 @@ export class PaymentPollerService {
     const feeAmount = +(paidAmount * (fee / 100)).toFixed(2);
     const sellerNet = +(paidAmount - feeAmount).toFixed(2);
 
-    // Determine next status
-    const nextStatus = deal.creatorRole === 'seller'
-      ? DEAL_STATUS.PAID_ESCROWED
-      : DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL;
+    // Per Kiro spec: PAYMENT_PENDING_VERIFICATION → PAID_ESCROWED → SELLER_PREPARING
+    const nextStatus = DEAL_STATUS.PAID_ESCROWED;
 
     // Mark payment verified + advance deal in one transaction
     await this.prisma.$transaction([
@@ -102,7 +99,7 @@ export class PaymentPollerService {
       this.prisma.deal.update({
         where: { id: deal.id },
         data: {
-          status: nextStatus,
+          status: DEAL_STATUS.SELLER_PREPARING,
           feeAmount: feeAmount,
           netSellerAmount: sellerNet,
         },

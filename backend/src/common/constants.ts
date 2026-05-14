@@ -1,42 +1,19 @@
 export const DEAL_STATUS = {
-  // Deal just created, missing fields
   DRAFT: 'DRAFT',
-
-  // Seller created deal first — waiting buyer to pay
-  PENDING_BUYER_PAYMENT: 'PENDING_BUYER_PAYMENT',
-
-  // Buyer created deal first — waiting seller to join & accept (buyer may or may not have paid yet)
-  PENDING_SELLER_APPROVAL: 'PENDING_SELLER_APPROVAL',
-
-  // Buyer uploaded payment proof — admin is verifying
+  AWAITING_COUNTERPARTY: 'AWAITING_COUNTERPARTY',
+  AWAITING_BOTH_APPROVAL: 'AWAITING_BOTH_APPROVAL',
+  READY_FOR_PAYMENT: 'READY_FOR_PAYMENT',
   PAYMENT_PENDING_VERIFICATION: 'PAYMENT_PENDING_VERIFICATION',
-
-  // Admin verified payment (buyer-created flow) — seller still needs to accept
-  PAID_WAITING_SELLER_APPROVAL: 'PAID_WAITING_SELLER_APPROVAL',
-
-  // Seller accepted and committed to ship (buyer-created flow, after payment verified)
-  SELLER_ACCEPTED_PACKING: 'SELLER_ACCEPTED_PACKING',
-
-  // Admin verified payment (seller-created flow) — seller can now pack immediately
   PAID_ESCROWED: 'PAID_ESCROWED',
-
-  // Seller uploaded shipping proof
+  SELLER_PREPARING: 'SELLER_PREPARING',
   SHIPPED: 'SHIPPED',
-
-  // Dispute opened
-  DISPUTED: 'DISPUTED',
-
-  // Money sent to seller
+  BUYER_CONFIRMED: 'BUYER_CONFIRMED',
+  RELEASE_PENDING: 'RELEASE_PENDING',
   RELEASED: 'RELEASED',
-
-  // Money returned to buyer
   REFUNDED: 'REFUNDED',
-
-  // Buyer cancelled before seller accepted
   CANCELLED: 'CANCELLED',
-
-  // Deal expired
   EXPIRED: 'EXPIRED',
+  DISPUTED: 'DISPUTED',
 } as const;
 
 export type DealStatus = (typeof DEAL_STATUS)[keyof typeof DEAL_STATUS];
@@ -68,13 +45,8 @@ export const NOTIFICATION_EVENTS = {
   PAYMENT_VERIFIED: 'PAYMENT_VERIFIED',
   PAYMENT_REJECTED: 'PAYMENT_REJECTED',
   SELLER_SHOULD_SHIP: 'SELLER_SHOULD_SHIP',
-  SELLER_ACCEPTED: 'SELLER_ACCEPTED',
-  SELLER_REJECTED_DEAL: 'SELLER_REJECTED_DEAL',
-  DEAL_CANCELLED_BY_BUYER: 'DEAL_CANCELLED_BY_BUYER',
-  TRANSFER_FAILED: 'TRANSFER_FAILED',
   SHIPPING_UPLOADED: 'SHIPPING_UPLOADED',
   BUYER_CONFIRMED: 'BUYER_CONFIRMED',
-  BUYER_CONFIRMED_PAYOUT_REQUIRED: 'BUYER_CONFIRMED_PAYOUT_REQUIRED', // admin action needed
   DISPUTE_OPENED: 'DISPUTE_OPENED',
   PAYOUT_RELEASED: 'PAYOUT_RELEASED',
   REFUND_COMPLETED: 'REFUND_COMPLETED',
@@ -108,9 +80,6 @@ export const MESSAGE_KEYS = {
   INVALID_TRANSITION: 'deal.invalid_transition',
   APPROVED: 'deal.approved',
   BOTH_APPROVED: 'deal.both_approved',
-  SELLER_ACCEPTED: 'deal.seller_accepted',
-  SELLER_REJECTED: 'deal.seller_rejected',
-  DEAL_CANCELLED: 'deal.cancelled',
   PAYMENT_NOT_READY: 'payment.not_ready',
   PAYMENT_PROOF_UPLOADED: 'payment.proof_uploaded',
   PAYMENT_VERIFIED: 'payment.verified',
@@ -121,6 +90,7 @@ export const MESSAGE_KEYS = {
   DISPUTE_OPENED: 'dispute.opened',
   RELEASED: 'deal.released',
   REFUNDED: 'deal.refunded',
+  DEAL_CANCELLED: 'deal.cancelled',
   TRANSFER_FAILED: 'transfer.failed',
   FORBIDDEN: 'auth.forbidden',
   RATE_LIMITED: 'auth.rate_limited',

@@ -3,9 +3,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TelegrafModule } from 'nestjs-telegraf';
 import { PrismaModule } from '../prisma/prisma.module';
 import { DealsModule } from '../deals/deals.module';
+import { AuditModule } from '../common/services/audit.module';
 import { BotUpdate } from './bot.update';
 import { BotStateService } from './bot-state.service';
 import { BotTelegramService } from './bot-telegram.service';
+import { BotRateLimiterService } from './bot-rate-limiter.service';
+import { BotWebhookGuard } from './bot-webhook.guard';
+import { BotCleanupService } from './bot-cleanup.service';
 import { BOT_NOTIFIER } from '../notifications/bot-notifier.interface';
 
 @Module({
@@ -13,6 +17,7 @@ import { BOT_NOTIFIER } from '../notifications/bot-notifier.interface';
     ConfigModule,
     PrismaModule,
     DealsModule,
+    AuditModule,
     TelegrafModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -53,6 +58,9 @@ import { BOT_NOTIFIER } from '../notifications/bot-notifier.interface';
     BotUpdate,
     BotStateService,
     BotTelegramService,
+    BotRateLimiterService,
+    BotWebhookGuard,
+    BotCleanupService,
     // Provide BotTelegramService under the BOT_NOTIFIER injection token
     // so NotificationService can call it without a circular dependency.
     {
@@ -60,6 +68,6 @@ import { BOT_NOTIFIER } from '../notifications/bot-notifier.interface';
       useExisting: BotTelegramService,
     },
   ],
-  exports: [BotTelegramService, BotStateService, BOT_NOTIFIER],
+  exports: [BotTelegramService, BotStateService, BotRateLimiterService, BotWebhookGuard, BOT_NOTIFIER],
 })
 export class BotModule {}

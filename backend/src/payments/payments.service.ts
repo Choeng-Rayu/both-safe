@@ -49,14 +49,11 @@ export class PaymentsService {
     }
 
     try {
-      // Dynamic QR (with amount) requires expirationTimestamp in milliseconds (13 digits)
-      // We set expiry to 60 minutes from now
       const expirationTimestamp = Date.now() + 60 * 60 * 1000;
-
       const optional: Record<string, unknown> = {
         currency: khqrData.currency.usd,
         storeLabel: 'BothSafe',
-        billNumber: publicId.slice(0, 25), // max 25 chars per spec
+        billNumber: publicId.slice(0, 25),
       };
 
       if (amount && amount > 0) {
@@ -161,6 +158,12 @@ export class PaymentsService {
       },
     });
 
+    // Transition deal to PAYMENT_PENDING_VERIFICATION
+    await this.prisma.deal.update({
+      where: { id: deal.id },
+      data: { status: DEAL_STATUS.PAYMENT_PENDING_VERIFICATION },
+    });
+
     await this.audit.record({
       dealId: deal.id,
       actorType: 'participant',
@@ -198,12 +201,6 @@ export class PaymentsService {
       orderBy: { createdAt: 'desc' },
     });
     if (existing) {
-      if (deal.status !== DEAL_STATUS.PAYMENT_PENDING_VERIFICATION && existing.adminStatus === 'pending') {
-        await this.prisma.deal.update({
-          where: { id: deal.id },
-          data: { status: DEAL_STATUS.PAYMENT_PENDING_VERIFICATION },
-        });
-      }
       return existing;
     }
 
@@ -222,11 +219,6 @@ export class PaymentsService {
       },
     });
 
-    await this.prisma.deal.update({
-      where: { id: deal.id },
-      data: { status: DEAL_STATUS.PAYMENT_PENDING_VERIFICATION },
-    });
-
     await this.audit.record({
       dealId: deal.id,
       actorType: 'system',
@@ -242,6 +234,9 @@ export class PaymentsService {
   async adminVerify(paymentId: string, adminId: string) {
     const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
     if (!payment) throw new NotFoundException({ messageKey: 'payment.not_found' });
+    if (payment.adminStatus === 'verified') {
+      throw new ConflictException({ messageKey: 'payment.already_verified' });
+    }
     if (payment.adminStatus !== 'pending') {
       throw new ConflictException({ messageKey: 'payment.already_decided' });
     }
@@ -253,13 +248,6 @@ export class PaymentsService {
     const fee = +((payment.paidAmount ?? deal.amount ?? 0) * (platformFeePct / 100)).toFixed(2);
     const sellerNet = +((payment.paidAmount ?? deal.amount ?? 0) - fee).toFixed(2);
 
-    // Determine next status based on creator role:
-    // - Seller created deal → PAID_ESCROWED (seller can pack immediately)
-    // - Buyer created deal → PAID_WAITING_SELLER_APPROVAL (seller must still accept)
-    const nextStatus = deal.creatorRole === 'seller'
-      ? DEAL_STATUS.PAID_ESCROWED
-      : DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL;
-
     await this.prisma.$transaction([
       this.prisma.payment.update({
         where: { id: paymentId },
@@ -268,12 +256,18 @@ export class PaymentsService {
       this.prisma.deal.update({
         where: { id: deal.id },
         data: {
-          status: nextStatus,
+          status: DEAL_STATUS.PAID_ESCROWED,
           feeAmount: fee,
           netSellerAmount: sellerNet,
         },
       }),
     ]);
+
+    // Auto-transition to SELLER_PREPARING
+    await this.prisma.deal.update({
+      where: { id: deal.id },
+      data: { status: DEAL_STATUS.SELLER_PREPARING },
+    });
 
     await this.ledger.append({
       dealId: deal.id,
@@ -311,8 +305,19 @@ export class PaymentsService {
       ],
     });
 
+    // Notify seller to ship
+    await this.notif.notify({
+      dealId: deal.id,
+      eventKey: NOTIFICATION_EVENTS.SELLER_SHOULD_SHIP,
+      messageKey: 'seller.should_ship',
+      recipients: [
+        ...(seller ? [{ channel: 'inapp' as const, ref: seller.id }] : []),
+        ...(seller?.telegramChatId ? [{ channel: 'telegram' as const, ref: seller.telegramChatId }] : []),
+      ],
+    });
+
     return {
-      deal_status: nextStatus,
+      deal_status: DEAL_STATUS.SELLER_PREPARING,
       ledger_entries: await this.ledger.list(deal.id),
     };
   }
@@ -326,7 +331,6 @@ export class PaymentsService {
 
     const deal = await this.prisma.deal.findUnique({ where: { id: payment.dealId }, include: { participants: true } });
     if (!deal) throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
-    const revertStatus = deal.creatorRole === 'seller' ? DEAL_STATUS.PENDING_BUYER_PAYMENT : DEAL_STATUS.PENDING_SELLER_APPROVAL;
 
     await this.prisma.$transaction([
       this.prisma.payment.update({
@@ -335,7 +339,7 @@ export class PaymentsService {
       }),
       this.prisma.deal.update({
         where: { id: payment.dealId },
-        data: { status: revertStatus },
+        data: { status: DEAL_STATUS.READY_FOR_PAYMENT },
       }),
     ]);
 
@@ -359,14 +363,11 @@ export class PaymentsService {
       payload: { reason },
     });
 
-    return { deal_status: revertStatus, rejected_reason: reason };
+    return { deal_status: DEAL_STATUS.READY_FOR_PAYMENT, rejected_reason: reason };
   }
 
   /**
    * Check a Bakong transaction by MD5 hash via the Bakong Open API.
-   * Used by admin to verify that money actually reached the BothSafe account.
-   * Requires BAKONG_API_TOKEN in env.
-   * Returns raw API response so admin UI can display confirmation.
    */
   async checkBakongTransaction(md5: string): Promise<{ confirmed: boolean; data: unknown }> {
     const token = this.cfg.get<string>('BAKONG_API_TOKEN');

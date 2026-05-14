@@ -1,0 +1,126 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e48] [cursor=pointer]:
+    - img [ref=e49]
+  - alert [ref=e52]: BothSafe
+  - generic [ref=e58]:
+    - banner [ref=e59]:
+      - generic [ref=e60]:
+        - link "BothSafe Logo BothSafe Protected deal rooms" [ref=e61] [cursor=pointer]:
+          - /url: /
+          - img "BothSafe Logo" [ref=e63]
+          - generic [ref=e64]:
+            - generic [ref=e65]: BothSafe
+            - generic [ref=e66]: Protected deal rooms
+        - generic [ref=e67]:
+          - img [ref=e69]
+          - button "KM" [ref=e73] [cursor=pointer]
+          - button "EN" [pressed] [ref=e74] [cursor=pointer]
+          - button "中文" [ref=e75] [cursor=pointer]
+    - main [ref=e76]:
+      - generic [ref=e77]:
+        - generic [ref=e78]:
+          - generic [ref=e79]:
+            - generic [ref=e80]:
+              - generic [ref=e81]:
+                - heading "Next step" [level=2] [ref=e82]
+                - paragraph [ref=e83]: Keep this link safe. Anyone with it can access this deal.
+              - generic [ref=e84]: AWAITING_COUNTERPARTY
+            - generic [ref=e86]:
+              - generic [ref=e87]:
+                - generic [ref=e88]: Product
+                - generic [ref=e89]: iPhone 15 Pro
+              - generic [ref=e90]:
+                - generic [ref=e91]: Buyer
+                - generic [ref=e92]: "--"
+              - generic [ref=e93]:
+                - generic [ref=e94]: Seller
+                - generic [ref=e95]: Test Buyer
+          - generic [ref=e96]:
+            - generic [ref=e97]:
+              - heading "Product" [level=2] [ref=e99]
+              - button [ref=e100] [cursor=pointer]:
+                - img [ref=e101]
+            - generic [ref=e105]:
+              - generic [ref=e106]:
+                - generic [ref=e107]: iPhone 15 Pro
+                - generic [ref=e108]: "--"
+              - paragraph [ref=e109]: Brand new iPhone 15 Pro 256GB
+              - generic [ref=e110]:
+                - generic [ref=e111]:
+                  - generic [ref=e112]: Qty
+                  - generic [ref=e113]: "1"
+                - generic [ref=e114]:
+                  - generic [ref=e115]: Condition
+                  - generic [ref=e116]: "--"
+          - generic [ref=e117]:
+            - generic [ref=e118]:
+              - heading "Participants" [level=2] [ref=e120]
+              - button [ref=e121] [cursor=pointer]:
+                - img [ref=e122]
+            - generic [ref=e126]:
+              - generic [ref=e127]:
+                - generic [ref=e128]: Seller
+                - generic [ref=e129]: "--"
+              - generic [ref=e130]:
+                - generic [ref=e131]: Test Buyer
+                - generic [ref=e132]: en
+                - generic [ref=e133]: Payout pending
+          - generic [ref=e134]:
+            - generic [ref=e135]:
+              - generic [ref=e136]:
+                - heading "Seller payout info" [level=2] [ref=e137]
+                - paragraph [ref=e138]: Enter your Bakong account or bank account. Money will be sent here after the buyer confirms delivery.
+              - button [ref=e139] [cursor=pointer]:
+                - img [ref=e140]
+            - paragraph [ref=e143]: ⚠ No payout info yet. Add your Bakong ID or bank account so you can receive payment.
+          - generic [ref=e144]:
+            - heading "Price summary" [level=2] [ref=e147]
+            - generic [ref=e148]:
+              - generic [ref=e149]:
+                - generic [ref=e150]: Deal amount
+                - generic [ref=e151]: $500.00
+              - generic [ref=e152]:
+                - generic [ref=e153]: BothSafe fee
+                - generic [ref=e154]: $10.00
+              - generic [ref=e155]:
+                - generic [ref=e156]: Seller receives
+                - generic [ref=e157]: $490.00
+          - generic [ref=e158]:
+            - generic [ref=e159]:
+              - heading "How protection works" [level=2] [ref=e161]
+              - img [ref=e163]
+            - paragraph [ref=e165]: Buyer pays BothSafe first. Seller gets paid only after the buyer confirms delivery or an admin resolves a dispute.
+          - generic [ref=e166]:
+            - heading "Still needed before the next step" [level=2] [ref=e169]
+            - list [ref=e170]:
+              - listitem [ref=e171]:
+                - img [ref=e172]
+                - generic [ref=e174]: product.type
+              - listitem [ref=e175]:
+                - img [ref=e176]
+                - generic [ref=e178]: buyer
+              - listitem [ref=e179]:
+                - img [ref=e180]
+                - generic [ref=e182]: seller.payout_khqr
+          - generic [ref=e183]:
+            - generic [ref=e184]:
+              - heading "Delivery" [level=2] [ref=e186]
+              - button [ref=e187] [cursor=pointer]:
+                - img [ref=e188]
+            - paragraph [ref=e191]: Delivery notes are still optional for this MVP.
+          - generic [ref=e192]:
+            - heading "Deal timeline" [level=2] [ref=e195]
+            - paragraph [ref=e196]: No updates yet.
+        - complementary [ref=e197]:
+          - generic [ref=e198]:
+            - heading "Next step" [level=2] [ref=e201]
+            - generic [ref=e202]:
+              - button "Retry" [ref=e203] [cursor=pointer]
+              - button "Copy link" [ref=e204] [cursor=pointer]:
+                - img [ref=e205]
+                - text: Copy link
+              - link "Share invite link" [ref=e208] [cursor=pointer]:
+                - /url: http://localhost:3000/d/kxjchzjfrd?invite=e1G4DzzMmKdYdKjna26aq2tNrcBhqkTgVo_ZGmYWpkI
+                - generic [ref=e209]:
+                  - text: Share invite link
+                  - img [ref=e210]

@@ -15,9 +15,17 @@ import type { Context } from 'telegraf';
 import { Markup } from 'telegraf';
 import { DealsService } from '../deals/deals.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../common/services/audit.service';
 import { BotStateService } from './bot-state.service';
+import { BotRateLimiterService } from './bot-rate-limiter.service';
 import type { BotLang } from './bot.messages';
 import { t } from './bot.messages';
+import { sanitizeText } from '../common/utils/sanitize';
+
+const MAX_PRODUCT_TITLE_LENGTH = 200;
+const MAX_NOTE_LENGTH = 500;
+const MAX_AMOUNT = 1_000_000_000;
+const MIN_AMOUNT = 1;
 
 /**
  * BotUpdate — main Telegraf update handler.
@@ -36,6 +44,8 @@ export class BotUpdate {
     private readonly dealsService: DealsService,
     private readonly prisma: PrismaService,
     private readonly stateService: BotStateService,
+    private readonly audit: AuditService,
+    private readonly rateLimiter: BotRateLimiterService,
   ) {
     this.appBase = this.cfg.get<string>('APP_BASE_URL') ?? 'http://localhost:3000';
     const adminIds = this.cfg.get<string>('TELEGRAM_ADMIN_CHAT_IDS') ?? '';
@@ -56,12 +66,23 @@ export class BotUpdate {
       lastName: from?.last_name,
     });
 
-    const lang = await this.getLang(chatId);
-    await ctx.reply(t('bot.start.title', lang), {
+    // Detect user's Telegram language preference
+    const tgLang = from?.language_code ?? 'en';
+    const detectedLang: BotLang = tgLang.startsWith('zh') ? 'zh' : tgLang.startsWith('km') ? 'km' : 'en';
+    await this.stateService.upsertLanguage(chatId, detectedLang);
+
+    // Audit log: user registration
+    await this.audit.record({
+      actorType: 'system',
+      action: 'bot.user.start',
+      details: { telegram_chat_id: chatId, username: from?.username, language: detectedLang },
+    });
+
+    await ctx.reply(t('bot.start.title', detectedLang), {
       parse_mode: 'Markdown',
       ...Markup.keyboard([
-        [t('bot.menu.create_deal', lang), t('bot.menu.my_deals', lang)],
-        [t('bot.menu.language', lang), t('bot.menu.help', lang)],
+        [t('bot.menu.create_deal', detectedLang), t('bot.menu.my_deals', detectedLang)],
+        [t('bot.menu.language', detectedLang), t('bot.menu.help', detectedLang)],
       ]).resize(),
     });
   }
@@ -72,6 +93,17 @@ export class BotUpdate {
   async onNewDeal(@Ctx() ctx: Context): Promise<void> {
     const chatId = String(ctx.chat?.id ?? '');
     if (!chatId) return;
+
+    // Rate limit check
+    const rateCheck = await this.rateLimiter.checkDealCreation(chatId);
+    if (!rateCheck.allowed) {
+      const lang = await this.getLang(chatId);
+      await ctx.reply(
+        `${t('bot.error.rate_limit_exceeded', lang)}\n\n⏳ ${t('bot.error.retry_after', lang)} ${Math.ceil(rateCheck.retryAfterSeconds! / 60)} min`,
+        { parse_mode: 'Markdown' },
+      );
+      return;
+    }
 
     const lang = await this.getLang(chatId);
     await this.stateService.startNewDeal(chatId);
@@ -195,6 +227,21 @@ export class BotUpdate {
 
     const lang = await this.getLang(chatId);
 
+    // Command rate limit check
+    const cmdRate = await this.rateLimiter.checkCommand(chatId);
+    if (!cmdRate.allowed) {
+      await ctx.reply(t('bot.error.too_many_requests', lang));
+      return;
+    }
+    await this.rateLimiter.recordCommand(chatId);
+
+    // Deduplicate identical messages within 2 seconds
+    const isDup = await this.rateLimiter.isDuplicateMessage(chatId, text);
+    if (isDup) {
+      this.logger.debug(`Duplicate message ignored from chatId=${chatId}`);
+      return;
+    }
+
     // Cancel button text
     if (text.includes('❌') && text.toLowerCase().includes('cancel')) {
       await this.stateService.clearFlow(chatId);
@@ -251,11 +298,12 @@ export class BotUpdate {
       }
 
       case 'ask_title': {
-        if (!text || text.length > 200) {
-          await ctx.reply(t('bot.deal.ask_title', lang));
+        const sanitized = sanitizeText(text, MAX_PRODUCT_TITLE_LENGTH);
+        if (!sanitized || sanitized.length === 0) {
+          await ctx.reply(t('bot.error.empty_input', lang));
           return;
         }
-        await this.stateService.update(chatId, { step: 'ask_price', productTitle: text });
+        await this.stateService.update(chatId, { step: 'ask_price', productTitle: sanitized });
         await ctx.reply(t('bot.deal.ask_price', lang), {
           parse_mode: 'Markdown',
           ...Markup.keyboard([[t('bot.deal.cancel', lang)]]).resize(),
@@ -264,12 +312,61 @@ export class BotUpdate {
       }
 
       case 'ask_price': {
-        const amount = parseFloat(text.replace(/[,$]/g, ''));
-        if (isNaN(amount) || amount <= 0) {
+        const amount = parseFloat(text.replace(/[,\s$]/g, ''));
+
+        // Check retry count
+        let retryCount = state.amountRetryCount ?? 0;
+
+        if (isNaN(amount)) {
+          retryCount++;
+          if (retryCount >= 3) {
+            await this.stateService.clearFlow(chatId);
+            await ctx.reply(t('bot.error.too_many_retries', lang));
+            return;
+          }
+          await this.stateService.update(chatId, { amountRetryCount: retryCount });
+          await ctx.reply(t('bot.error.not_a_number', lang));
+          return;
+        }
+
+        if (amount <= 0) {
+          retryCount++;
+          if (retryCount >= 3) {
+            await this.stateService.clearFlow(chatId);
+            await ctx.reply(t('bot.error.too_many_retries', lang));
+            return;
+          }
+          await this.stateService.update(chatId, { amountRetryCount: retryCount });
           await ctx.reply(t('bot.error.invalid_amount', lang));
           return;
         }
-        await this.stateService.update(chatId, { step: 'ask_extra', amount: String(amount) });
+
+        if (amount < MIN_AMOUNT) {
+          retryCount++;
+          if (retryCount >= 3) {
+            await this.stateService.clearFlow(chatId);
+            await ctx.reply(t('bot.error.too_many_retries', lang));
+            return;
+          }
+          await this.stateService.update(chatId, { amountRetryCount: retryCount });
+          await ctx.reply(t('bot.error.amount_too_small', lang));
+          return;
+        }
+
+        if (amount > MAX_AMOUNT) {
+          retryCount++;
+          if (retryCount >= 3) {
+            await this.stateService.clearFlow(chatId);
+            await ctx.reply(t('bot.error.too_many_retries', lang));
+            return;
+          }
+          await this.stateService.update(chatId, { amountRetryCount: retryCount });
+          await ctx.reply(t('bot.error.amount_too_large', lang));
+          return;
+        }
+
+        // Valid amount — reset retry count
+        await this.stateService.update(chatId, { step: 'ask_extra', amount: String(amount), amountRetryCount: 0 });
 
         const extraKey = state.creatorRole === 'seller' ? 'bot.deal.ask_type_seller' : 'bot.deal.ask_note_buyer';
         await ctx.reply(t(extraKey, lang), {
@@ -287,9 +384,11 @@ export class BotUpdate {
         const isSkip = text.includes('⏭️') || text.toLowerCase() === 'skip' || text === '跳过' || text === 'រំលង';
 
         if (state.creatorRole === 'seller' && !isSkip) {
-          await this.stateService.update(chatId, { productType: text });
+          const sanitized = sanitizeText(text, MAX_NOTE_LENGTH);
+          await this.stateService.update(chatId, { productType: sanitized });
         } else if (state.creatorRole === 'buyer' && !isSkip) {
-          await this.stateService.update(chatId, { note: text });
+          const sanitized = sanitizeText(text, MAX_NOTE_LENGTH);
+          await this.stateService.update(chatId, { note: sanitized });
         }
 
         // reload state after update
@@ -322,6 +421,17 @@ export class BotUpdate {
         amount: state.amount ? parseFloat(state.amount) : undefined,
         product_type: state.creatorRole === 'seller' ? (state.productType ?? undefined) : undefined,
         product_description: state.creatorRole === 'buyer' ? (state.note ?? undefined) : undefined,
+      });
+
+      // Record rate limit hit for deal creation
+      await this.rateLimiter.recordDealCreation(chatId);
+
+      // Audit log: deal creation via bot
+      await this.audit.record({
+        dealId: result.public_id,
+        actorType: 'participant',
+        action: 'bot.deal.created',
+        details: { telegram_chat_id: chatId, creator_role: state.creatorRole, source: 'telegram' },
       });
 
       await this.stateService.clearFlow(chatId);
@@ -368,10 +478,16 @@ export class BotUpdate {
 
   private async handleMyDeals(ctx: Context, chatId: string, lang: BotLang): Promise<void> {
     try {
+      // Fetch deals where user is creator OR participant
       const deals = await this.prisma.deal.findMany({
-        where: { createdByTelegramChatId: chatId },
+        where: {
+          OR: [
+            { createdByTelegramChatId: chatId },
+            { participants: { some: { telegramChatId: chatId } } },
+          ],
+        },
         orderBy: { createdAt: 'desc' },
-        take: 5,
+        take: 10,
         include: { product: true },
       });
 
@@ -424,6 +540,13 @@ export class BotUpdate {
     } catch {
       // ignore if not found
     }
+
+    // Audit log: language change
+    await this.audit.record({
+      actorType: 'system',
+      action: 'bot.language.changed',
+      details: { telegram_chat_id: chatId, language: lang },
+    });
 
     if ('answerCbQuery' in ctx) {
       await (ctx as any).answerCbQuery();

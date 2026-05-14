@@ -21,9 +21,12 @@ export interface BotStateData {
   productType: string | null;
   note: string | null;
   expiresAt: Date | null;
+  /** Number of consecutive invalid amount attempts */
+  amountRetryCount: number;
 }
 
-const STATE_TTL_MINUTES = 15;
+/** Conversation TTL in minutes */
+const STATE_TTL_MINUTES = 10;
 
 @Injectable()
 export class BotStateService {
@@ -49,6 +52,7 @@ export class BotStateService {
         productType: null,
         note: null,
         expiresAt: null,
+        amountRetryCount: 0,
       };
     }
 
@@ -63,6 +67,7 @@ export class BotStateService {
       productType: row.productType ?? null,
       note: row.note ?? null,
       expiresAt: row.expiresAt ?? null,
+      amountRetryCount: 0,
     };
   }
 
@@ -165,5 +170,20 @@ export class BotStateService {
         lastName: info.lastName ?? undefined,
       },
     });
+  }
+
+  /** Delete all expired conversation states. Call from a scheduled job. */
+  async cleanupExpired(): Promise<number> {
+    try {
+      const result = await this.prisma.botState.deleteMany({
+        where: {
+          expiresAt: { lt: new Date() },
+        },
+      });
+      return result.count;
+    } catch (err) {
+      this.logger.warn(`cleanupExpired failed: ${(err as Error).message}`);
+      return 0;
+    }
   }
 }

@@ -14,11 +14,9 @@ import { DEAL_STATUS, DealStatus, MESSAGE_KEYS, NOTIFICATION_EVENTS } from '../c
 import { CreateDealDto } from './dto/create-deal.dto';
 import { JoinDealDto } from './dto/join-deal.dto';
 import { UpdateDeliveryDto, UpdateParticipantDto, UpdatePayoutDto, UpdateProductDto } from './dto/update-sections.dto';
-import { SellerAcceptDto } from './dto/seller-accept.dto';
 import { computeMissingFields, type DealLike } from './missing-fields';
-import { assertTransition, canBuyerCancel, canSellerAccept, canSellerReject, isPostPayment } from './status.engine';
+import { assertTransition, canCancel, canConfirmReceived, canOpenDispute, canUploadPaymentProof, canUploadShippingProof, isPostPayment, isTerminal } from './status.engine';
 import type { RequestActor } from '../common/decorators/current-actor.decorator';
-import { TransfersService } from '../transfers/transfers.service';
 
 @Injectable()
 export class DealsService {
@@ -27,7 +25,6 @@ export class DealsService {
     private readonly cfg: ConfigService,
     private readonly audit: AuditService,
     private readonly notif: NotificationService,
-    private readonly transfers: TransfersService,
   ) {}
 
   private appBase(): string { return this.cfg.get<string>('APP_BASE_URL') ?? 'http://localhost:3000'; }
@@ -52,23 +49,24 @@ export class DealsService {
     const role = actor.role;
     const acts: string[] = [];
 
-    if (status === DEAL_STATUS.DRAFT) {
+    if (status === DEAL_STATUS.DRAFT || status === DEAL_STATUS.AWAITING_COUNTERPARTY) {
       acts.push('share_invite_link', 'update_product', 'update_participant');
     }
-    if (status === DEAL_STATUS.PENDING_BUYER_PAYMENT || status === DEAL_STATUS.PENDING_SELLER_APPROVAL) {
-      acts.push('share_invite_link');
-      if (role === 'buyer') acts.push('upload_payment_proof');
+    if (status === DEAL_STATUS.AWAITING_BOTH_APPROVAL) {
+      acts.push('approve');
+      if (role) acts.push('update_product', 'update_participant');
     }
-    if (canBuyerCancel(status) && role === 'buyer') acts.push('buyer_cancel');
-    if (canSellerAccept(status) && role === 'seller') acts.push('seller_accept');
-    if (canSellerReject(status) && role === 'seller') acts.push('seller_reject');
-    if ((status === DEAL_STATUS.SELLER_ACCEPTED_PACKING || status === DEAL_STATUS.PAID_ESCROWED) && role === 'seller') {
+    if (status === DEAL_STATUS.READY_FOR_PAYMENT && role === 'buyer') {
+      acts.push('upload_payment_proof');
+    }
+    if (canCancel(status) && role === 'buyer') acts.push('cancel');
+    if ((status === DEAL_STATUS.PAID_ESCROWED || status === DEAL_STATUS.SELLER_PREPARING) && role === 'seller') {
       acts.push('upload_shipping_proof');
     }
-    if (status === DEAL_STATUS.SHIPPED && role === 'buyer') acts.push('confirm_received', 'open_dispute');
-    if (['PAID_WAITING_SELLER_APPROVAL','SELLER_ACCEPTED_PACKING','PAID_ESCROWED','SHIPPED'].includes(status)) {
-      acts.push('open_dispute');
+    if (status === DEAL_STATUS.SHIPPED && role === 'buyer') {
+      acts.push('confirm_received', 'open_dispute');
     }
+    if (canOpenDispute(status)) acts.push('open_dispute');
     if (actor.type === 'admin') acts.push('admin_review');
     return [...new Set(acts)];
   }
@@ -104,7 +102,7 @@ export class DealsService {
         quantity: deal.product.quantity,
         condition: deal.product.condition,
       } : null,
-      ...missing,
+      missing_fields: missing,
       allowed_actions: this.allowedActions(deal, actor),
     };
   }
@@ -116,17 +114,16 @@ export class DealsService {
     const inviteTtlH = Number(this.cfg.get<string>('INVITE_TOKEN_TTL_HOURS') ?? '72');
     const dealTtlH = Number(this.cfg.get<string>('DEAL_EXPIRES_HOURS') ?? '720');
 
-    // Determine initial status based on creator role
-    const initialStatus = dto.creator_role === 'seller'
-      ? DEAL_STATUS.PENDING_BUYER_PAYMENT
-      : DEAL_STATUS.PENDING_SELLER_APPROVAL;
+    // Start as DRAFT, transition to AWAITING_COUNTERPARTY if minimum fields present
+    const hasMinimumFields = !!(dto.product_title && dto.amount && dto.amount > 0 && dto.creator_name);
+    const initialStatus = hasMinimumFields ? DEAL_STATUS.AWAITING_COUNTERPARTY : DEAL_STATUS.DRAFT;
 
     const deal = await this.prisma.deal.create({
       data: {
         publicId,
         creatorRole: dto.creator_role,
         source: dto.source,
-        status: (dto.product_title && dto.amount && dto.amount > 0) ? initialStatus : DEAL_STATUS.DRAFT,
+        status: initialStatus,
         currency: dto.currency ?? this.cfg.get<string>('DEFAULT_CURRENCY') ?? 'USD',
         amount: dto.amount ?? null,
         createdByUserId: userId ?? null,
@@ -163,7 +160,7 @@ export class DealsService {
     const urls = this.buildUrls(publicId, creatorAccess, inviteToken);
     const fresh = await this.loadDeal(publicId);
     const missing = computeMissingFields(fresh);
-    return { public_id: publicId, status: fresh.status, ...urls, ...missing, message_key: MESSAGE_KEYS.DEAL_CREATED };
+    return { public_id: publicId, status: fresh.status, ...urls, missing_fields: missing, allowed_actions: this.allowedActions(fresh, { type: 'participant', role: dto.creator_role, participantId: deal.participants[0].id }), message_key: MESSAGE_KEYS.DEAL_CREATED };
   }
 
   async getDeal(publicId: string, actor: RequestActor) {
@@ -207,9 +204,22 @@ export class DealsService {
   async joinDeal(publicId: string, dto: JoinDealDto, actor: RequestActor, userId?: string) {
     if (actor.type !== 'invite') throw new ForbiddenException({ messageKey: MESSAGE_KEYS.INVALID_TOKEN });
     const deal = await this.loadDeal(publicId);
-    if (dto.role === deal.creatorRole) throw new BadRequestException({ messageKey: 'deal.role_conflict', details: { creator_role: deal.creatorRole } });
 
-    const existing = deal.participants.find((p) => p.role === dto.role);
+    // Validate invite token
+    if (deal.inviteTokenHash !== hashToken(dto.invite_token)) {
+      throw new ForbiddenException({ messageKey: MESSAGE_KEYS.INVITE_EXPIRED });
+    }
+    if (deal.inviteExpiresAt && deal.inviteExpiresAt < new Date()) {
+      throw new ForbiddenException({ messageKey: MESSAGE_KEYS.INVITE_EXPIRED });
+    }
+
+    // Counterparty role is opposite of creator
+    const counterpartyRole = deal.creatorRole === 'buyer' ? 'seller' : 'buyer';
+    if (dto.role !== counterpartyRole) {
+      throw new BadRequestException({ messageKey: 'deal.role_conflict', details: { expected_role: counterpartyRole } });
+    }
+
+    const existing = deal.participants.find((p) => p.role === counterpartyRole);
     if (existing?.joinedAt) throw new BadRequestException({ messageKey: MESSAGE_KEYS.ALREADY_JOINED });
 
     const accessToken = generateOpaqueToken();
@@ -217,10 +227,16 @@ export class DealsService {
     if (existing) {
       participant = await this.prisma.participant.update({ where: { id: existing.id }, data: { userId: userId ?? existing.userId, name: sanitizeText(dto.name) ?? existing.name, phone: sanitizeText(dto.phone) ?? existing.phone, telegramChatId: dto.telegram_chat_id ?? existing.telegramChatId, preferredLanguage: dto.preferred_language, accessTokenHash: hashToken(accessToken), joinedAt: new Date() } });
     } else {
-      participant = await this.prisma.participant.create({ data: { dealId: deal.id, userId: userId ?? null, role: dto.role, name: sanitizeText(dto.name) ?? '', phone: sanitizeText(dto.phone) ?? null, telegramChatId: dto.telegram_chat_id ?? null, preferredLanguage: dto.preferred_language, accessTokenHash: hashToken(accessToken), joinedAt: new Date() } });
+      participant = await this.prisma.participant.create({ data: { dealId: deal.id, userId: userId ?? null, role: counterpartyRole, name: sanitizeText(dto.name) ?? '', phone: sanitizeText(dto.phone) ?? null, telegramChatId: dto.telegram_chat_id ?? null, preferredLanguage: dto.preferred_language, accessTokenHash: hashToken(accessToken), joinedAt: new Date() } });
     }
 
-    await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: participant.id, action: 'participant.joined', details: { role: dto.role } });
+    // Transition to AWAITING_BOTH_APPROVAL and invalidate invite token
+    await this.prisma.deal.update({
+      where: { id: deal.id },
+      data: { status: DEAL_STATUS.AWAITING_BOTH_APPROVAL, inviteTokenHash: null, inviteExpiresAt: null },
+    });
+
+    await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: participant.id, action: 'participant.joined', details: { role: counterpartyRole } });
 
     const creator = deal.participants.find((p) => p.role === deal.creatorRole);
     await this.notif.notify({ dealId: deal.id, eventKey: NOTIFICATION_EVENTS.COUNTERPARTY_JOINED, messageKey: MESSAGE_KEYS.COUNTERPARTY_JOINED, recipients: [{ channel: 'inapp', ref: creator?.id ?? null }, ...(creator?.telegramChatId ? [{ channel: 'telegram' as const, ref: creator.telegramChatId }] : [])] });
@@ -231,8 +247,52 @@ export class DealsService {
       participant_access_url: `${this.appBase()}/d/${publicId}?access=${accessToken}`,
       access_token: accessToken,
       status: after.status,
-      ...missing,
-      allowed_actions: this.allowedActions(after, { ...actor, type: 'participant', role: dto.role, participantId: participant.id }),
+      missing_fields: missing,
+      allowed_actions: this.allowedActions(after, { ...actor, type: 'participant', role: counterpartyRole, participantId: participant.id }),
+      message_key: MESSAGE_KEYS.COUNTERPARTY_JOINED,
+    };
+  }
+
+  /** Participant approves the deal terms */
+  async approveDeal(publicId: string, actor: RequestActor) {
+    if (!actor.role) throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
+    const deal = await this.loadDeal(publicId);
+
+    if (deal.status !== DEAL_STATUS.AWAITING_BOTH_APPROVAL) {
+      throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
+    }
+
+    const participant = deal.participants.find((p) => p.role === actor.role);
+    if (!participant) throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
+
+    // Record approval timestamp
+    await this.prisma.participant.update({
+      where: { id: participant.id },
+      data: { approvedAt: new Date() },
+    });
+
+    await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: participant.id, action: 'deal.approved', details: { role: actor.role } });
+
+    // Check if both approved and all fields complete
+    const fresh = await this.loadDeal(publicId);
+    const missing = computeMissingFields(fresh);
+    const allApproved = fresh.participants.every((p) => p.approvedAt != null);
+
+    if (allApproved && missing.length === 0) {
+      await this.prisma.deal.update({
+        where: { id: deal.id },
+        data: { status: DEAL_STATUS.READY_FOR_PAYMENT },
+      });
+      await this.audit.record({ dealId: deal.id, actorType: 'system', action: 'status.transition', details: { from: DEAL_STATUS.AWAITING_BOTH_APPROVAL, to: DEAL_STATUS.READY_FOR_PAYMENT } });
+      await this.notif.notify({ dealId: deal.id, eventKey: NOTIFICATION_EVENTS.BOTH_APPROVED, messageKey: MESSAGE_KEYS.BOTH_APPROVED, recipients: fresh.participants.map((p) => ({ channel: 'inapp' as const, ref: p.id })) });
+    }
+
+    const updated = await this.loadDeal(publicId);
+    return {
+      status: updated.status,
+      message_key: allApproved && missing.length === 0 ? MESSAGE_KEYS.BOTH_APPROVED : MESSAGE_KEYS.APPROVED,
+      missing_fields: computeMissingFields(updated),
+      allowed_actions: this.allowedActions(updated, actor),
     };
   }
 
@@ -292,78 +352,34 @@ export class DealsService {
     return this.summary(await this.loadDeal(publicId), actor);
   }
 
-  /** Seller accepts the deal — transitions PAID_WAITING_SELLER_APPROVAL → SELLER_ACCEPTED_PACKING */
-  async sellerAccept(publicId: string, dto: SellerAcceptDto, actor: RequestActor) {
-    if (actor.role !== 'seller') throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
-    const deal = await this.loadDeal(publicId);
-    if (!canSellerAccept(deal.status as DealStatus)) throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
-
-    const seller = deal.participants.find((p) => p.role === 'seller');
-    if (!seller) throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
-
-    // Save payout if provided
-    if (dto.payout_khqr || dto.payout_bank_name || dto.payout_account_number || dto.payout_khqr_image) {
-      await this.prisma.participant.update({ where: { id: seller.id }, data: { payoutKhqr: dto.payout_khqr ?? seller.payoutKhqr, payoutBankName: dto.payout_bank_name ?? seller.payoutBankName, payoutAccountName: dto.payout_account_name ?? seller.payoutAccountName, payoutAccountNumber: dto.payout_account_number ?? seller.payoutAccountNumber, payoutKhqrImage: dto.payout_khqr_image ?? seller.payoutKhqrImage } });
-    }
-
-    await this.transitionStatus(deal.id, deal.status as DealStatus, DEAL_STATUS.SELLER_ACCEPTED_PACKING);
-    await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: seller.id, action: 'seller.accepted', details: { expected_shipping_date: dto.expected_shipping_date } });
-
-    const buyer = deal.participants.find((p) => p.role === 'buyer');
-    await this.notif.notify({ dealId: deal.id, eventKey: NOTIFICATION_EVENTS.SELLER_ACCEPTED, messageKey: MESSAGE_KEYS.SELLER_ACCEPTED, recipients: [{ channel: 'inapp', ref: buyer?.id ?? null }, ...(buyer?.telegramChatId ? [{ channel: 'telegram' as const, ref: buyer.telegramChatId }] : [])] });
-
-    const fresh = await this.loadDeal(publicId);
-    return { status: fresh.status, message_key: MESSAGE_KEYS.SELLER_ACCEPTED, allowed_actions: this.allowedActions(fresh, actor) };
-  }
-
-  /** Seller rejects a paid buyer-created deal; refund must succeed before REFUNDED is stored. */
-  async sellerReject(publicId: string, actor: RequestActor) {
-    if (actor.role !== 'seller') throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
-    const deal = await this.loadDeal(publicId);
-    if (!canSellerReject(deal.status as DealStatus)) throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
-
-    const seller = deal.participants.find((p) => p.role === 'seller');
-    await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: seller?.id ?? null, action: 'seller.rejected' });
-
-    const buyer = deal.participants.find((p) => p.role === 'buyer');
-    await this.notif.notify({ dealId: deal.id, eventKey: NOTIFICATION_EVENTS.SELLER_REJECTED_DEAL, messageKey: MESSAGE_KEYS.SELLER_REJECTED, recipients: [{ channel: 'inapp', ref: buyer?.id ?? null }] });
-
-    return this.transfers.refundBuyer(deal.id, 'seller_rejected');
-  }
-
-  /** Buyer cancels deal — only allowed before seller accepts */
+  /** Buyer cancels deal — only allowed before both approve */
   async buyerCancel(publicId: string, actor: RequestActor) {
     if (actor.role !== 'buyer') throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
     const deal = await this.loadDeal(publicId);
-    if (!canBuyerCancel(deal.status as DealStatus)) throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
-
-    const payment = await this.prisma.payment.findFirst({ where: { dealId: deal.id, adminStatus: 'verified' } });
-    if (payment) {
-      await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: actor.participantId ?? null, action: 'deal.cancelled_by_buyer_refund_requested' });
-      await this.notif.notify({ dealId: deal.id, eventKey: NOTIFICATION_EVENTS.DEAL_CANCELLED_BY_BUYER, messageKey: MESSAGE_KEYS.DEAL_CANCELLED, recipients: deal.participants.map((p) => ({ channel: 'inapp' as const, ref: p.id })) });
-      return this.transfers.refundBuyer(deal.id, 'buyer_cancelled_before_seller_accept');
-    }
+    if (!canCancel(deal.status as DealStatus)) throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
 
     const buyer = deal.participants.find((p) => p.role === 'buyer');
-    await this.transitionStatus(deal.id, deal.status as DealStatus, DEAL_STATUS.CANCELLED);
+    await this.prisma.deal.update({ where: { id: deal.id }, data: { status: DEAL_STATUS.CANCELLED } });
     await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: buyer?.id ?? null, action: 'deal.cancelled_by_buyer' });
 
     const fresh = await this.loadDeal(publicId);
-    return { status: fresh.status, message_key: MESSAGE_KEYS.DEAL_CANCELLED, refund_required: false };
+    return { status: fresh.status, message_key: MESSAGE_KEYS.DEAL_CANCELLED };
   }
 
-  /** Buyer confirms receipt; seller payout must succeed before RELEASED is stored. */
+  /** Buyer confirms receipt; transitions SHIPPED → BUYER_CONFIRMED → RELEASE_PENDING */
   async confirmReceived(publicId: string, actor: RequestActor) {
     if (actor.role !== 'buyer') throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
     const deal = await this.loadDeal(publicId);
-    if (deal.status !== 'SHIPPED') throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
+    if (!canConfirmReceived(deal.status as DealStatus)) throw new BadRequestException({ messageKey: 'confirmation.not_shipped' });
 
     const buyer = deal.participants.find((p) => p.role === 'buyer');
+    await this.transitionStatus(deal.id, deal.status as DealStatus, DEAL_STATUS.BUYER_CONFIRMED);
     await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: buyer?.id ?? null, action: 'buyer.confirmed_received' });
 
-    const seller = deal.participants.find((p) => p.role === 'seller');
+    // Auto-transition to RELEASE_PENDING
+    await this.transitionStatus(deal.id, DEAL_STATUS.BUYER_CONFIRMED, DEAL_STATUS.RELEASE_PENDING);
 
-    // 1. Notify seller that buyer confirmed
+    const seller = deal.participants.find((p) => p.role === 'seller');
     await this.notif.notify({
       dealId: deal.id,
       eventKey: NOTIFICATION_EVENTS.BUYER_CONFIRMED,
@@ -374,32 +390,11 @@ export class DealsService {
       ],
     });
 
-    // 2. Alert admin to process seller payout via Bakong deeplink
-    const adminChatId = this.cfg.get<string>('ADMIN_TELEGRAM_CHAT_ID');
-    const appBase = this.cfg.get<string>('APP_BASE_URL') ?? 'http://localhost:3000';
-    if (adminChatId) {
-      await this.notif.notify({
-        dealId: deal.id,
-        eventKey: NOTIFICATION_EVENTS.BUYER_CONFIRMED_PAYOUT_REQUIRED,
-        messageKey: 'admin.payout_required',
-        recipients: [{ channel: 'telegram' as const, ref: adminChatId }],
-        payload: {
-          deal_public_id: deal.publicId,
-          seller_name: seller?.name ?? 'Unknown',
-          amount: deal.netSellerAmount ?? deal.amount ?? 0,
-          currency: deal.currency,
-          admin_url: `${appBase}/admin/deals/${deal.id}`,
-          payout_khqr: seller?.payoutKhqr ?? null,
-          payout_bank: seller?.payoutBankName ?? null,
-          payout_account: seller?.payoutAccountNumber ?? null,
-        },
-      });
-    }
-
-    return this.transfers.payoutSeller(deal.id, 'buyer_confirmed_received');
+    const fresh = await this.loadDeal(publicId);
+    return { status: fresh.status, message_key: MESSAGE_KEYS.BUYER_CONFIRMED, allowed_actions: this.allowedActions(fresh, actor) };
   }
 
-async transitionStatus(dealId: string, from: DealStatus, to: DealStatus) {
+  async transitionStatus(dealId: string, from: DealStatus, to: DealStatus) {
     assertTransition(from, to);
     await this.prisma.deal.update({ where: { id: dealId }, data: { status: to } });
     await this.audit.record({ dealId, actorType: 'system', action: 'status.transition', details: { from, to } });
@@ -409,14 +404,13 @@ async transitionStatus(dealId: string, from: DealStatus, to: DealStatus) {
     const fresh = await this.prisma.deal.findUnique({ where: { id: dealId }, include: { participants: true, product: true } }) as DealLike;
     if (!fresh) return;
     const status = fresh.status as DealStatus;
-    if (isPostPayment(status)) return;
-    if (['CANCELLED', 'EXPIRED'].includes(status)) return;
+
+    // Only recompute from DRAFT
     if (status !== DEAL_STATUS.DRAFT) return;
 
-    // Advance DRAFT to proper initial status once product + amount are ready
+    // Advance DRAFT to AWAITING_COUNTERPARTY once product + amount + creator name are ready
     if (fresh.product?.title && fresh.amount && fresh.amount > 0) {
-      const next = fresh.creatorRole === 'seller' ? DEAL_STATUS.PENDING_BUYER_PAYMENT : DEAL_STATUS.PENDING_SELLER_APPROVAL;
-      await this.transitionStatus(dealId, status, next);
+      await this.transitionStatus(dealId, status, DEAL_STATUS.AWAITING_COUNTERPARTY);
     }
   }
 
@@ -434,15 +428,23 @@ async transitionStatus(dealId: string, from: DealStatus, to: DealStatus) {
     });
 
     const created: any[] = [];
-    const waitingMyApproval: any[] = [];
     const active: any[] = [];
     const completedCancelled: any[] = [];
 
-    const ACTIVE_STATUSES = [DEAL_STATUS.PAYMENT_PENDING_VERIFICATION, DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL, DEAL_STATUS.SELLER_ACCEPTED_PACKING, DEAL_STATUS.PAID_ESCROWED, DEAL_STATUS.SHIPPED, DEAL_STATUS.DISPUTED];
-    const TERMINAL_STATUSES = [DEAL_STATUS.RELEASED, DEAL_STATUS.REFUNDED, DEAL_STATUS.CANCELLED, DEAL_STATUS.EXPIRED];
+    const ACTIVE_STATUSES = [
+      DEAL_STATUS.AWAITING_COUNTERPARTY,
+      DEAL_STATUS.AWAITING_BOTH_APPROVAL,
+      DEAL_STATUS.READY_FOR_PAYMENT,
+      DEAL_STATUS.PAYMENT_PENDING_VERIFICATION,
+      DEAL_STATUS.PAID_ESCROWED,
+      DEAL_STATUS.SELLER_PREPARING,
+      DEAL_STATUS.SHIPPED,
+      DEAL_STATUS.BUYER_CONFIRMED,
+      DEAL_STATUS.RELEASE_PENDING,
+      DEAL_STATUS.DISPUTED,
+    ];
 
     for (const deal of deals) {
-      const currentParticipant = deal.participants.find((p) => p.userId === userId);
       const card = {
         public_id: deal.publicId,
         status: deal.status,
@@ -454,15 +456,13 @@ async transitionStatus(dealId: string, from: DealStatus, to: DealStatus) {
         updated_at: deal.updatedAt,
       };
       if (deal.createdByUserId === userId) created.push(card);
-      if (currentParticipant && currentParticipant.role !== deal.creatorRole && deal.status === DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL) {
-        waitingMyApproval.push(card);
-      } else if (ACTIVE_STATUSES.includes(deal.status as any)) {
+      if (ACTIVE_STATUSES.includes(deal.status as any)) {
         active.push(card);
-      } else if (TERMINAL_STATUSES.includes(deal.status as any)) {
+      } else if (isTerminal(deal.status as DealStatus)) {
         completedCancelled.push(card);
       }
     }
 
-    return { created, waiting_my_approval: waitingMyApproval, active, completed_cancelled: completedCancelled };
+    return { created, active, completed_cancelled: completedCancelled };
   }
 }

@@ -43,7 +43,7 @@ export class TransfersService {
       include: { participants: true },
     });
     if (!deal) throw new BadRequestException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
-    if (deal.status !== DEAL_STATUS.SHIPPED && deal.status !== DEAL_STATUS.DISPUTED) {
+    if (deal.status !== DEAL_STATUS.RELEASE_PENDING && deal.status !== DEAL_STATUS.DISPUTED) {
       throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
     }
 
@@ -111,7 +111,7 @@ export class TransfersService {
       include: { participants: true, payments: true },
     });
     if (!deal) throw new BadRequestException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
-    if (![DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL, DEAL_STATUS.DISPUTED].includes(deal.status as any)) {
+    if (deal.status !== DEAL_STATUS.DISPUTED && deal.status !== DEAL_STATUS.RELEASE_PENDING) {
       throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
     }
 
@@ -266,8 +266,6 @@ export class TransfersService {
   ): Promise<ProviderResult> {
     const baseUrl = this.cfg.get<string>('TRANSFER_API_BASE_URL');
     if (!baseUrl) {
-      // MVP fallback: no external transfer provider configured.
-      // Mark as succeeded with a manual reference — admin handles actual payout offline.
       this.logger.warn(
         `No TRANSFER_API_BASE_URL configured — using MVP manual fallback for ${String(request.type)} deal=${String(request.deal_public_id)}`,
       );

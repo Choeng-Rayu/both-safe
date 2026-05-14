@@ -26,6 +26,7 @@ export class BotTelegramService {
   /**
    * Send a notification message to a Telegram chat ID.
    * Looks up the deal to get the deal Room URL and participant language.
+   * Implements retry with exponential backoff and stores failed attempts.
    */
   async sendNotification(opts: {
     chatId: string;
@@ -39,56 +40,88 @@ export class BotTelegramService {
       return;
     }
 
-    try {
-      const lang = await this.getLang(opts.chatId);
-      const msgKey = `bot.notify.${opts.eventKey}`;
-      let text = t(msgKey, lang);
+    const MAX_RETRIES = 3;
+    let lastErr: Error | null = null;
 
-      // For admin payout alerts, append seller info to the message
-      if (opts.eventKey === 'BUYER_CONFIRMED_PAYOUT_REQUIRED' && opts.payload) {
-        const p = opts.payload as Record<string, string | number | null>;
-        const lines: string[] = [text, ''];
-        lines.push(`📋 *Deal:* \`${String(p['deal_public_id'] ?? '')}\``);
-        lines.push(`👤 *Seller:* ${String(p['seller_name'] ?? 'Unknown')}`);
-        lines.push(`💰 *Amount:* ${String(p['amount'] ?? '0')} ${String(p['currency'] ?? 'USD')}`);
-        if (p['payout_khqr']) lines.push(`📱 *Bakong ID:* \`${String(p['payout_khqr'])}\``);
-        if (p['payout_bank']) lines.push(`🏦 *Bank:* ${String(p['payout_bank'])}`);
-        if (p['payout_account']) lines.push(`💳 *Account:* \`${String(p['payout_account'])}\``);
-        text = lines.join('\n');
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        const delayMs = Math.min(1000 * Math.pow(2, attempt), 8000);
+        await this.sleep(delayMs);
       }
 
-      // Build inline keyboard — admin payout event gets Admin Panel button, others get Deal Room
-      let inlineKeyboard: Array<Array<{ text: string; url: string }>> | undefined;
-      if (opts.eventKey === 'BUYER_CONFIRMED_PAYOUT_REQUIRED' && opts.payload?.['admin_url']) {
-        inlineKeyboard = [[{ text: '🔐 Open Admin Panel', url: String(opts.payload['admin_url']) }]];
-      } else if (opts.dealPublicId) {
-        inlineKeyboard = [[{ text: t('bot.link.open_deal_room', lang), url: `${this.appBase}/d/${opts.dealPublicId}` }]];
-      }
+      try {
+        const lang = await this.getLang(opts.chatId);
+        const msgKey = `bot.notify.${opts.eventKey}`;
+        let text = t(msgKey, lang);
 
-      await this.bot.telegram.sendMessage(opts.chatId, text, {
-        parse_mode: 'Markdown',
-        ...(inlineKeyboard && {
-          reply_markup: { inline_keyboard: inlineKeyboard },
-        }),
-      });
+        // For admin payout alerts, append seller info to the message
+        if (opts.eventKey === 'BUYER_CONFIRMED_PAYOUT_REQUIRED' && opts.payload) {
+          const p = opts.payload as Record<string, string | number | null>;
+          const lines: string[] = [text, ''];
+          lines.push(`📋 *Deal:* \`${String(p['deal_public_id'] ?? '')}\``);
+          lines.push(`👤 *Seller:* ${String(p['seller_name'] ?? 'Unknown')}`);
+          lines.push(`💰 *Amount:* ${String(p['amount'] ?? '0')} ${String(p['currency'] ?? 'USD')}`);
+          if (p['payout_khqr']) lines.push(`📱 *Bakong ID:* \`${String(p['payout_khqr'])}\``);
+          if (p['payout_bank']) lines.push(`🏦 *Bank:* ${String(p['payout_bank'])}`);
+          if (p['payout_account']) lines.push(`💳 *Account:* \`${String(p['payout_account'])}\``);
+          text = lines.join('\n');
+        }
 
-      // Mark notification as delivered
-      if (opts.dealId) {
-        await this.prisma.notification.updateMany({
-          where: {
-            dealId: opts.dealId,
-            channel: 'telegram',
-            recipientRef: opts.chatId,
-            eventKey: opts.eventKey,
-            delivered: false,
-          },
-          data: { delivered: true },
+        // Build inline keyboard — admin payout event gets Admin Panel button, others get Deal Room
+        let inlineKeyboard: Array<Array<{ text: string; url: string }>> | undefined;
+        if (opts.eventKey === 'BUYER_CONFIRMED_PAYOUT_REQUIRED' && opts.payload?.['admin_url']) {
+          inlineKeyboard = [[{ text: '🔐 Open Admin Panel', url: String(opts.payload['admin_url']) }]];
+        } else if (opts.dealPublicId) {
+          inlineKeyboard = [[{ text: t('bot.link.open_deal_room', lang), url: `${this.appBase}/d/${opts.dealPublicId}` }]];
+        }
+
+        await this.bot.telegram.sendMessage(opts.chatId, text, {
+          parse_mode: 'Markdown',
+          ...(inlineKeyboard && {
+            reply_markup: { inline_keyboard: inlineKeyboard },
+          }),
         });
+
+        // Mark notification as delivered
+        if (opts.dealId) {
+          await this.prisma.notification.updateMany({
+            where: {
+              dealId: opts.dealId,
+              channel: 'telegram',
+              recipientRef: opts.chatId,
+              eventKey: opts.eventKey,
+              delivered: false,
+            },
+            data: { delivered: true, failureReason: null },
+          });
+        }
+
+        // Success — exit retry loop
+        return;
+      } catch (err) {
+        lastErr = err as Error;
+        this.logger.warn(
+          `Telegram send attempt ${attempt + 1}/${MAX_RETRIES} failed chatId=${opts.chatId} event=${opts.eventKey}: ${lastErr.message}`,
+        );
       }
-    } catch (err) {
-      this.logger.warn(
-        `Telegram send failed chatId=${opts.chatId} event=${opts.eventKey}: ${(err as Error).message}`,
-      );
+    }
+
+    // All retries exhausted — store failure for admin review
+    this.logger.error(
+      `Telegram notification permanently failed chatId=${opts.chatId} event=${opts.eventKey}: ${lastErr?.message}`,
+    );
+
+    if (opts.dealId) {
+      await this.prisma.notification.updateMany({
+        where: {
+          dealId: opts.dealId,
+          channel: 'telegram',
+          recipientRef: opts.chatId,
+          eventKey: opts.eventKey,
+          delivered: false,
+        },
+        data: { failureReason: lastErr?.message ?? 'Unknown error' },
+      });
     }
   }
 
@@ -122,6 +155,27 @@ export class BotTelegramService {
     }
   }
 
+  /**
+   * Health check for Telegram Bot API connectivity.
+   * Calls getMe to verify the bot token is valid and API is reachable.
+   */
+  async healthCheck(): Promise<{ status: string; ok: boolean; last_success_at?: string }> {
+    if (!this.bot) {
+      return { status: 'disabled', ok: true };
+    }
+    try {
+      const me = await this.bot.telegram.getMe();
+      return {
+        status: 'healthy',
+        ok: true,
+        last_success_at: new Date().toISOString(),
+      };
+    } catch (err) {
+      this.logger.warn(`Telegram health check failed: ${(err as Error).message}`);
+      return { status: 'unhealthy', ok: false };
+    }
+  }
+
   private async getLang(chatId: string): Promise<BotLang> {
     const row = await this.prisma.botState.findUnique({ where: { chatId }, select: { language: true } });
     return (row?.language as BotLang) ?? 'en';
@@ -138,5 +192,9 @@ export class BotTelegramService {
     const amount = deal.amount != null ? `$${deal.amount.toFixed(2)}` : '—';
     const status = statusLabel(deal.status, lang);
     return `📦 *${title}*\n💰 ${amount} | ${status}\n🆔 \`${deal.publicId}\``;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

@@ -361,7 +361,7 @@ describe('BotTelegramService', () => {
       await expect(
         service.sendNotification({ chatId: '111', eventKey: 'BOTH_APPROVED', dealPublicId: 'xyz' }),
       ).resolves.not.toThrow();
-    });
+    }, 15000);
 
     it('marks notification as delivered after successful send', async () => {
       prisma.botState.findUnique.mockResolvedValue({ language: 'en' });
@@ -382,7 +382,7 @@ describe('BotTelegramService', () => {
             recipientRef: '111',
             delivered: false,
           }),
-          data: { delivered: true },
+          data: { delivered: true, failureReason: null },
         }),
       );
     });

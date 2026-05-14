@@ -1,0 +1,77 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e138] [cursor=pointer]:
+    - img [ref=e139]
+  - alert [ref=e142]: BothSafe
+  - generic [ref=e189]:
+    - banner [ref=e190]:
+      - generic [ref=e191]:
+        - link "BothSafe Logo BothSafe Protected deal rooms" [ref=e192] [cursor=pointer]:
+          - /url: /
+          - img "BothSafe Logo" [ref=e194]
+          - generic [ref=e195]:
+            - generic [ref=e196]: BothSafe
+            - generic [ref=e197]: Protected deal rooms
+        - generic [ref=e198]:
+          - img [ref=e200]
+          - button "KM" [ref=e204] [cursor=pointer]
+          - button "EN" [pressed] [ref=e205] [cursor=pointer]
+          - button "中文" [ref=e206] [cursor=pointer]
+    - main [ref=e207]:
+      - generic [ref=e208]:
+        - generic [ref=e209]:
+          - text: Create protected deal
+          - heading "Create protected deal" [level=1] [ref=e210]
+          - paragraph [ref=e211]: Start the deal, then share the invite link in your chat.
+          - generic [ref=e212]:
+            - button "Seller Create as seller" [ref=e213] [cursor=pointer]:
+              - generic [ref=e214]: Seller
+              - generic [ref=e215]: Create as seller
+            - button "Buyer Create as buyer" [ref=e216] [cursor=pointer]:
+              - generic [ref=e217]: Buyer
+              - generic [ref=e218]: Create as buyer
+        - generic [ref=e219]:
+          - generic [ref=e220]:
+            - generic [ref=e221]:
+              - generic [ref=e222]:
+                - text: Your name
+                - generic [ref=e223]: "*"
+              - textbox "Your name *" [ref=e224]
+            - generic [ref=e225]:
+              - generic [ref=e226]: Phone number
+              - textbox "Phone number Optional" [ref=e227]
+              - generic [ref=e228]: Optional
+            - generic [ref=e229]:
+              - generic [ref=e230]:
+                - text: Product title
+                - generic [ref=e231]: "*"
+              - textbox "Product title *" [ref=e232]
+            - generic [ref=e233]:
+              - generic [ref=e234]: Product type
+              - textbox "Product type" [ref=e235]
+            - generic [ref=e236]:
+              - generic [ref=e237]:
+                - text: Deal amount
+                - generic [ref=e238]: "*"
+              - textbox "Deal amount *" [ref=e239]
+            - generic [ref=e240]:
+              - generic [ref=e241]: Currency
+              - combobox "Currency" [ref=e242]:
+                - option "USD" [selected]
+                - option "KHR"
+            - generic [ref=e244]:
+              - generic [ref=e245]: Product description
+              - textbox "Product description" [ref=e246]
+            - generic [ref=e248]:
+              - generic [ref=e249]: Seller payout KHQR
+              - textbox "Seller payout KHQR Seller payout details can be added now or before final approval." [ref=e250]
+              - generic [ref=e251]: Seller payout details can be added now or before final approval.
+            - generic [ref=e252]:
+              - generic [ref=e253]: Bank name
+              - textbox "Bank name" [ref=e254]
+            - generic [ref=e255]:
+              - generic [ref=e256]: Account name
+              - textbox "Account name" [ref=e257]
+            - generic [ref=e258]:
+              - generic [ref=e259]: Account number
+              - textbox "Account number" [ref=e260]
+          - button "Create deal room" [disabled] [ref=e262] [cursor=pointer]

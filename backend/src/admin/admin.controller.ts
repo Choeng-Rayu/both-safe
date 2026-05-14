@@ -44,9 +44,16 @@ export class AdminController {
   ) {}
 
   @Get('deals')
-  @ApiOperation({ summary: 'List deals (filter by status)' })
-  list(@Query('status') status?: string, @Query('page') page?: string, @Query('pageSize') pageSize?: string) {
-    return this.admin.listDeals({ status, page, pageSize });
+  @ApiOperation({ summary: 'List deals with filters and pagination' })
+  list(
+    @Query('status') status?: string,
+    @Query('from_date') from_date?: string,
+    @Query('to_date') to_date?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.admin.listDeals({ status, from_date, to_date, search, page, pageSize });
   }
 
   @Get('deals/:dealId')
@@ -89,6 +96,12 @@ export class AdminController {
   @ApiOperation({ summary: 'Refund buyer' })
   refund(@Param('dealId') dealId: string, @Body() dto: RefundDto, @Req() req: any) {
     return this.admin.refund(dealId, dto, req.actor.adminId);
+  }
+
+  @Post('disputes/:disputeId/resolve')
+  @ApiOperation({ summary: 'Resolve a dispute (release or refund)' })
+  resolveDispute(@Param('disputeId') disputeId: string, @Body() dto: { decision: 'release' | 'refund'; admin_note?: string; payout_reference?: string; refund_reference?: string }, @Req() req: any) {
+    return this.admin.resolveDispute(disputeId, dto, req.actor.adminId);
   }
 
   @Post('deals/:dealId/notes')

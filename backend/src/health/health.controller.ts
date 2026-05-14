@@ -1,11 +1,15 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Inject, Optional } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PrismaService } from '../prisma/prisma.service';
+import { BotTelegramService } from '../bot/bot-telegram.service';
 
 @ApiTags('health')
 @Controller('health')
 export class HealthController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() @Inject(BotTelegramService) private readonly botTelegram?: BotTelegramService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Health check' })
@@ -16,10 +20,16 @@ export class HealthController {
     } catch {
       dbOk = false;
     }
+
+    const botHealth = await this.botTelegram?.healthCheck() ?? { status: 'disabled', ok: true };
+
+    const allOk = dbOk && botHealth.ok;
+
     return {
-      status: dbOk ? 'ok' : 'degraded',
+      status: allOk ? 'ok' : 'degraded',
       uptime_s: Math.floor(process.uptime()),
       db: dbOk,
+      bot: botHealth,
       now: new Date().toISOString(),
     };
   }

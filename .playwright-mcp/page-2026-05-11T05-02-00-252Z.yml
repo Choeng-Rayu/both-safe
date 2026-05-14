@@ -1,0 +1,179 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "BothSafe Logo BothSafe Protected deal rooms" [ref=e5] [cursor=pointer]:
+          - /url: /
+          - img "BothSafe Logo" [ref=e7]
+          - generic [ref=e8]:
+            - generic [ref=e9]: BothSafe
+            - generic [ref=e10]: Protected deal rooms
+        - generic [ref=e11]:
+          - img [ref=e13]
+          - button "KM" [ref=e17] [cursor=pointer]
+          - button "EN" [pressed] [ref=e18] [cursor=pointer]
+          - button "中文" [ref=e19] [cursor=pointer]
+    - main [ref=e20]:
+      - generic [ref=e21]:
+        - generic [ref=e31]:
+          - generic [ref=e32]:
+            - generic [ref=e33]:
+              - generic [ref=e34]:
+                - heading "Next step" [level=2] [ref=e35]
+                - paragraph [ref=e36]: Keep this link safe. Anyone with it can access this deal.
+              - generic [ref=e37]: Released
+            - generic [ref=e39]:
+              - generic [ref=e40]:
+                - generic [ref=e41]: Product
+                - generic [ref=e42]: iPhone 15 Pro
+              - generic [ref=e43]:
+                - generic [ref=e44]: Buyer
+                - generic [ref=e45]: Test Seller
+              - generic [ref=e46]:
+                - generic [ref=e47]: Seller
+                - generic [ref=e48]: Test Buyer
+          - generic [ref=e49]:
+            - heading "Product" [level=2] [ref=e52]
+            - generic [ref=e54]:
+              - generic [ref=e55]:
+                - generic [ref=e56]: iPhone 15 Pro
+                - generic [ref=e57]: Electronics
+              - paragraph [ref=e58]: Brand new iPhone 15 Pro 256GB
+              - generic [ref=e59]:
+                - generic [ref=e60]:
+                  - generic [ref=e61]: Qty
+                  - generic [ref=e62]: "1"
+                - generic [ref=e63]:
+                  - generic [ref=e64]: Condition
+                  - generic [ref=e65]: "--"
+          - generic [ref=e66]:
+            - heading "Participants" [level=2] [ref=e69]
+            - generic [ref=e70]:
+              - generic [ref=e71]:
+                - generic [ref=e72]:
+                  - generic [ref=e73]: Buyer
+                  - generic [ref=e74]: Approve deal
+                - generic [ref=e75]:
+                  - generic [ref=e76]: Test Seller
+                  - generic [ref=e77]: en
+                  - generic [ref=e78]: Payout pending
+              - generic [ref=e79]:
+                - generic [ref=e80]:
+                  - generic [ref=e81]: Seller
+                  - generic [ref=e82]: Approve deal
+                - generic [ref=e83]:
+                  - generic [ref=e84]: Test Buyer
+                  - generic [ref=e85]: en
+                  - generic [ref=e86]: Payout ready
+          - generic [ref=e87]:
+            - generic [ref=e88]:
+              - generic [ref=e89]:
+                - heading "Seller payout info" [level=2] [ref=e90]
+                - paragraph [ref=e91]: Enter your Bakong account or bank account. Money will be sent here after the buyer confirms delivery.
+              - button [ref=e92] [cursor=pointer]:
+                - img [ref=e93]
+            - paragraph [ref=e96]: ✓ Payout info saved. Buyer cannot see your details.
+          - generic [ref=e97]:
+            - heading "Price summary" [level=2] [ref=e100]
+            - generic [ref=e101]:
+              - generic [ref=e102]:
+                - generic [ref=e103]: Deal amount
+                - generic [ref=e104]: $500.00
+              - generic [ref=e105]:
+                - generic [ref=e106]: BothSafe fee
+                - generic [ref=e107]: $10.00
+              - generic [ref=e108]:
+                - generic [ref=e109]: Seller receives
+                - generic [ref=e110]: $490.00
+          - generic [ref=e111]:
+            - generic [ref=e112]:
+              - heading "How protection works" [level=2] [ref=e114]
+              - img [ref=e116]
+            - paragraph [ref=e118]: Buyer pays BothSafe first. Seller gets paid only after the buyer confirms delivery or an admin resolves a dispute.
+          - generic [ref=e119]:
+            - heading "Still needed before the next step" [level=2] [ref=e122]
+            - paragraph [ref=e123]: Everything needed is already here.
+          - generic [ref=e124]:
+            - heading "Delivery" [level=2] [ref=e127]
+            - paragraph [ref=e128]: Delivery notes are still optional for this MVP.
+          - generic [ref=e129]:
+            - generic [ref=e131]:
+              - heading "Buyer payment" [level=2] [ref=e132]
+              - paragraph [ref=e133]: Scan the KHQR below with your Bakong or banking app, then upload your receipt.
+            - generic [ref=e134]:
+              - generic [ref=e136]:
+                - generic [ref=e137]: ✅
+                - generic [ref=e138]: Payment confirmed! Escrow is active.
+              - paragraph [ref=e139]: Wait for Bakong payment confirmation. This updates automatically when the buyer pays.
+          - generic [ref=e140]:
+            - heading "Shipping proof" [level=2] [ref=e143]
+            - generic [ref=e145]:
+              - generic [ref=e146]:
+                - generic [ref=e147]: Delivery company
+                - generic [ref=e148]: Kerry Express
+              - generic [ref=e149]:
+                - generic [ref=e150]: Tracking number
+                - generic [ref=e151]: KE123456789
+          - generic [ref=e152]:
+            - heading "Deal timeline" [level=2] [ref=e155]
+            - list [ref=e156]:
+              - listitem [ref=e157]:
+                - generic [ref=e159]:
+                  - generic [ref=e160]: The other participant joined the deal.
+                  - generic [ref=e161]: May 11, 2026, 11:54 AM
+              - listitem [ref=e162]:
+                - generic [ref=e164]:
+                  - generic [ref=e165]: timeline.deal.both_approved
+                  - generic [ref=e166]: May 11, 2026, 11:58 AM
+              - listitem [ref=e167]:
+                - generic [ref=e169]:
+                  - generic [ref=e170]: timeline.deal.both_approved
+                  - generic [ref=e171]: May 11, 2026, 11:58 AM
+              - listitem [ref=e172]:
+                - generic [ref=e174]:
+                  - generic [ref=e175]: Payment proof uploaded.
+                  - generic [ref=e176]: May 11, 2026, 11:59 AM
+              - listitem [ref=e177]:
+                - generic [ref=e179]:
+                  - generic [ref=e180]: Payment proof uploaded.
+                  - generic [ref=e181]: May 11, 2026, 11:59 AM
+              - listitem [ref=e182]:
+                - generic [ref=e184]:
+                  - generic [ref=e185]: Payment verified.
+                  - generic [ref=e186]: May 11, 2026, 11:59 AM
+              - listitem [ref=e187]:
+                - generic [ref=e189]:
+                  - generic [ref=e190]: Payment verified.
+                  - generic [ref=e191]: May 11, 2026, 11:59 AM
+              - listitem [ref=e192]:
+                - generic [ref=e194]:
+                  - generic [ref=e195]: timeline.seller.should_ship
+                  - generic [ref=e196]: May 11, 2026, 11:59 AM
+              - listitem [ref=e197]:
+                - generic [ref=e199]:
+                  - generic [ref=e200]: Shipping proof uploaded.
+                  - generic [ref=e201]: May 11, 2026, 12:00 PM
+              - listitem [ref=e202]:
+                - generic [ref=e204]:
+                  - generic [ref=e205]: Buyer confirmed the delivery.
+                  - generic [ref=e206]: May 11, 2026, 12:00 PM
+              - listitem [ref=e207]:
+                - generic [ref=e209]:
+                  - generic [ref=e210]: Deal released.
+                  - generic [ref=e211]: May 11, 2026, 12:00 PM
+        - complementary [ref=e212]:
+          - generic [ref=e213]:
+            - heading "Next step" [level=2] [ref=e216]
+            - generic [ref=e217]:
+              - button "Retry" [ref=e218] [cursor=pointer]
+              - button "Copy link" [ref=e219] [cursor=pointer]:
+                - img [ref=e220]
+                - text: Copy link
+              - link "Share invite link" [ref=e223] [cursor=pointer]:
+                - /url: http://localhost:3000/d/kxjchzjfrd?invite=e1G4DzzMmKdYdKjna26aq2tNrcBhqkTgVo_ZGmYWpkI
+                - generic [ref=e224]:
+                  - text: Share invite link
+                  - img [ref=e225]
+  - button "Open Next.js Dev Tools" [ref=e27] [cursor=pointer]:
+    - img [ref=e28]
+  - alert [ref=e229]

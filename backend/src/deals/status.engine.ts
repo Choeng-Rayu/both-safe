@@ -1,61 +1,26 @@
 import { DEAL_STATUS, DealStatus } from '../common/constants';
 
 /**
- * Automated escrow state machine.
+ * Unified escrow state machine per Kiro spec.
  *
- * Buyer-created:
- *   DRAFT -> PENDING_SELLER_APPROVAL -> PAYMENT_PENDING_VERIFICATION
- *         -> PAID_WAITING_SELLER_APPROVAL -> SELLER_ACCEPTED_PACKING
- *         -> SHIPPED -> RELEASED
+ * DRAFT → AWAITING_COUNTERPARTY → AWAITING_BOTH_APPROVAL → READY_FOR_PAYMENT
+ * → PAYMENT_PENDING_VERIFICATION → PAID_ESCROWED → SELLER_PREPARING → SHIPPED
+ * → BUYER_CONFIRMED → RELEASE_PENDING → RELEASED
  *
- * Seller-created:
- *   DRAFT -> PENDING_BUYER_PAYMENT -> PAYMENT_PENDING_VERIFICATION
- *         -> PAID_ESCROWED -> SHIPPED -> RELEASED
+ * Terminal: RELEASED, REFUNDED, CANCELLED, EXPIRED, DISPUTED (terminal-ish).
  */
 const TRANSITIONS: Record<DealStatus, DealStatus[]> = {
-  DRAFT: [
-    DEAL_STATUS.PENDING_BUYER_PAYMENT,
-    DEAL_STATUS.PENDING_SELLER_APPROVAL,
-    DEAL_STATUS.CANCELLED,
-    DEAL_STATUS.EXPIRED,
-  ],
-  PENDING_BUYER_PAYMENT: [
-    DEAL_STATUS.PAYMENT_PENDING_VERIFICATION,
-    DEAL_STATUS.CANCELLED,
-    DEAL_STATUS.EXPIRED,
-  ],
-  PENDING_SELLER_APPROVAL: [
-    DEAL_STATUS.PAYMENT_PENDING_VERIFICATION,
-    DEAL_STATUS.CANCELLED,
-    DEAL_STATUS.EXPIRED,
-  ],
-  PAYMENT_PENDING_VERIFICATION: [
-    DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL,
-    DEAL_STATUS.PAID_ESCROWED,
-    DEAL_STATUS.DISPUTED,
-    DEAL_STATUS.CANCELLED,
-  ],
-  PAID_WAITING_SELLER_APPROVAL: [
-    DEAL_STATUS.SELLER_ACCEPTED_PACKING,
-    DEAL_STATUS.REFUNDED,
-    DEAL_STATUS.DISPUTED,
-  ],
-  SELLER_ACCEPTED_PACKING: [
-    DEAL_STATUS.SHIPPED,
-    DEAL_STATUS.DISPUTED,
-  ],
-  PAID_ESCROWED: [
-    DEAL_STATUS.SHIPPED,
-    DEAL_STATUS.DISPUTED,
-  ],
-  SHIPPED: [
-    DEAL_STATUS.RELEASED,
-    DEAL_STATUS.DISPUTED,
-  ],
-  DISPUTED: [
-    DEAL_STATUS.RELEASED,
-    DEAL_STATUS.REFUNDED,
-  ],
+  DRAFT: [DEAL_STATUS.AWAITING_COUNTERPARTY, DEAL_STATUS.CANCELLED, DEAL_STATUS.EXPIRED],
+  AWAITING_COUNTERPARTY: [DEAL_STATUS.AWAITING_BOTH_APPROVAL, DEAL_STATUS.CANCELLED, DEAL_STATUS.EXPIRED],
+  AWAITING_BOTH_APPROVAL: [DEAL_STATUS.READY_FOR_PAYMENT, DEAL_STATUS.CANCELLED, DEAL_STATUS.EXPIRED],
+  READY_FOR_PAYMENT: [DEAL_STATUS.PAYMENT_PENDING_VERIFICATION, DEAL_STATUS.EXPIRED],
+  PAYMENT_PENDING_VERIFICATION: [DEAL_STATUS.PAID_ESCROWED, DEAL_STATUS.READY_FOR_PAYMENT, DEAL_STATUS.DISPUTED],
+  PAID_ESCROWED: [DEAL_STATUS.SELLER_PREPARING, DEAL_STATUS.DISPUTED],
+  SELLER_PREPARING: [DEAL_STATUS.SHIPPED, DEAL_STATUS.DISPUTED],
+  SHIPPED: [DEAL_STATUS.BUYER_CONFIRMED, DEAL_STATUS.DISPUTED],
+  BUYER_CONFIRMED: [DEAL_STATUS.RELEASE_PENDING],
+  RELEASE_PENDING: [DEAL_STATUS.RELEASED, DEAL_STATUS.REFUNDED],
+  DISPUTED: [DEAL_STATUS.RELEASE_PENDING, DEAL_STATUS.REFUNDED],
   RELEASED: [],
   REFUNDED: [],
   CANCELLED: [],
@@ -73,68 +38,6 @@ export function assertTransition(from: DealStatus, to: DealStatus): void {
   }
 }
 
-const MONEY_RECEIVED: DealStatus[] = [
-  DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL,
-  DEAL_STATUS.SELLER_ACCEPTED_PACKING,
-  DEAL_STATUS.PAID_ESCROWED,
-  DEAL_STATUS.SHIPPED,
-  DEAL_STATUS.DISPUTED,
-  DEAL_STATUS.RELEASED,
-  DEAL_STATUS.REFUNDED,
-];
-
-export function isPostPayment(status: DealStatus): boolean {
-  return MONEY_RECEIVED.includes(status);
-}
-
-export function canStartPayment(status: DealStatus): boolean {
-  return (
-    status === DEAL_STATUS.PENDING_BUYER_PAYMENT ||
-    status === DEAL_STATUS.PENDING_SELLER_APPROVAL ||
-    status === DEAL_STATUS.PAYMENT_PENDING_VERIFICATION
-  );
-}
-
-export function canUploadPaymentProof(status: DealStatus): boolean {
-  return canStartPayment(status);
-}
-
-export function canUploadShippingProof(status: DealStatus): boolean {
-  return (
-    status === DEAL_STATUS.SELLER_ACCEPTED_PACKING ||
-    status === DEAL_STATUS.PAID_ESCROWED
-  );
-}
-
-export function canConfirmReceived(status: DealStatus): boolean {
-  return status === DEAL_STATUS.SHIPPED;
-}
-
-export function canOpenDispute(status: DealStatus): boolean {
-  return (
-    status === DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL ||
-    status === DEAL_STATUS.SELLER_ACCEPTED_PACKING ||
-    status === DEAL_STATUS.PAID_ESCROWED ||
-    status === DEAL_STATUS.SHIPPED
-  );
-}
-
-export function canSellerAccept(status: DealStatus): boolean {
-  return status === DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL;
-}
-
-export function canSellerReject(status: DealStatus): boolean {
-  return status === DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL;
-}
-
-export function canBuyerCancel(status: DealStatus): boolean {
-  return (
-    status === DEAL_STATUS.DRAFT ||
-    status === DEAL_STATUS.PENDING_SELLER_APPROVAL ||
-    status === DEAL_STATUS.PAID_WAITING_SELLER_APPROVAL
-  );
-}
-
 export function isTerminal(status: DealStatus): boolean {
   const terminal: DealStatus[] = [
     DEAL_STATUS.RELEASED,
@@ -143,4 +46,55 @@ export function isTerminal(status: DealStatus): boolean {
     DEAL_STATUS.EXPIRED,
   ];
   return terminal.includes(status);
+}
+
+export function isPostPayment(status: DealStatus): boolean {
+  const postPayment: DealStatus[] = [
+    DEAL_STATUS.PAID_ESCROWED,
+    DEAL_STATUS.SELLER_PREPARING,
+    DEAL_STATUS.SHIPPED,
+    DEAL_STATUS.BUYER_CONFIRMED,
+    DEAL_STATUS.RELEASE_PENDING,
+    DEAL_STATUS.RELEASED,
+    DEAL_STATUS.REFUNDED,
+    DEAL_STATUS.DISPUTED,
+  ];
+  return postPayment.includes(status);
+}
+
+export function canUploadPaymentProof(status: DealStatus): boolean {
+  return status === DEAL_STATUS.READY_FOR_PAYMENT;
+}
+
+export function canUploadShippingProof(status: DealStatus): boolean {
+  return status === DEAL_STATUS.PAID_ESCROWED || status === DEAL_STATUS.SELLER_PREPARING;
+}
+
+export function canConfirmReceived(status: DealStatus): boolean {
+  return status === DEAL_STATUS.SHIPPED;
+}
+
+export function canOpenDispute(status: DealStatus): boolean {
+  return (
+    status === DEAL_STATUS.PAYMENT_PENDING_VERIFICATION ||
+    status === DEAL_STATUS.PAID_ESCROWED ||
+    status === DEAL_STATUS.SELLER_PREPARING ||
+    status === DEAL_STATUS.SHIPPED
+  );
+}
+
+export function canCancel(status: DealStatus): boolean {
+  return (
+    status === DEAL_STATUS.DRAFT ||
+    status === DEAL_STATUS.AWAITING_COUNTERPARTY ||
+    status === DEAL_STATUS.AWAITING_BOTH_APPROVAL
+  );
+}
+
+export function canApprove(status: DealStatus): boolean {
+  return status === DEAL_STATUS.AWAITING_BOTH_APPROVAL;
+}
+
+export function canJoin(status: DealStatus): boolean {
+  return status === DEAL_STATUS.AWAITING_COUNTERPARTY;
 }

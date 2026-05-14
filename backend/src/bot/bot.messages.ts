@@ -172,6 +172,46 @@ const messages: Record<string, Record<BotLang, string>> = {
     en: '❓ Unknown command. Use /start to see the menu.',
     zh: '❓ 未知命令。使用 /start 查看菜单。',
   },
+  'bot.error.rate_limit_exceeded': {
+    km: '⏳ អ្នកបានបង្កើតការទូទាត់ច្រើនពេកហើយ។ សូមរង់ចាំមួយរយៈ។',
+    en: '⏳ You have created too many deals recently. Please wait a while.',
+    zh: '⏳ 您最近创建的交易太多了，请稍等片刻。',
+  },
+  'bot.error.retry_after': {
+    km: 'ពេលវេលារង់ចាំ:',
+    en: 'Retry after:',
+    zh: '重试时间：',
+  },
+  'bot.error.too_many_requests': {
+    km: '⚡ សូមយឺតយ៉ាវបន្តិច។ អ្នកកំពុងផ្ញើសារលឿនពេក។',
+    en: '⚡ Please slow down. You are sending messages too quickly.',
+    zh: '⚡ 请慢一点。您发送消息的速度太快了。',
+  },
+  'bot.error.too_many_retries': {
+    km: '❌ អ្នកបានបញ្ចូលចំនួនមិនត្រឹមត្រូវច្រើនដងពេក។ សូម /newdeal ឡើងវិញ។',
+    en: '❌ Too many invalid attempts. Please start /newdeal again.',
+    zh: '❌ 无效尝试次数过多。请重新输入 /newdeal。',
+  },
+  'bot.error.empty_input': {
+    km: '❌ ការបញ្ចូលមិនអាចទទេឬមានតែដក់ឃ្លា។ សូមព្យាយាមម្តងទៀត។',
+    en: '❌ Input cannot be empty or only whitespace. Please try again.',
+    zh: '❌ 输入不能为空或仅包含空格。请重试。',
+  },
+  'bot.error.not_a_number': {
+    km: '❌ សូមបញ្ចូលលេខត្រឹមត្រូវ ឧ. 25.00',
+    en: '❌ Please enter a valid number, e.g. 25.00',
+    zh: '❌ 请输入有效的数字，例如 25.00',
+  },
+  'bot.error.amount_too_small': {
+    km: '❌ ចំនួនតិចពេក។ តម្លៃអប្បបរមាគឺ $1.00',
+    en: '❌ Amount is too small. Minimum price is $1.00',
+    zh: '❌ 金额太小。最低价格为 $1.00',
+  },
+  'bot.error.amount_too_large': {
+    km: '❌ ចំនួនធំពេក។ តម្លៃអតិបរមាគឺ $1,000,000,000',
+    en: '❌ Amount is too large. Maximum price is $1,000,000,000',
+    zh: '❌ 金额太大。最高价格为 $1,000,000,000',
+  },
   // ── language ──────────────────────────────────────────────────────────
   'bot.language.ask': {
     km: '🌐 ជ្រើសរើសភាសា:',
