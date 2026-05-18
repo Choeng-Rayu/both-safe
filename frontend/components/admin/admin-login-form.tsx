@@ -17,6 +17,7 @@ export function AdminLoginForm() {
   const [pending, setPending] = useState(false);
 
   async function handleLogin() {
+    if (!email || !password) return;
     setPending(true);
     setError(null);
 
@@ -37,9 +38,15 @@ export function AdminLoginForm() {
 
       router.push("/admin/deals");
       router.refresh();
+    } catch {
+      setError("Unable to connect. Please check the server is running.");
     } finally {
       setPending(false);
     }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") void handleLogin();
   }
 
   return (
@@ -57,6 +64,8 @@ export function AdminLoginForm() {
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
+                onKeyDown={handleKeyDown}
+                autoComplete="email"
               />
             </Field>
             <Field label={t("admin.login.password")} required>
@@ -64,6 +73,8 @@ export function AdminLoginForm() {
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                onKeyDown={handleKeyDown}
+                autoComplete="current-password"
               />
             </Field>
             {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}

@@ -46,7 +46,7 @@ function TelegramButton({ redirectAfter }: { redirectAfter: string }) {
   return (
     <Button
       onClick={handleClick}
-      variant="outline"
+      variant="secondary"
       className="w-full flex items-center justify-center gap-3 h-12 text-[var(--ink)] bg-[#E3F2FD] border-transparent hover:bg-[#BBDEFB] transition-colors shadow-sm"
       id="btn-telegram-login"
     >
@@ -65,7 +65,7 @@ function GoogleButton({ redirectAfter }: { redirectAfter: string }) {
   return (
     <Button
       onClick={handleClick}
-      variant="outline"
+      variant="secondary"
       className="w-full flex items-center justify-center gap-3 h-12 mt-3 text-[var(--ink)] bg-white border-[var(--border)] hover:bg-[var(--surface-muted)] transition-colors shadow-sm"
       id="btn-google-login"
     >

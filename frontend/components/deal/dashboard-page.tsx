@@ -124,7 +124,7 @@ export function DashboardPage({ user }: { user: SessionUser }) {
   }, [load]);
 
   const currentDeals: DealCard[] = data ? (data[activeTab] as DealCard[]) : [];
-  const totalNeedingAction = data?.waiting_my_approval.length ?? 0;
+  const totalNeedingAction = data?.waiting_my_approval?.length ?? 0;
 
   return (
     <div className="min-h-screen">
@@ -155,7 +155,7 @@ export function DashboardPage({ user }: { user: SessionUser }) {
           <div className="mb-6 flex gap-1 rounded-xl bg-[var(--surface-muted)] p-1">
             {TABS.map((tab) => {
               const Icon = tab.icon;
-              const count = data ? (data[tab.id] as DealCard[]).length : 0;
+              const count = data ? ((data[tab.id] as DealCard[])?.length ?? 0) : 0;
               const isActive = activeTab === tab.id;
               return (
                 <button
