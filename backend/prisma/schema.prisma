@@ -12,34 +12,37 @@ datasource db {
 // ---------- Users / Admins ----------
 
 model User {
-  id             String         @id @default(uuid())
-  email          String?        @unique
-  passwordHash   String?        // null for OAuth-only users
-  name           String?
-  avatarUrl      String?
-  phone          String?        @unique
-  emailVerified  Boolean        @default(false)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  deals          Deal[]
-  participants   Participant[]
-  oauthAccounts  OAuthAccount[]
-  sessions       UserSession[]
+  id            String              @id @default(uuid())
+  email         String?             @unique
+  passwordHash  String? // null for OAuth-only users
+  name          String?
+  avatarUrl     String?
+  phone         String?             @unique
+  emailVerified Boolean             @default(false)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  deals         Deal[]
+  participants  Participant[]
+  oauthAccounts OAuthAccount[]
+  sessions      UserSession[]
+  wallet        Wallet?
+  withdrawals   Withdrawal[]
+  walletEntries WalletLedgerEntry[]
 }
 
 // OAuth account link (Telegram OIDC, Google)
 model OAuthAccount {
-  id           String   @id @default(uuid())
-  userId       String
-  provider     String   // "telegram" | "google"
-  providerSub  String   // "sub" claim from ID token
-  email        String?
-  name         String?
-  avatarUrl    String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(uuid())
+  userId      String
+  provider    String // "telegram" | "google"
+  providerSub String // "sub" claim from ID token
+  email       String?
+  name        String?
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerSub])
   @@index([userId])
@@ -53,7 +56,7 @@ model UserSession {
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -71,14 +74,14 @@ model Admin {
 // ---------- Telegram identity ----------
 
 model TelegramIdentity {
-  id            String   @id @default(uuid())
-  chatId        String   @unique
-  username      String?
-  firstName     String?
-  lastName      String?
-  language      String?
-  linkedUserId  String?
-  createdAt     DateTime @default(now())
+  id           String   @id @default(uuid())
+  chatId       String   @unique
+  username     String?
+  firstName    String?
+  lastName     String?
+  language     String?
+  linkedUserId String?
+  createdAt    DateTime @default(now())
 }
 
 // ---------- Deal ----------
@@ -89,76 +92,77 @@ model TelegramIdentity {
 //         RELEASED|REFUNDED|CANCELLED|EXPIRED
 
 model Deal {
-  id                       String         @id @default(uuid())
-  publicId                 String         @unique
-  creatorRole              String         // "buyer" | "seller"
-  source                   String         // "web" | "telegram"
-  status                   String         @default("DRAFT")
-  currency                 String         @default("USD")
-  amount                   Float?
-  feeAmount                Float?
-  netSellerAmount          Float?
-  createdByUserId          String?
-  createdByTelegramChatId  String?
-  inviteTokenHash          String?
-  creatorAccessTokenHash   String
-  inviteExpiresAt          DateTime?
-  expiresAt                DateTime?
-  createdAt                DateTime       @default(now())
-  updatedAt                DateTime       @updatedAt
+  id                      String    @id @default(uuid())
+  publicId                String    @unique
+  creatorRole             String // "buyer" | "seller"
+  source                  String // "web" | "telegram"
+  status                  String    @default("DRAFT")
+  currency                String    @default("USD")
+  amount                  Float?
+  feeAmount               Float?
+  netSellerAmount         Float?
+  createdByUserId         String?
+  createdByTelegramChatId String?
+  inviteTokenHash         String?
+  creatorAccessTokenHash  String
+  inviteExpiresAt         DateTime?
+  expiresAt               DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
-  user                     User?          @relation(fields: [createdByUserId], references: [id])
-  product                  Product?
-  participants             Participant[]
-  payments                 Payment[]
-  shipping                 Shipping?
-  disputes                 Dispute[]
-  ledgerEntries            LedgerEntry[]
-  transferAttempts         TransferAttempt[]
-  files                    StoredFile[]
-  auditLogs                AuditLog[]
-  notifications            Notification[]
+  user             User?               @relation(fields: [createdByUserId], references: [id])
+  product          Product?
+  participants     Participant[]
+  payments         Payment[]
+  shipping         Shipping?
+  disputes         Dispute[]
+  ledgerEntries    LedgerEntry[]
+  transferAttempts TransferAttempt[]
+  files            StoredFile[]
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+  walletEntries    WalletLedgerEntry[]
 
   @@index([status])
   @@index([createdAt])
 }
 
 model Product {
-  id                String  @id @default(uuid())
-  dealId            String  @unique
-  title             String?
-  type              String?
-  description       String?
-  imageUrl          String?
-  quantity          Int     @default(1)
-  condition         String?
+  id          String  @id @default(uuid())
+  dealId      String  @unique
+  title       String?
+  type        String?
+  description String?
+  imageUrl    String?
+  quantity    Int     @default(1)
+  condition   String?
 
-  deal              Deal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 }
 
 model Participant {
-  id                  String   @id @default(uuid())
+  id                  String    @id @default(uuid())
   dealId              String
   userId              String?
-  role                String   // "buyer" | "seller"
+  role                String // "buyer" | "seller"
   name                String?
   phone               String?
   telegramChatId      String?
   wechatId            String?
   messengerName       String?
-  preferredLanguage   String   @default("en") // km|en|zh
+  preferredLanguage   String    @default("en") // km|en|zh
   payoutKhqr          String?
   payoutBankName      String?
   payoutAccountName   String?
   payoutAccountNumber String?
-  payoutKhqrImage     String?    // URL to uploaded KHQR image (alternative to typed KHQR string)
+  payoutKhqrImage     String? // URL to uploaded KHQR image (alternative to typed KHQR string)
   accessTokenHash     String
   approvedAt          DateTime?
   joinedAt            DateTime?
-  createdAt           DateTime @default(now())
+  createdAt           DateTime  @default(now())
 
-  deal                Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  user                User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  deal Deal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([dealId, role])
   @@index([userId])
@@ -182,12 +186,12 @@ model Payment {
   verifiedAt           DateTime?
   rejectedReason       String?
   idempotencyKey       String?   @unique
-  khqrMd5              String?   // MD5 of KHQR string — used for Bakong auto-verification
-  khqrString           String?   // dynamic KHQR payload shown to buyer
+  khqrMd5              String? // MD5 of KHQR string — used for Bakong auto-verification
+  khqrString           String? // dynamic KHQR payload shown to buyer
   autoVerified         Boolean   @default(false) // true if verified by background poller not admin
   createdAt            DateTime  @default(now())
 
-  deal                 Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   @@index([adminStatus])
 }
@@ -195,16 +199,16 @@ model Payment {
 // ---------- Ledger ----------
 
 model LedgerEntry {
-  id            String   @id @default(uuid())
-  dealId        String
-  entryType     String   // ESCROW_RECEIVED|PLATFORM_FEE_RESERVED|SELLER_PAYOUT_PENDING|SELLER_PAYOUT_SENT|BUYER_REFUND_PENDING|BUYER_REFUND_SENT|ADJUSTMENT
-  amount        Float
-  currency      String
-  reference     String?
+  id               String   @id @default(uuid())
+  dealId           String
+  entryType        String // ESCROW_RECEIVED|PLATFORM_FEE_RESERVED|SELLER_PAYOUT_PENDING|SELLER_PAYOUT_SENT|BUYER_REFUND_PENDING|BUYER_REFUND_SENT|ADJUSTMENT
+  amount           Float
+  currency         String
+  reference        String?
   createdByAdminId String?
-  createdAt     DateTime @default(now())
+  createdAt        DateTime @default(now())
 
-  deal          Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   @@index([dealId, entryType])
 }
@@ -214,7 +218,7 @@ model LedgerEntry {
 model TransferAttempt {
   id                   String   @id @default(uuid())
   dealId               String
-  purpose              String   // seller_payout|buyer_refund
+  purpose              String // seller_payout|buyer_refund|withdrawal
   amount               Float
   currency             String
   status               String   @default("pending") // pending|succeeded|failed
@@ -227,7 +231,8 @@ model TransferAttempt {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  deal                 Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  deal       Deal        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  withdrawal Withdrawal?
 
   @@index([dealId, purpose])
   @@index([status])
@@ -245,54 +250,54 @@ model Shipping {
   sellerNote         String?
   createdAt          DateTime @default(now())
 
-  deal               Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 }
 
 // ---------- Dispute ----------
 
 model Dispute {
-  id            String   @id @default(uuid())
-  dealId        String
-  openedByRole  String   // buyer|seller
-  reason        String
-  message       String
-  evidenceUrls  String   // JSON-encoded array (SQLite has no array type)
-  status        String   @default("open") // open|under_review|resolved_release|resolved_refund
-  adminNote     String?
-  createdAt     DateTime @default(now())
-  resolvedAt    DateTime?
+  id           String    @id @default(uuid())
+  dealId       String
+  openedByRole String // buyer|seller
+  reason       String
+  message      String
+  evidenceUrls String // JSON-encoded array (SQLite has no array type)
+  status       String    @default("open") // open|under_review|resolved_release|resolved_refund
+  adminNote    String?
+  createdAt    DateTime  @default(now())
+  resolvedAt   DateTime?
 
-  deal          Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 }
 
 // ---------- File ----------
 
 model StoredFile {
-  id           String   @id @default(uuid())
-  dealId       String?
-  category     String   // product|payment_proof|package_photo|delivery_receipt|dispute_evidence
-  mimeType     String
-  sizeBytes    Int
-  storageKey   String   // local path or object key
-  isPublic     Boolean  @default(false)
-  uploadedBy   String?  // role or admin id
-  createdAt    DateTime @default(now())
+  id         String   @id @default(uuid())
+  dealId     String?
+  category   String // product|payment_proof|package_photo|delivery_receipt|dispute_evidence
+  mimeType   String
+  sizeBytes  Int
+  storageKey String // local path or object key
+  isPublic   Boolean  @default(false)
+  uploadedBy String? // role or admin id
+  createdAt  DateTime @default(now())
 
-  deal         Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  deal Deal? @relation(fields: [dealId], references: [id], onDelete: SetNull)
 }
 
 // ---------- Audit log ----------
 
 model AuditLog {
-  id           String   @id @default(uuid())
-  dealId       String?
-  actorType    String   // participant|admin|system
-  actorId      String?
-  action       String
-  details      String?  // JSON-encoded
-  createdAt    DateTime @default(now())
+  id        String   @id @default(uuid())
+  dealId    String?
+  actorType String // participant|admin|system
+  actorId   String?
+  action    String
+  details   String? // JSON-encoded
+  createdAt DateTime @default(now())
 
-  deal         Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  deal Deal? @relation(fields: [dealId], references: [id], onDelete: SetNull)
 
   @@index([dealId, createdAt])
 }
@@ -300,18 +305,18 @@ model AuditLog {
 // ---------- Notification ----------
 
 model Notification {
-  id           String   @id @default(uuid())
-  dealId       String?
-  channel      String   // inapp|telegram|email|sms
-  recipientRef String?  // participant id, telegram chat id, etc.
-  eventKey     String   // COUNTERPARTY_JOINED, PAYMENT_VERIFIED, etc.
-  messageKey   String
-  payload      String?  // JSON
-  delivered    Boolean  @default(false)
+  id            String   @id @default(uuid())
+  dealId        String?
+  channel       String // inapp|telegram|email|sms
+  recipientRef  String? // participant id, telegram chat id, etc.
+  eventKey      String // COUNTERPARTY_JOINED, PAYMENT_VERIFIED, etc.
+  messageKey    String
+  payload       String? // JSON
+  delivered     Boolean  @default(false)
   failureReason String?
-  createdAt    DateTime @default(now())
+  createdAt     DateTime @default(now())
 
-  deal         Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  deal Deal? @relation(fields: [dealId], references: [id], onDelete: SetNull)
 
   @@index([dealId, createdAt])
 }
@@ -325,20 +330,114 @@ model IdempotencyKey {
   createdAt    DateTime @default(now())
 }
 
+// ---------- Wallet ----------
+// One per registered user. Two currency balances stored as smallest unit (BigInt):
+//   availableUsd → USD cents
+//   availableKhr → KHR riels (KHR has no subunit in practice)
+// version is used for optimistic concurrency control on balance updates.
+
+model Wallet {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  availableUsd BigInt   @default(0)
+  availableKhr BigInt   @default(0)
+  version      Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries     WalletLedgerEntry[]
+  withdrawals Withdrawal[]
+}
+
+// ---------- Wallet Ledger ----------
+// Append-only record of every wallet-affecting event.
+// idempotencyKey makes retries safe; deterministic per operation.
+// entryType values (see WALLET_LEDGER_ENTRY_TYPES in common/constants.ts):
+//   DEAL_PAYMENT_DEBIT | DEAL_RELEASE_CREDIT | DEAL_REFUND_CREDIT |
+//   WITHDRAWAL_LOCK | WITHDRAWAL_UNLOCK | WITHDRAWAL_DEBIT |
+//   ADMIN_ADJUSTMENT_CREDIT | ADMIN_ADJUSTMENT_DEBIT
+
+model WalletLedgerEntry {
+  id               String   @id @default(uuid())
+  walletId         String
+  userId           String
+  entryType        String
+  direction        String // credit | debit | lock | unlock
+  amount           BigInt
+  currency         String // USD | KHR
+  balanceAfter     BigInt
+  dealId           String?
+  withdrawalId     String?
+  paymentId        String?
+  idempotencyKey   String   @unique
+  description      String?
+  createdByAdminId String?
+  createdAt        DateTime @default(now())
+
+  wallet     Wallet      @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deal       Deal?       @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  withdrawal Withdrawal? @relation(fields: [withdrawalId], references: [id], onDelete: SetNull)
+
+  @@index([walletId, createdAt])
+  @@index([userId, currency, createdAt])
+  @@index([dealId])
+  @@index([withdrawalId])
+}
+
+// ---------- Withdrawal ----------
+// User-initiated cash-out from wallet to an external destination.
+// status values: PENDING_REVIEW | APPROVED | PROCESSING | COMPLETED |
+//                REJECTED | FAILED | CANCELLED
+
+model Withdrawal {
+  id                       String    @id @default(uuid())
+  publicId                 String    @unique
+  userId                   String
+  walletId                 String
+  amount                   BigInt
+  currency                 String // USD | KHR
+  destinationType          String // bakong_khqr | bank_account
+  destinationKhqr          String?
+  destinationKhqrImage     String?
+  destinationBankName      String?
+  destinationAccountName   String?
+  destinationAccountNumber String?
+  status                   String    @default("PENDING_REVIEW")
+  reviewedByAdminId        String?
+  reviewedAt               DateTime?
+  rejectionReason          String?
+  providerReference        String?
+  providerResponseJson     String?
+  failureReason            String?
+  transferAttemptId        String?   @unique
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet          Wallet              @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  entries         WalletLedgerEntry[]
+  transferAttempt TransferAttempt?    @relation(fields: [transferAttemptId], references: [id])
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+}
+
 // ---------- Bot Conversation State ----------
 
 model BotState {
-  id           String   @id @default(uuid())
-  chatId       String   @unique
-  flow         String?  // "newdeal" | null
-  step         String?  // "ask_role" | "ask_title" | "ask_price" | "ask_type" | "ask_note" | "done"
-  creatorRole  String?  // "buyer" | "seller"
-  language     String   @default("en") // km|en|zh
+  id           String    @id @default(uuid())
+  chatId       String    @unique
+  flow         String? // "newdeal" | null
+  step         String? // "ask_role" | "ask_title" | "ask_price" | "ask_type" | "ask_note" | "done"
+  creatorRole  String? // "buyer" | "seller"
+  language     String    @default("en") // km|en|zh
   productTitle String?
-  amount       String?  // stored as string, parsed on submit
+  amount       String? // stored as string, parsed on submit
   productType  String?
   note         String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
   expiresAt    DateTime?
 }

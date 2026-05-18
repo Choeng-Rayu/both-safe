@@ -22,6 +22,7 @@ import { BotModule } from './bot/bot.module';
 import { UsersModule } from './users/users.module';
 import { TransfersModule } from './transfers/transfers.module';
 import { BakongModule } from './bakong/bakong.module';
+import { WalletsModule } from './wallets/wallets.module';
 
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -81,6 +82,7 @@ class EnvValidationService implements OnModuleInit {
     UsersModule,
     TransfersModule,
     BakongModule,
+    WalletsModule,
   ],
   providers: [
     EnvValidationService,
