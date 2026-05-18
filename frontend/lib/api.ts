@@ -271,6 +271,199 @@ export async function getMyDeals() {
   }>("/users/me/deals");
 }
 
+// ─── Wallet ────────────────────────────────────────────────────────────────
+
+export type WalletCurrency = "USD" | "KHR";
+
+export interface WalletSnapshot {
+  wallet_id: string;
+  available_usd_minor: string;
+  available_khr_minor: string;
+  effective_usd_minor: string;
+  effective_khr_minor: string;
+}
+
+export interface WalletLedgerEntry {
+  id: string;
+  entry_type: string;
+  direction: string;
+  amount_minor: string;
+  currency: WalletCurrency;
+  balance_after_minor: string;
+  deal_id: string | null;
+  withdrawal_id: string | null;
+  payment_id: string | null;
+  description: string | null;
+  created_at: string;
+}
+
+export interface WithdrawalSummary {
+  id: string;
+  public_id: string;
+  user_id: string;
+  amount_minor: string;
+  currency: WalletCurrency;
+  destination: {
+    type: "bakong_khqr" | "bank_account";
+    khqr: string | null;
+    khqr_image: string | null;
+    bank_name: string | null;
+    account_name: string | null;
+    account_number: string | null;
+  };
+  status: string;
+  rejection_reason: string | null;
+  provider_reference: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WithdrawalAdminDetail extends WithdrawalSummary {
+  user?: { id: string; email: string | null; name: string | null };
+  entries?: Array<{
+    id: string;
+    entry_type: string;
+    direction: string;
+    amount_minor: string;
+    balance_after_minor: string;
+    created_at: string;
+  }>;
+}
+
+export async function getWallet() {
+  return apiGet<{ message_key: string; wallet: WalletSnapshot }>("/wallet");
+}
+
+export async function getWalletLedger(params: {
+  currency?: WalletCurrency;
+  limit?: number;
+  cursor?: string;
+}) {
+  return apiGet<{
+    message_key: string;
+    entries: WalletLedgerEntry[];
+    next_cursor: string | null;
+  }>(
+    `/wallet/ledger${buildQueryString({
+      currency: params.currency,
+      limit: params.limit?.toString(),
+      cursor: params.cursor,
+    })}`,
+  );
+}
+
+export async function createWithdrawal(payload: {
+  currency: WalletCurrency;
+  amount_minor: number;
+  destination: {
+    type: "bakong_khqr" | "bank_account";
+    khqr?: string;
+    khqr_image?: string;
+    bank_name?: string;
+    account_name?: string;
+    account_number?: string;
+  };
+}) {
+  return apiSend<{ message_key: string; withdrawal: WithdrawalSummary }>(
+    "/wallet/withdrawals",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function listMyWithdrawals() {
+  return apiGet<{ message_key: string; withdrawals: WithdrawalSummary[] }>(
+    "/wallet/withdrawals",
+  );
+}
+
+export async function cancelWithdrawal(id: string) {
+  return apiSend<{ message_key: string; withdrawal: WithdrawalSummary }>(
+    `/wallet/withdrawals/${id}/cancel`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    },
+  );
+}
+
+export async function adminListWithdrawals(params: {
+  status?: string;
+  adminToken: string;
+}) {
+  return apiGet<{ message_key: string; withdrawals: WithdrawalAdminDetail[] }>(
+    `/admin/withdrawals${buildQueryString({ status: params.status })}`,
+    { adminToken: params.adminToken },
+  );
+}
+
+export async function adminGetWithdrawal(id: string, adminToken: string) {
+  return apiGet<{ message_key: string; withdrawal: WithdrawalAdminDetail }>(
+    `/admin/withdrawals/${id}`,
+    { adminToken },
+  );
+}
+
+export async function adminApproveWithdrawal(id: string, adminToken: string) {
+  return apiSend<{ message_key: string; withdrawal: WithdrawalSummary }>(
+    `/admin/withdrawals/${id}/approve`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    },
+    { adminToken },
+  );
+}
+
+export async function adminCompleteWithdrawal(
+  id: string,
+  payload: { provider_reference?: string; admin_note?: string },
+  adminToken: string,
+) {
+  return apiSend<{ message_key: string; withdrawal: WithdrawalSummary }>(
+    `/admin/withdrawals/${id}/complete`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+    { adminToken },
+  );
+}
+
+export async function adminRejectWithdrawal(
+  id: string,
+  reason: string,
+  adminToken: string,
+) {
+  return apiSend<{ message_key: string; withdrawal: WithdrawalSummary }>(
+    `/admin/withdrawals/${id}/reject`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    },
+    { adminToken },
+  );
+}
+
+export async function payDealFromWallet(publicId: string) {
+  return apiSend<{ message_key: string; status: string; payment_id: string }>(
+    `/deals/${publicId}/payments/wallet`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    },
+  );
+}
+
 export async function adminGeneratePayoutDeeplink(dealId: string, adminToken: string) {
   return apiGet<{
     deeplink: string;
