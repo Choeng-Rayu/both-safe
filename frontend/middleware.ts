@@ -3,16 +3,23 @@ import type { NextRequest } from "next/server";
 
 const SESSION_COOKIE = "bothsafe_session";
 
-// Routes that require authentication. Wallet-enabled deals require every
-// participant to be registered, so deal pages (/d/*) are gated too.
-const PROTECTED_ROUTES = ["/deals/new", "/dashboard", "/wallet", "/d/"];
+// Strictly protected routes — never accessible without a session.
+const PROTECTED_ROUTES = ["/deals/new", "/dashboard", "/wallet"];
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
 
-  const isProtected = PROTECTED_ROUTES.some((route) =>
-    pathname.startsWith(route),
-  );
+  // Deal rooms are normally protected, but invite recipients arrive at
+  // /d/<publicId>?invite=<token> before they have logged in. Allow that
+  // first hop through so they can see the deal preview and authenticate
+  // via the in-page login → join flow.
+  const isDealRoom = pathname.startsWith("/d/");
+  const hasInviteToken = searchParams.has("invite");
+  const isProtectedDealRoom = isDealRoom && !hasInviteToken;
+
+  const isProtected =
+    PROTECTED_ROUTES.some((route) => pathname.startsWith(route)) ||
+    isProtectedDealRoom;
 
   if (isProtected) {
     const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;

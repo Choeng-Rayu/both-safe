@@ -412,6 +412,16 @@ export class BotUpdate {
     await ctx.reply(t('bot.deal.creating', lang));
 
     try {
+      // Ensure the Telegram identity is linked to a BothSafe user so the
+      // resulting participant has userId set — this is required for the
+      // wallet credit path on release/refund.
+      const from = ctx.from;
+      const { userId } = await this.stateService.ensureIdentity(chatId, {
+        username: from?.username,
+        firstName: from?.first_name,
+        lastName: from?.last_name,
+      });
+
       const result = await this.dealsService.createDeal({
         source: 'telegram',
         creator_role: state.creatorRole!,
@@ -421,7 +431,7 @@ export class BotUpdate {
         amount: state.amount ? parseFloat(state.amount) : undefined,
         product_type: state.creatorRole === 'seller' ? (state.productType ?? undefined) : undefined,
         product_description: state.creatorRole === 'buyer' ? (state.note ?? undefined) : undefined,
-      });
+      }, userId);
 
       // Record rate limit hit for deal creation
       await this.rateLimiter.recordDealCreation(chatId);

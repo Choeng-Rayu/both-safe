@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import type { BotLang } from './bot.messages';
 
@@ -25,14 +26,25 @@ export interface BotStateData {
   amountRetryCount: number;
 }
 
-/** Conversation TTL in minutes */
-const STATE_TTL_MINUTES = 10;
+const DEFAULT_STATE_TTL_MINUTES = 10;
 
 @Injectable()
 export class BotStateService {
   private readonly logger = new Logger(BotStateService.name);
+  private readonly ttlMinutes: number;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    cfg: ConfigService,
+  ) {
+    const raw = Number(cfg.get<string>('BOT_CONVERSATION_TIMEOUT_MINUTES'));
+    this.ttlMinutes = Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_STATE_TTL_MINUTES;
+  }
+
+  /** Conversation TTL in minutes (configurable via BOT_CONVERSATION_TIMEOUT_MINUTES). */
+  get stateTtlMinutes(): number {
+    return this.ttlMinutes;
+  }
 
   async get(chatId: string): Promise<BotStateData | null> {
     const row = await this.prisma.botState.findUnique({ where: { chatId } });
@@ -80,7 +92,7 @@ export class BotStateService {
   }
 
   async startNewDeal(chatId: string): Promise<void> {
-    const expires = new Date(Date.now() + STATE_TTL_MINUTES * 60 * 1000);
+    const expires = new Date(Date.now() + this.ttlMinutes * 60 * 1000);
     await this.prisma.botState.upsert({
       where: { chatId },
       create: {
@@ -103,7 +115,7 @@ export class BotStateService {
   }
 
   async update(chatId: string, patch: Partial<Omit<BotStateData, 'chatId'>>): Promise<void> {
-    const expires = new Date(Date.now() + STATE_TTL_MINUTES * 60 * 1000);
+    const expires = new Date(Date.now() + this.ttlMinutes * 60 * 1000);
     await this.prisma.botState.upsert({
       where: { chatId },
       create: {
@@ -152,24 +164,66 @@ export class BotStateService {
     }
   }
 
+  /**
+   * Upsert the TelegramIdentity for this chat and ensure it is linked to a
+   * BothSafe User. A shadow User is auto-created on first contact so that
+   * wallet credits and audit logs have a stable account to attach to.
+   * Returns the linked userId.
+   */
   async ensureIdentity(
     chatId: string,
     info: { username?: string; firstName?: string; lastName?: string },
-  ): Promise<void> {
-    await this.prisma.telegramIdentity.upsert({
+  ): Promise<{ userId: string }> {
+    const existing = await this.prisma.telegramIdentity.findUnique({
       where: { chatId },
-      create: {
-        chatId,
-        username: info.username ?? null,
-        firstName: info.firstName ?? null,
-        lastName: info.lastName ?? null,
-      },
-      update: {
-        username: info.username ?? undefined,
-        firstName: info.firstName ?? undefined,
-        lastName: info.lastName ?? undefined,
-      },
     });
+
+    if (existing?.linkedUserId) {
+      // Update profile fields if they changed.
+      await this.prisma.telegramIdentity.update({
+        where: { chatId },
+        data: {
+          username: info.username ?? existing.username,
+          firstName: info.firstName ?? existing.firstName,
+          lastName: info.lastName ?? existing.lastName,
+        },
+      });
+      return { userId: existing.linkedUserId };
+    }
+
+    // No linked user yet — create one and link.
+    const displayName =
+      [info.firstName, info.lastName].filter(Boolean).join(' ').trim() ||
+      info.username ||
+      null;
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name: displayName,
+          emailVerified: false,
+        },
+      });
+      await tx.telegramIdentity.upsert({
+        where: { chatId },
+        create: {
+          chatId,
+          username: info.username ?? null,
+          firstName: info.firstName ?? null,
+          lastName: info.lastName ?? null,
+          linkedUserId: user.id,
+        },
+        update: {
+          username: info.username ?? undefined,
+          firstName: info.firstName ?? undefined,
+          lastName: info.lastName ?? undefined,
+          linkedUserId: user.id,
+        },
+      });
+      return { userId: user.id };
+    });
+
+    return result;
   }
 
   /** Delete all expired conversation states. Call from a scheduled job. */

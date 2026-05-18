@@ -105,7 +105,11 @@ export class AdminService {
     }
 
     const seller = deal.participants.find((p) => p.role === 'seller');
-    if (!seller?.userId) {
+    if (!seller) {
+      throw new BadRequestException({ messageKey: 'transfer.missing_seller_user' });
+    }
+    const sellerUserId = await this.resolveParticipantUserId(seller);
+    if (!sellerUserId) {
       throw new BadRequestException({ messageKey: 'transfer.missing_seller_user' });
     }
 
@@ -118,7 +122,7 @@ export class AdminService {
     const walletIdempotencyKey = `deal_release:${deal.id}`;
 
     // Pre-create wallet outside transaction to avoid nested concurrency issues.
-    await this.wallets.getOrCreateWallet(seller.userId);
+    await this.wallets.getOrCreateWallet(sellerUserId);
 
     if (!(await this.ledger.hasEntry(deal.id, 'SELLER_PAYOUT_PENDING'))) {
       await this.ledger.append({
@@ -134,7 +138,7 @@ export class AdminService {
     // Atomically credit the seller's wallet, mark deal RELEASED, resolve disputes.
     await this.prisma.$transaction(async (tx) => {
       await this.wallets.creditInTx(tx, {
-        userId: seller.userId!,
+        userId: sellerUserId,
         entryType: WALLET_LEDGER_ENTRY_TYPES.DEAL_RELEASE_CREDIT,
         direction: WALLET_LEDGER_DIRECTIONS.CREDIT,
         amount: amountMinor,
@@ -235,7 +239,11 @@ export class AdminService {
     }
 
     const buyer = deal.participants.find((p) => p.role === 'buyer');
-    if (!buyer?.userId) {
+    if (!buyer) {
+      throw new BadRequestException({ messageKey: 'transfer.missing_buyer_user' });
+    }
+    const buyerUserId = await this.resolveParticipantUserId(buyer);
+    if (!buyerUserId) {
       throw new BadRequestException({ messageKey: 'transfer.missing_buyer_user' });
     }
 
@@ -247,7 +255,7 @@ export class AdminService {
     const amountMinor = toMinorUnits(amountMajor, currency);
     const walletIdempotencyKey = `deal_refund:${deal.id}`;
 
-    await this.wallets.getOrCreateWallet(buyer.userId);
+    await this.wallets.getOrCreateWallet(buyerUserId);
 
     if (!(await this.ledger.hasEntry(deal.id, 'BUYER_REFUND_PENDING'))) {
       await this.ledger.append({
@@ -262,7 +270,7 @@ export class AdminService {
 
     await this.prisma.$transaction(async (tx) => {
       await this.wallets.creditInTx(tx, {
-        userId: buyer.userId!,
+        userId: buyerUserId,
         entryType: WALLET_LEDGER_ENTRY_TYPES.DEAL_REFUND_CREDIT,
         direction: WALLET_LEDGER_DIRECTIONS.CREDIT,
         amount: amountMinor,
@@ -482,5 +490,33 @@ export class AdminService {
     if (!deal) throw new NotFoundException({ messageKey: 'deal.not_found' });
 
     return payments.checkBakongTransaction(paymentId);
+  }
+
+  /**
+   * Look up the BothSafe user id for a participant. Prefers the directly
+   * linked participant.userId; falls back to the user linked to the
+   * participant's Telegram identity (bot-created legacy deals where the
+   * participant row was created before TelegramIdentity → User linking).
+   * If a fallback user is found, the participant row is patched so the
+   * lookup is one-time.
+   */
+  private async resolveParticipantUserId(participant: {
+    id: string;
+    userId: string | null;
+    telegramChatId: string | null;
+  }): Promise<string | null> {
+    if (participant.userId) return participant.userId;
+    if (!participant.telegramChatId) return null;
+
+    const identity = await this.prisma.telegramIdentity.findUnique({
+      where: { chatId: participant.telegramChatId },
+    });
+    if (!identity?.linkedUserId) return null;
+
+    await this.prisma.participant.update({
+      where: { id: participant.id },
+      data: { userId: identity.linkedUserId },
+    });
+    return identity.linkedUserId;
   }
 }

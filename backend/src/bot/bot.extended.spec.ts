@@ -19,13 +19,15 @@ import { BotTelegramService } from './bot-telegram.service';
 // ═══════════════════════════════════════════════════════════════════════════
 
 function makePrisma(overrides: Record<string, unknown> = {}) {
-  return {
+  const mock = {
     botState: {
       findUnique: jest.fn(),
       upsert: jest.fn(),
       update: jest.fn(),
+      deleteMany: jest.fn(),
     },
     telegramIdentity: {
+      findUnique: jest.fn(),
       upsert: jest.fn(),
       update: jest.fn(),
     },
@@ -36,8 +38,13 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
       findMany: jest.fn(),
       findUnique: jest.fn(),
     },
+    user: {
+      create: jest.fn(),
+    },
+    $transaction: jest.fn(async (work: (tx: unknown) => Promise<unknown>) => work(mock)),
     ...overrides,
   };
+  return mock;
 }
 
 function makeBot(overrides: Record<string, unknown> = {}) {
@@ -78,7 +85,7 @@ describe('BotStateService', () => {
 
   beforeEach(() => {
     prisma = makePrisma();
-    service = new BotStateService(prisma as any);
+    service = new BotStateService(prisma as any, { get: () => undefined } as any);
   });
 
   describe('get()', () => {
@@ -257,46 +264,49 @@ describe('BotStateService', () => {
   });
 
   describe('ensureIdentity()', () => {
-    it('upserts TelegramIdentity with provided info', async () => {
+    it('creates a new User and links TelegramIdentity on first contact', async () => {
+      prisma.telegramIdentity.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({ id: 'user-1' });
       prisma.telegramIdentity.upsert.mockResolvedValue({});
-      await service.ensureIdentity('666', { username: 'john', firstName: 'John', lastName: 'Doe' });
 
-      expect(prisma.telegramIdentity.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { chatId: '666' },
-          create: expect.objectContaining({
-            chatId: '666',
-            username: 'john',
-            firstName: 'John',
-            lastName: 'Doe',
-          }),
-          update: expect.objectContaining({
-            username: 'john',
-            firstName: 'John',
-            lastName: 'Doe',
-          }),
-        }),
-      );
+      const result = await service.ensureIdentity('666', {
+        username: 'john',
+        firstName: 'John',
+        lastName: 'Doe',
+      });
+
+      expect(result).toEqual({ userId: 'user-1' });
+      expect(prisma.user.create).toHaveBeenCalled();
+      const upsertCall = prisma.telegramIdentity.upsert.mock.calls[0][0] as any;
+      expect(upsertCall.create.linkedUserId).toBe('user-1');
+      expect(upsertCall.create.username).toBe('john');
     });
 
-    it('handles partial info (only username)', async () => {
-      prisma.telegramIdentity.upsert.mockResolvedValue({});
-      await service.ensureIdentity('777', { username: 'alice' });
+    it('reuses existing linked user without creating a new one', async () => {
+      prisma.telegramIdentity.findUnique.mockResolvedValue({
+        chatId: '777',
+        linkedUserId: 'existing-user',
+        username: 'alice',
+      });
+      prisma.telegramIdentity.update.mockResolvedValue({});
 
-      const call = prisma.telegramIdentity.upsert.mock.calls[0][0] as any;
-      expect(call.create.username).toBe('alice');
-      expect(call.create.firstName).toBeNull();
-      expect(call.create.lastName).toBeNull();
+      const result = await service.ensureIdentity('777', { username: 'alice' });
+
+      expect(result).toEqual({ userId: 'existing-user' });
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(prisma.telegramIdentity.update).toHaveBeenCalled();
     });
 
-    it('handles empty info object', async () => {
+    it('handles empty info object by creating user with null name', async () => {
+      prisma.telegramIdentity.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({ id: 'user-2' });
       prisma.telegramIdentity.upsert.mockResolvedValue({});
-      await service.ensureIdentity('888', {});
 
-      const call = prisma.telegramIdentity.upsert.mock.calls[0][0] as any;
-      expect(call.create.username).toBeNull();
-      expect(call.create.firstName).toBeNull();
-      expect(call.create.lastName).toBeNull();
+      const result = await service.ensureIdentity('888', {});
+
+      expect(result).toEqual({ userId: 'user-2' });
+      const userCall = prisma.user.create.mock.calls[0][0] as any;
+      expect(userCall.data.name).toBeNull();
     });
   });
 });
@@ -951,7 +961,7 @@ describe('Language preference persistence', () => {
 
   beforeEach(() => {
     prisma = makePrisma();
-    service = new BotStateService(prisma as any);
+    service = new BotStateService(prisma as any, { get: () => undefined } as any);
   });
 
   it('upsertLanguage stores km correctly', async () => {
