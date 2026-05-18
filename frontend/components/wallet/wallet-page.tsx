@@ -14,14 +14,15 @@ import {
   type WalletSnapshot,
   type WithdrawalSummary,
 } from "@/lib/api";
-import { formatMinor, withdrawalStatusLabel } from "@/lib/wallet-format";
-import type { SessionUser } from "@/components/providers/app-providers";
+import { formatMinor } from "@/lib/wallet-format";
+import { useI18n, type SessionUser } from "@/components/providers/app-providers";
 
 interface WalletPageProps {
   user: SessionUser;
 }
 
 export function WalletPage({ user }: WalletPageProps) {
+  const { t } = useI18n();
   const [wallet, setWallet] = useState<WalletSnapshot | null>(null);
   const [entries, setEntries] = useState<WalletLedgerEntry[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalSummary[]>([]);
@@ -69,17 +70,17 @@ export function WalletPage({ user }: WalletPageProps) {
       <main className="mx-auto max-w-5xl space-y-8 px-4 py-10">
         <header className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-[var(--ink)]">Wallet</h1>
+            <h1 className="text-2xl font-semibold text-[var(--ink)]">{t("wallet.title")}</h1>
             <p className="mt-1 text-sm text-[var(--muted)]">
-              Held funds, ledger, and withdrawals for {user.email ?? user.name ?? "your account"}.
+              {t("wallet.subtitle")} — {user.email ?? user.name ?? ""}
             </p>
           </div>
           <div className="flex gap-2">
             <Button onClick={refresh} variant="secondary">
-              Refresh
+              {t("wallet.refresh")}
             </Button>
             <Link href="/wallet/withdraw">
-              <Button>Withdraw</Button>
+              <Button>{t("wallet.withdraw")}</Button>
             </Link>
           </div>
         </header>
@@ -91,16 +92,16 @@ export function WalletPage({ user }: WalletPageProps) {
         )}
 
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <BalanceCard label="USD balance" currency="USD" wallet={wallet} />
-          <BalanceCard label="KHR balance" currency="KHR" wallet={wallet} />
+          <BalanceCard label={t("wallet.balance_usd")} hint={t("wallet.available_now")} currency="USD" wallet={wallet} />
+          <BalanceCard label={t("wallet.balance_khr")} hint={t("wallet.available_now")} currency="KHR" wallet={wallet} />
         </section>
 
         <section>
-          <h2 className="mb-3 text-lg font-semibold text-[var(--ink)]">Pending & recent withdrawals</h2>
+          <h2 className="mb-3 text-lg font-semibold text-[var(--ink)]">{t("wallet.pending_section")}</h2>
           {loading && withdrawals.length === 0 ? (
-            <p className="text-sm text-[var(--muted)]">Loading...</p>
+            <p className="text-sm text-[var(--muted)]">{t("common.loading")}...</p>
           ) : withdrawals.length === 0 ? (
-            <p className="text-sm text-[var(--muted)]">No withdrawals yet.</p>
+            <p className="text-sm text-[var(--muted)]">{t("wallet.no_withdrawals")}</p>
           ) : (
             <ul className="space-y-3">
               {withdrawals.map((w) => (
@@ -115,15 +116,17 @@ export function WalletPage({ user }: WalletPageProps) {
                         <span className="text-sm text-[var(--muted)]">{w.public_id}</span>
                       </p>
                       <p className="text-xs text-[var(--muted)]">
-                        {withdrawalStatusLabel(w.status)} · {new Date(w.created_at).toLocaleString()}
+                        {t(`withdrawal.status.${w.status}`)} · {new Date(w.created_at).toLocaleString()}
                       </p>
                       {w.rejection_reason && (
-                        <p className="mt-1 text-xs text-red-600">Rejected: {w.rejection_reason}</p>
+                        <p className="mt-1 text-xs text-red-600">
+                          {t("withdrawal.status.REJECTED")}: {w.rejection_reason}
+                        </p>
                       )}
                     </div>
                     {w.status === "PENDING_REVIEW" && (
                       <Button variant="ghost" onClick={() => handleCancel(w.id)}>
-                        Cancel
+                        {t("common.cancel")}
                       </Button>
                     )}
                   </div>
@@ -134,11 +137,11 @@ export function WalletPage({ user }: WalletPageProps) {
         </section>
 
         <section>
-          <h2 className="mb-3 text-lg font-semibold text-[var(--ink)]">Recent activity</h2>
+          <h2 className="mb-3 text-lg font-semibold text-[var(--ink)]">{t("wallet.activity_section")}</h2>
           {loading && entries.length === 0 ? (
-            <p className="text-sm text-[var(--muted)]">Loading...</p>
+            <p className="text-sm text-[var(--muted)]">{t("common.loading")}...</p>
           ) : entries.length === 0 ? (
-            <p className="text-sm text-[var(--muted)]">No activity yet.</p>
+            <p className="text-sm text-[var(--muted)]">{t("wallet.no_activity")}</p>
           ) : (
             <ul className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface-strong)]">
               {entries.map((e) => (
@@ -174,10 +177,12 @@ export function WalletPage({ user }: WalletPageProps) {
 
 function BalanceCard({
   label,
+  hint,
   currency,
   wallet,
 }: {
   label: string;
+  hint: string;
   currency: WalletCurrency;
   wallet: WalletSnapshot | null;
 }) {
@@ -192,7 +197,7 @@ function BalanceCard({
         {formatMinor(available, currency)}
       </p>
       <p className="mt-1 text-xs text-[var(--muted)]">
-        Available to spend now: {formatMinor(effective, currency)}
+        {hint}: {formatMinor(effective, currency)}
       </p>
     </div>
   );
