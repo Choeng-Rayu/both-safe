@@ -10,10 +10,14 @@ import { LedgerService } from '../ledger/ledger.service';
 import { AuditService } from '../common/services/audit.service';
 import { WinstonLoggerService } from '../common/logger/winston-logger.service';
 import { NotificationService } from '../notifications/notification.service';
+import { WalletsService } from '../wallets/wallets.service';
+import { assertCurrency, toMinorUnits } from '../wallets/helpers/money';
 import {
   DEAL_STATUS,
   MESSAGE_KEYS,
   NOTIFICATION_EVENTS,
+  WALLET_LEDGER_DIRECTIONS,
+  WALLET_LEDGER_ENTRY_TYPES,
 } from '../common/constants';
 
 @Injectable()
@@ -23,6 +27,7 @@ export class AdminService {
     private readonly ledger: LedgerService,
     private readonly audit: AuditService,
     private readonly notif: NotificationService,
+    private readonly wallets: WalletsService,
     private readonly logger: WinstonLoggerService,
   ) {}
 
@@ -99,55 +104,100 @@ export class AdminService {
       throw new BadRequestException({ messageKey: 'admin.not_ready_for_release' });
     }
 
+    const seller = deal.participants.find((p) => p.role === 'seller');
+    if (!seller?.userId) {
+      throw new BadRequestException({ messageKey: 'transfer.missing_seller_user' });
+    }
+
+    const currency = assertCurrency(deal.currency);
+    const amountMajor = deal.netSellerAmount ?? deal.amount ?? 0;
+    if (amountMajor <= 0) {
+      throw new BadRequestException({ messageKey: MESSAGE_KEYS.VALIDATION_FAILED });
+    }
+    const amountMinor = toMinorUnits(amountMajor, currency);
+    const walletIdempotencyKey = `deal_release:${deal.id}`;
+
+    // Pre-create wallet outside transaction to avoid nested concurrency issues.
+    await this.wallets.getOrCreateWallet(seller.userId);
+
     if (!(await this.ledger.hasEntry(deal.id, 'SELLER_PAYOUT_PENDING'))) {
       await this.ledger.append({
         dealId: deal.id,
         entryType: 'SELLER_PAYOUT_PENDING',
-        amount: deal.netSellerAmount ?? deal.amount ?? 0,
+        amount: amountMajor,
         currency: deal.currency,
         reference: body.payout_reference,
         createdByAdminId: adminId,
       });
     }
+
+    // Atomically credit the seller's wallet, mark deal RELEASED, resolve disputes.
+    await this.prisma.$transaction(async (tx) => {
+      await this.wallets.creditInTx(tx, {
+        userId: seller.userId!,
+        entryType: WALLET_LEDGER_ENTRY_TYPES.DEAL_RELEASE_CREDIT,
+        direction: WALLET_LEDGER_DIRECTIONS.CREDIT,
+        amount: amountMinor,
+        currency,
+        idempotencyKey: walletIdempotencyKey,
+        dealId: deal.id,
+        createdByAdminId: adminId,
+        description: `Deal ${deal.publicId} release`,
+      });
+      await tx.deal.update({
+        where: { id: deal.id },
+        data: { status: DEAL_STATUS.RELEASED },
+      });
+      await tx.dispute.updateMany({
+        where: { dealId: deal.id, status: { in: ['open', 'under_review'] } },
+        data: {
+          status: 'resolved_release',
+          adminNote: body.admin_note ?? null,
+          resolvedAt: new Date(),
+        },
+      });
+    });
 
     if (!(await this.ledger.hasEntry(deal.id, 'SELLER_PAYOUT_SENT'))) {
       await this.ledger.append({
         dealId: deal.id,
         entryType: 'SELLER_PAYOUT_SENT',
-        amount: deal.netSellerAmount ?? deal.amount ?? 0,
+        amount: amountMajor,
         currency: deal.currency,
         reference: body.payout_reference,
         createdByAdminId: adminId,
       });
     }
 
-    await this.prisma.deal.update({
-      where: { id: deal.id },
-      data: { status: DEAL_STATUS.RELEASED },
-    });
-    await this.prisma.dispute.updateMany({
-      where: { dealId: deal.id, status: { in: ['open', 'under_review'] } },
-      data: { status: 'resolved_release', adminNote: body.admin_note ?? null, resolvedAt: new Date() },
-    });
-
     await this.audit.record({
       dealId: deal.id,
       actorType: 'admin',
       actorId: adminId,
-      action: 'admin.released',
-      details: { reference: body.payout_reference, note: body.admin_note },
+      action: 'admin.released_to_wallet',
+      details: {
+        reference: body.payout_reference,
+        note: body.admin_note,
+        wallet_idempotency_key: walletIdempotencyKey,
+        amount_minor: amountMinor.toString(),
+        currency,
+      },
     });
     this.logger.action('admin.release', { deal_id: deal.id, admin_id: adminId, reference: body.payout_reference });
 
-    const seller = deal.participants.find((p) => p.role === 'seller');
     await this.notif.notify({
       dealId: deal.id,
       eventKey: NOTIFICATION_EVENTS.PAYOUT_RELEASED,
-      messageKey: MESSAGE_KEYS.RELEASED,
+      messageKey: MESSAGE_KEYS.RELEASED_TO_WALLET,
       recipients: [
-        ...(seller ? [{ channel: 'inapp' as const, ref: seller.id }] : []),
-        ...(seller?.telegramChatId ? [{ channel: 'telegram' as const, ref: seller.telegramChatId }] : []),
+        { channel: 'inapp' as const, ref: seller.id },
+        ...(seller.telegramChatId
+          ? [{ channel: 'telegram' as const, ref: seller.telegramChatId }]
+          : []),
       ],
+      payload: {
+        currency,
+        amount_minor: amountMinor.toString(),
+      },
     });
 
     const result = {
@@ -184,54 +234,98 @@ export class AdminService {
       throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
     }
 
+    const buyer = deal.participants.find((p) => p.role === 'buyer');
+    if (!buyer?.userId) {
+      throw new BadRequestException({ messageKey: 'transfer.missing_buyer_user' });
+    }
+
+    const currency = assertCurrency(deal.currency);
+    const amountMajor = deal.amount ?? 0;
+    if (amountMajor <= 0) {
+      throw new BadRequestException({ messageKey: MESSAGE_KEYS.VALIDATION_FAILED });
+    }
+    const amountMinor = toMinorUnits(amountMajor, currency);
+    const walletIdempotencyKey = `deal_refund:${deal.id}`;
+
+    await this.wallets.getOrCreateWallet(buyer.userId);
+
     if (!(await this.ledger.hasEntry(deal.id, 'BUYER_REFUND_PENDING'))) {
       await this.ledger.append({
         dealId: deal.id,
         entryType: 'BUYER_REFUND_PENDING',
-        amount: deal.amount ?? 0,
-        currency: deal.currency,
-        reference: body.refund_reference,
-        createdByAdminId: adminId,
-      });
-    }
-    if (!(await this.ledger.hasEntry(deal.id, 'BUYER_REFUND_SENT'))) {
-      await this.ledger.append({
-        dealId: deal.id,
-        entryType: 'BUYER_REFUND_SENT',
-        amount: deal.amount ?? 0,
+        amount: amountMajor,
         currency: deal.currency,
         reference: body.refund_reference,
         createdByAdminId: adminId,
       });
     }
 
-    await this.prisma.deal.update({
-      where: { id: deal.id },
-      data: { status: DEAL_STATUS.REFUNDED },
+    await this.prisma.$transaction(async (tx) => {
+      await this.wallets.creditInTx(tx, {
+        userId: buyer.userId!,
+        entryType: WALLET_LEDGER_ENTRY_TYPES.DEAL_REFUND_CREDIT,
+        direction: WALLET_LEDGER_DIRECTIONS.CREDIT,
+        amount: amountMinor,
+        currency,
+        idempotencyKey: walletIdempotencyKey,
+        dealId: deal.id,
+        createdByAdminId: adminId,
+        description: `Deal ${deal.publicId} refund`,
+      });
+      await tx.deal.update({
+        where: { id: deal.id },
+        data: { status: DEAL_STATUS.REFUNDED },
+      });
+      await tx.dispute.updateMany({
+        where: { dealId: deal.id, status: { in: ['open', 'under_review'] } },
+        data: {
+          status: 'resolved_refund',
+          adminNote: body.admin_note ?? null,
+          resolvedAt: new Date(),
+        },
+      });
     });
-    await this.prisma.dispute.updateMany({
-      where: { dealId: deal.id, status: { in: ['open', 'under_review'] } },
-      data: { status: 'resolved_refund', adminNote: body.admin_note ?? null, resolvedAt: new Date() },
-    });
+
+    if (!(await this.ledger.hasEntry(deal.id, 'BUYER_REFUND_SENT'))) {
+      await this.ledger.append({
+        dealId: deal.id,
+        entryType: 'BUYER_REFUND_SENT',
+        amount: amountMajor,
+        currency: deal.currency,
+        reference: body.refund_reference,
+        createdByAdminId: adminId,
+      });
+    }
 
     await this.audit.record({
       dealId: deal.id,
       actorType: 'admin',
       actorId: adminId,
-      action: 'admin.refunded',
-      details: { reference: body.refund_reference, note: body.admin_note },
+      action: 'admin.refunded_to_wallet',
+      details: {
+        reference: body.refund_reference,
+        note: body.admin_note,
+        wallet_idempotency_key: walletIdempotencyKey,
+        amount_minor: amountMinor.toString(),
+        currency,
+      },
     });
     this.logger.action('admin.refund', { deal_id: deal.id, admin_id: adminId, reference: body.refund_reference });
 
-    const buyer = deal.participants.find((p) => p.role === 'buyer');
     await this.notif.notify({
       dealId: deal.id,
       eventKey: NOTIFICATION_EVENTS.REFUND_COMPLETED,
-      messageKey: MESSAGE_KEYS.REFUNDED,
+      messageKey: MESSAGE_KEYS.REFUNDED_TO_WALLET,
       recipients: [
-        ...(buyer ? [{ channel: 'inapp' as const, ref: buyer.id }] : []),
-        ...(buyer?.telegramChatId ? [{ channel: 'telegram' as const, ref: buyer.telegramChatId }] : []),
+        { channel: 'inapp' as const, ref: buyer.id },
+        ...(buyer.telegramChatId
+          ? [{ channel: 'telegram' as const, ref: buyer.telegramChatId }]
+          : []),
       ],
+      payload: {
+        currency,
+        amount_minor: amountMinor.toString(),
+      },
     });
 
     const result = {

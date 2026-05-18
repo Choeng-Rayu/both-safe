@@ -4,9 +4,10 @@ import { AdminService } from './admin.service';
 import { AuthModule } from '../auth/auth.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { BakongModule } from '../bakong/bakong.module';
+import { WalletsModule } from '../wallets/wallets.module';
 
 @Module({
-  imports: [AuthModule, PaymentsModule, BakongModule],
+  imports: [AuthModule, PaymentsModule, BakongModule, WalletsModule],
   controllers: [AdminController],
   providers: [AdminService],
 })
