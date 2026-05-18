@@ -32,8 +32,8 @@ test.describe("Full Escrow Flow — Buyer → Seller → Admin", () => {
     const adminRes = await request.post("http://localhost:3003/v1/auth/admin/login", {
       data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
     });
-    const adminData = await adminRes.json() as { access_token: string };
-    adminToken = adminData.access_token;
+    const adminData = await adminRes.json() as { token: string };
+    adminToken = adminData.token;
   });
 
   async function loginAs(page: Page, email: string, password: string) {

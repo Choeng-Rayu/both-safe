@@ -16,9 +16,7 @@ import {
   uploadShippingProof,
   joinDeal,
 } from "@/lib/api";
-import { sellerAccept, sellerReject, cancelDeal } from '@/lib/api';
-import { SellerAcceptPanel } from '@/components/deal/seller-accept-panel';
-import { BuyerTermsPanel } from '@/components/deal/buyer-terms-panel';
+import { cancelDeal } from '@/lib/api';
 import { getErrorMessage } from "@/lib/errors";
 import {
   getStoredAccessToken,
@@ -34,6 +32,7 @@ import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { DealProgressSteps } from "@/components/deal/deal-progress-steps";
 import { DealStatusCard } from "@/components/deal/deal-status-card";
 import { ProductCard } from "@/components/deal/product-card";
 import { ParticipantCard } from "@/components/deal/participant-card";
@@ -115,8 +114,6 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
   const [payoutForm, setPayoutForm] = useState(initialPayoutForm);
   const [editor, setEditor] = useState<null | "product" | "participant" | "delivery" | "payout">(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [buyerTermsAgreed, setBuyerTermsAgreed] = useState(false);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentNote, setPaymentNote] = useState("");
@@ -143,6 +140,16 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
     [deal?.allowed_actions],
   );
 
+  const instructionKey = useMemo((): string | null => {
+    if (!deal) return null;
+    if (canJoinOnly) return "deal.instruction.join_preview";
+    const s = deal.status;
+    const r = deal.current_user_role ?? "buyer";
+    if (s === "READY_FOR_PAYMENT") return `deal.instruction.ready_for_payment_${r}`;
+    if (s === "SHIPPED") return `deal.instruction.shipped_${r}`;
+    return `deal.instruction.${s.toLowerCase()}`;
+  }, [deal, canJoinOnly]);
+
   const fetchDealState = useCallback(async () => {
     const result = await getDeal(publicId, {
       accessToken: activeAccessToken,
@@ -151,8 +158,7 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
 
     let instruction: typeof paymentInstruction = null;
 if (
-  result.status === "PENDING_BUYER_PAYMENT" ||
-  result.status === "PENDING_SELLER_APPROVAL" ||
+  result.status === "READY_FOR_PAYMENT" ||
   result.status === "PAYMENT_PENDING_VERIFICATION"
 ) {
       try {
@@ -244,10 +250,6 @@ if (
   }, [deal?.status, refreshDeal]);
 
   async function handleJoin() {
-    if (!user) {
-      router.push(`/login?redirectTo=${encodeURIComponent(`/d/${publicId}?invite=${inviteToken ?? ""}`)}`);
-      return;
-    }
     if (!inviteToken || !joinForm.name.trim()) {
       setError(t("errors.validation.failed"));
       return;
@@ -366,6 +368,14 @@ if (
               {error ? (
                 <div className="rounded-lg border border-[rgba(180,67,52,0.25)] bg-[rgba(180,67,52,0.08)] px-4 py-3 text-sm text-[var(--danger)]">
                   {error}
+                </div>
+              ) : null}
+
+              <DealProgressSteps status={deal.status} />
+
+              {instructionKey ? (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3 text-sm text-[var(--ink)]">
+                  {t(instructionKey)}
                 </div>
               ) : null}
 
@@ -801,37 +811,36 @@ if (
                     </>
                   ) : null}
 
-                    {/* Seller Accept/Reject Panel */}
-                    {deal.status === 'PAID_WAITING_SELLER_APPROVAL' && currentRole === 'seller' && (
-                      <div id="seller-accept-section">
-                        <SellerAcceptPanel
-                          amount={deal.amount}
-                          currency={deal.currency}
-                          productTitle={deal.product?.title ?? null}
-                          buyerName={deal.participants.find(p => p.role === 'buyer')?.name ?? null}
-                          pending={pending}
-                          onAccept={(payload) =>
-                            runAction(async () => {
-                              await sellerAccept(publicId, payload, { accessToken: activeAccessToken });
-                            })
-                          }
-                          onReject={() =>
-                            runAction(async () => {
-                              await sellerReject(publicId, { accessToken: activeAccessToken });
-                            })
-                          }
-                        />
+                    {/* Approval Section — visible when both parties must approve */}
+                    {actionSet.has("approve") && (
+                      <div className="rounded-xl border-2 border-[var(--brand)] bg-[rgba(47,106,82,0.05)] p-5">
+                        <p className="text-base font-semibold text-[var(--ink)]">
+                          {t("deal.action.approve")}
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--ink-soft)]">
+                          {t("deal.instruction.awaiting_both_approval")}
+                        </p>
+                        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                          <Button
+                            onClick={() =>
+                              void runAction(async () => {
+                                await approveDeal(publicId, { accessToken: activeAccessToken });
+                              })
+                            }
+                            disabled={pending}
+                          >
+                            {t("deal.action.approve")}
+                          </Button>
+                        </div>
                       </div>
                     )}
 
                     {/* Buyer Cancel Section */}
-                    {(deal.status === 'PENDING_SELLER_APPROVAL' || deal.status === 'PAID_WAITING_SELLER_APPROVAL') && currentRole === 'buyer' && (
+                    {actionSet.has("cancel") && currentRole === 'buyer' && (
                       <div className='rounded-xl border border-[rgba(180,67,52,0.2)] bg-[rgba(180,67,52,0.04)] p-4'>
                         <p className='text-sm font-semibold text-[var(--ink)]'>Cancel this deal?</p>
                         <p className='mt-1 text-sm text-[var(--ink-soft)]'>
-                          {deal.status === 'PAID_WAITING_SELLER_APPROVAL'
-                            ? 'Seller has not accepted yet. If you cancel, your payment will be refunded.'
-                            : 'The seller has not accepted yet. You can cancel and no charges apply.'}
+                          You can cancel this deal. If payment was already made, it will be refunded.
                         </p>
                         <button
                           onClick={() =>
@@ -888,7 +897,8 @@ if (
                     </EditorCard>
                   ) : null}
 
-{(deal.status === "PENDING_BUYER_PAYMENT" || deal.status === "PENDING_SELLER_APPROVAL" ||
+{(deal.status === "READY_FOR_PAYMENT" ||
+  deal.status === "PAYMENT_PENDING_VERIFICATION" ||
   deal.payment_summary ||
   actionSet.has("upload_payment_proof")) && (
                     <SectionCard
@@ -1040,7 +1050,7 @@ if (
                   )}
 
                   {(deal.status === "PAID_ESCROWED" ||
-                    deal.status === "SELLER_ACCEPTED_PACKING" ||
+                    deal.status === "SELLER_PREPARING" ||
                     deal.status === "SHIPPED" ||
                     deal.shipping_summary ||
                     actionSet.has("upload_shipping_proof")) && (
@@ -1227,15 +1237,15 @@ if (
               </SectionCard>
               <PrimaryActionBar
                 primary={
-                  actionSet.has("seller_accept") ? (
+                  actionSet.has("approve") ? (
                     <ActionButton
                       onClick={() =>
-                        document
-                          .getElementById("seller-accept-section")
-                          ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                        void runAction(async () => {
+                          await approveDeal(publicId, { accessToken: activeAccessToken });
+                        })
                       }
                     >
-                      Review &amp; Accept Deal
+                      {t("deal.action.approve")}
                     </ActionButton>
                   ) : actionSet.has("upload_payment_proof") ? (
                     <ActionButton

@@ -29,7 +29,7 @@ test("admin login opens deals dashboard", async ({ page }) => {
 
   await page.getByLabel("Admin email").fill(adminEmail);
   await page.getByLabel("Password").fill(adminPassword);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("button", { name: "Sign in", exact: true }).last().click();
 
   await expect(page).toHaveURL(/\/admin\/deals/);
   await expect(page.getByRole("heading", { name: "Deal operations" })).toBeVisible();
