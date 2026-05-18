@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/providers/app-providers";
 import {
   adminApproveWithdrawal,
   adminCompleteWithdrawal,
   adminRejectWithdrawal,
   type WithdrawalAdminDetail,
 } from "@/lib/api";
-import { formatMinor, withdrawalStatusLabel } from "@/lib/wallet-format";
+import { formatMinor } from "@/lib/wallet-format";
 
 interface Props {
   adminToken: string;
@@ -18,6 +19,7 @@ interface Props {
 
 export function AdminWithdrawalDetail({ adminToken, withdrawal: initial }: Props) {
   const router = useRouter();
+  const { t } = useI18n();
   const [withdrawal, setWithdrawal] = useState(initial);
   const [providerReference, setProviderReference] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
@@ -57,7 +59,7 @@ export function AdminWithdrawalDetail({ adminToken, withdrawal: initial }: Props
               {formatMinor(withdrawal.amount_minor, withdrawal.currency)}
             </p>
             <p className="text-sm text-[var(--muted)]">
-              {withdrawalStatusLabel(withdrawal.status)} ·{" "}
+              {t(`withdrawal.status.${withdrawal.status}`)} ·{" "}
               {new Date(withdrawal.created_at).toLocaleString()}
             </p>
           </div>
@@ -123,7 +125,7 @@ export function AdminWithdrawalDetail({ adminToken, withdrawal: initial }: Props
                 }
                 disabled={submitting}
               >
-                Approve for manual payout
+                {t("admin.withdrawals.approve")}
               </Button>
             </div>
           )}
@@ -131,13 +133,12 @@ export function AdminWithdrawalDetail({ adminToken, withdrawal: initial }: Props
           {isApproved && (
             <div className="space-y-3 rounded-xl border border-[var(--border)] p-4">
               <p className="text-sm text-[var(--muted)]">
-                After paying the user via Bakong or bank, enter the reference and mark
-                complete to debit their wallet.
+                {t("admin.withdrawals.mark_paid_hint")}
               </p>
               <input
                 value={providerReference}
                 onChange={(e) => setProviderReference(e.target.value)}
-                placeholder="Provider reference (optional)"
+                placeholder={t("admin.withdrawals.provider_reference")}
                 className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2"
               />
               <Button
@@ -152,17 +153,17 @@ export function AdminWithdrawalDetail({ adminToken, withdrawal: initial }: Props
                 }
                 disabled={submitting}
               >
-                Mark paid &amp; debit wallet
+                {t("admin.withdrawals.mark_paid")}
               </Button>
             </div>
           )}
 
           <div className="space-y-3 rounded-xl border border-[var(--border)] p-4">
-            <p className="text-sm font-medium">Reject withdrawal</p>
+            <p className="text-sm font-medium">{t("admin.withdrawals.reject")}</p>
             <input
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
-              placeholder="Reason (required)"
+              placeholder={t("admin.withdrawals.reject_reason")}
               className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2"
             />
             <Button
@@ -174,7 +175,7 @@ export function AdminWithdrawalDetail({ adminToken, withdrawal: initial }: Props
               }
               disabled={submitting || !rejectionReason}
             >
-              Reject &amp; unlock funds
+              {t("admin.withdrawals.reject")}
             </Button>
           </div>
         </section>

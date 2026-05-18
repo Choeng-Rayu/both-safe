@@ -88,7 +88,11 @@ export class DisputesService {
       recipients: [
         { channel: 'inapp', ref: 'admin' },
         ...deal.participants.map((p) => ({ channel: 'inapp' as const, ref: p.id })),
+        ...deal.participants
+          .filter((p) => p.telegramChatId)
+          .map((p) => ({ channel: 'telegram' as const, ref: p.telegramChatId! })),
       ],
+      payload: { reason: body.reason },
     });
 
     return { status: DEAL_STATUS.DISPUTED, dispute_id: dispute.id };

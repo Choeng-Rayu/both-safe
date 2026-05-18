@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Wallet } from "lucide-react";
 import { LanguageSwitcher } from "@/components/deal/language-switcher";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/providers/app-providers";
@@ -35,6 +35,13 @@ export function PublicHeader() {
           <LanguageSwitcher />
           {user ? (
             <div className="flex items-center gap-2">
+              <Link
+                href="/wallet"
+                className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-[var(--ink-soft)] transition-colors hover:text-[var(--ink)]"
+              >
+                <Wallet className="h-4 w-4" />
+                <span className="hidden sm:inline">Wallet</span>
+              </Link>
               <Link
                 href="/dashboard"
                 className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-[var(--ink-soft)] transition-colors hover:text-[var(--ink)]"

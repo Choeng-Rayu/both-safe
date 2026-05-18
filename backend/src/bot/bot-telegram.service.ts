@@ -67,6 +67,45 @@ export class BotTelegramService {
           text = lines.join('\n');
         }
 
+        // BOTH_APPROVED (Req 14.3): include payment amount and receiving account
+        if (opts.eventKey === 'BOTH_APPROVED' && opts.payload) {
+          const p = opts.payload as Record<string, string | number | null>;
+          const amount = p['amount'];
+          const currency = p['currency'] ?? 'USD';
+          const receiver = p['receiver_account_label'] ?? p['receiver_label'];
+          const lines = [text];
+          if (amount != null) lines.push(`💰 *Amount:* ${String(amount)} ${String(currency)}`);
+          if (receiver) lines.push(`🏦 *Pay to:* ${String(receiver)}`);
+          text = lines.join('\n');
+        }
+
+        // DISPUTE_OPENED (Req 19.3): include dispute reason
+        if (opts.eventKey === 'DISPUTE_OPENED' && opts.payload) {
+          const p = opts.payload as Record<string, string | number | null>;
+          const reason = p['reason'] ?? p['dispute_reason'];
+          if (reason) {
+            text = `${text}\n📝 *Reason:* ${String(reason)}`;
+          }
+        }
+
+        // PAYMENT_REJECTED (Req 16.2): include rejection reason if provided
+        if (opts.eventKey === 'PAYMENT_REJECTED' && opts.payload) {
+          const p = opts.payload as Record<string, string | number | null>;
+          const reason = p['rejected_reason'] ?? p['reason'];
+          if (reason) {
+            text = `${text}\n📝 *Reason:* ${String(reason)}`;
+          }
+        }
+
+        // SHIPPING_UPLOADED (Req 17.2-3): include tracking + carrier if provided
+        if (opts.eventKey === 'SHIPPING_UPLOADED' && opts.payload) {
+          const p = opts.payload as Record<string, string | number | null>;
+          const lines = [text];
+          if (p['delivery_company']) lines.push(`🚚 *Carrier:* ${String(p['delivery_company'])}`);
+          if (p['tracking_number']) lines.push(`🔢 *Tracking:* \`${String(p['tracking_number'])}\``);
+          text = lines.join('\n');
+        }
+
         // Build inline keyboard — admin payout event gets Admin Panel button, others get Deal Room
         let inlineKeyboard: Array<Array<{ text: string; url: string }>> | undefined;
         if (opts.eventKey === 'BUYER_CONFIRMED_PAYOUT_REQUIRED' && opts.payload?.['admin_url']) {

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PublicHeader } from "@/components/layout/public-header";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/providers/app-providers";
 import {
   createWithdrawal,
   getWallet,
@@ -16,6 +17,7 @@ type DestinationType = "bakong_khqr" | "bank_account";
 
 export function WithdrawForm() {
   const router = useRouter();
+  const { t } = useI18n();
   const [wallet, setWallet] = useState<WalletSnapshot | null>(null);
   const [currency, setCurrency] = useState<WalletCurrency>("USD");
   const [amount, setAmount] = useState("");
@@ -48,7 +50,7 @@ export function WithdrawForm() {
     try {
       const amountMinor = parseMajorToMinor(amount, currency);
       if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
-        throw new Error("Enter a valid amount");
+        throw new Error(t("withdrawal.amount_usd"));
       }
       const destination =
         destinationType === "bakong_khqr"
@@ -76,13 +78,11 @@ export function WithdrawForm() {
     <div className="min-h-screen bg-[var(--surface-soft)]">
       <PublicHeader />
       <main className="mx-auto max-w-xl px-4 py-10">
-        <h1 className="text-2xl font-semibold text-[var(--ink)]">New withdrawal</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Funds will be locked until an admin reviews and pays out.
-        </p>
+        <h1 className="text-2xl font-semibold text-[var(--ink)]">{t("withdrawal.new_title")}</h1>
+        <p className="mt-1 text-sm text-[var(--muted)]">{t("withdrawal.new_subtitle")}</p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5 rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] p-6">
-          <Field label="Currency">
+          <Field label={t("withdrawal.currency")}>
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value as WalletCurrency)}
@@ -92,11 +92,11 @@ export function WithdrawForm() {
               <option value="KHR">KHR</option>
             </select>
             <p className="mt-1 text-xs text-[var(--muted)]">
-              Available to withdraw: {formatMinor(effective, currency)}
+              {t("wallet.available_now")}: {formatMinor(effective, currency)}
             </p>
           </Field>
 
-          <Field label={`Amount (${currency === "USD" ? "in dollars" : "in riels"})`}>
+          <Field label={currency === "USD" ? t("withdrawal.amount_usd") : t("withdrawal.amount_khr")}>
             <input
               type="number"
               inputMode="decimal"
@@ -110,19 +110,19 @@ export function WithdrawForm() {
             />
           </Field>
 
-          <Field label="Destination">
+          <Field label={t("withdrawal.destination")}>
             <select
               value={destinationType}
               onChange={(e) => setDestinationType(e.target.value as DestinationType)}
               className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2"
             >
-              <option value="bakong_khqr">Bakong KHQR</option>
-              <option value="bank_account">Bank account</option>
+              <option value="bakong_khqr">{t("withdrawal.destination.bakong")}</option>
+              <option value="bank_account">{t("withdrawal.destination.bank")}</option>
             </select>
           </Field>
 
           {destinationType === "bakong_khqr" ? (
-            <Field label="KHQR string">
+            <Field label={t("withdrawal.khqr_string")}>
               <textarea
                 value={khqr}
                 onChange={(e) => setKhqr(e.target.value)}
@@ -131,13 +131,11 @@ export function WithdrawForm() {
                 placeholder="00020101..."
                 required
               />
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                Paste the KHQR payload from your Bakong account.
-              </p>
+              <p className="mt-1 text-xs text-[var(--muted)]">{t("withdrawal.khqr_hint")}</p>
             </Field>
           ) : (
             <>
-              <Field label="Bank name">
+              <Field label={t("withdrawal.bank_name")}>
                 <input
                   value={bankName}
                   onChange={(e) => setBankName(e.target.value)}
@@ -145,14 +143,14 @@ export function WithdrawForm() {
                   required
                 />
               </Field>
-              <Field label="Account name">
+              <Field label={t("withdrawal.account_name")}>
                 <input
                   value={accountName}
                   onChange={(e) => setAccountName(e.target.value)}
                   className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2"
                 />
               </Field>
-              <Field label="Account number">
+              <Field label={t("withdrawal.account_number")}>
                 <input
                   value={accountNumber}
                   onChange={(e) => setAccountNumber(e.target.value)}
@@ -175,10 +173,10 @@ export function WithdrawForm() {
               variant="ghost"
               onClick={() => router.push("/wallet")}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting ? "Submitting..." : "Submit withdrawal"}
+              {submitting ? t("withdrawal.submitting") : t("withdrawal.submit")}
             </Button>
           </div>
         </form>

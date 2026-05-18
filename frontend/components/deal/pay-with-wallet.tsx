@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/providers/app-providers";
 import {
   getWallet,
   payDealFromWallet,
@@ -19,25 +20,46 @@ interface PayWithWalletProps {
 }
 
 export function PayWithWallet({ publicId, currency, amount, onPaid }: PayWithWalletProps) {
+  const { t } = useI18n();
   const [wallet, setWallet] = useState<WalletSnapshot | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     void (async () => {
       try {
         const result = await getWallet();
-        setWallet(result.wallet);
-      } catch {
-        // User may not be logged in; component renders nothing in that case.
+        if (!cancelled) {
+          setWallet(result.wallet);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        // 401 → user not logged in; render nothing. Other errors → surface.
+        const status = (err as { status?: number })?.status;
+        if (status !== 401) {
+          setLoadError((err as Error).message ?? "Failed to load wallet");
+        }
       } finally {
-        setLoaded(true);
+        if (!cancelled) setLoaded(true);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  if (!loaded || !wallet) {
+  if (!loaded) return null;
+  if (!wallet) {
+    if (loadError) {
+      return (
+        <p className="text-xs text-amber-700" role="alert">
+          {loadError}
+        </p>
+      );
+    }
     return null;
   }
 
@@ -65,18 +87,21 @@ export function PayWithWallet({ publicId, currency, amount, onPaid }: PayWithWal
       <div className="flex items-start gap-3">
         <Wallet className="mt-0.5 h-5 w-5 text-[var(--brand)]" />
         <div className="flex-1">
-          <p className="text-sm font-semibold text-[var(--ink)]">Pay with BothSafe Wallet</p>
+          <p className="text-sm font-semibold text-[var(--ink)]">
+            {t("wallet.pay_with_wallet")}
+          </p>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            Available: {formatMinor(effectiveMinor, currency)} · Charge:{" "}
-            {formatMinor(BigInt(amountMinor), currency)}
+            {formatMinor(effectiveMinor, currency)} · {formatMinor(BigInt(amountMinor), currency)}
           </p>
           {!hasEnough && (
             <p className="mt-2 text-xs text-amber-700">
-              Not enough wallet balance for this deal. Pay with KHQR below or top up first.
+              {t("wallet.insufficient_funds")}
             </p>
           )}
           {error && (
-            <p className="mt-2 text-xs text-red-700">{error}</p>
+            <p className="mt-2 text-xs text-red-700" role="alert">
+              {error}
+            </p>
           )}
         </div>
         <Button
@@ -84,7 +109,7 @@ export function PayWithWallet({ publicId, currency, amount, onPaid }: PayWithWal
           disabled={!hasEnough || submitting}
           className="shrink-0"
         >
-          {submitting ? "Paying..." : "Pay now"}
+          {submitting ? t("wallet.paying") : t("wallet.pay_now")}
         </Button>
       </div>
     </div>

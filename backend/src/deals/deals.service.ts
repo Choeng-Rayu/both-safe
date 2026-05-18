@@ -301,7 +301,27 @@ export class DealsService {
       });
       await this.audit.record({ dealId: deal.id, actorType: 'system', action: 'status.transition', details: { from: DEAL_STATUS.AWAITING_BOTH_APPROVAL, to: DEAL_STATUS.READY_FOR_PAYMENT } });
       this.logger.action('status.transition', { public_id: publicId, from: DEAL_STATUS.AWAITING_BOTH_APPROVAL, to: DEAL_STATUS.READY_FOR_PAYMENT });
-      await this.notif.notify({ dealId: deal.id, eventKey: NOTIFICATION_EVENTS.BOTH_APPROVED, messageKey: MESSAGE_KEYS.BOTH_APPROVED, recipients: fresh.participants.map((p) => ({ channel: 'inapp' as const, ref: p.id })) });
+
+      // Notify both inapp and Telegram channels. The buyer needs the
+      // amount and receiving account so they can pay (Req 14.3).
+      const buyer = fresh.participants.find((p) => p.role === 'buyer');
+      const recipients = [
+        ...fresh.participants.map((p) => ({ channel: 'inapp' as const, ref: p.id })),
+        ...(buyer?.telegramChatId
+          ? [{ channel: 'telegram' as const, ref: buyer.telegramChatId }]
+          : []),
+      ];
+      await this.notif.notify({
+        dealId: deal.id,
+        eventKey: NOTIFICATION_EVENTS.BOTH_APPROVED,
+        messageKey: MESSAGE_KEYS.BOTH_APPROVED,
+        recipients,
+        payload: {
+          amount: fresh.amount,
+          currency: fresh.currency,
+          receiver_account_label: this.cfg.get<string>('BAKONG_MERCHANT_NAME') ?? 'BothSafe',
+        },
+      });
     }
 
     const updated = await this.loadDeal(publicId);

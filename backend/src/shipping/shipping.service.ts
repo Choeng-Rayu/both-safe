@@ -112,6 +112,10 @@ export class ShippingService {
         ...(buyer ? [{ channel: 'inapp' as const, ref: buyer.id }] : []),
         ...(buyer?.telegramChatId ? [{ channel: 'telegram' as const, ref: buyer.telegramChatId }] : []),
       ],
+      payload: {
+        delivery_company: shipping.deliveryCompany,
+        tracking_number: shipping.trackingNumber,
+      },
     });
 
     return { status: DEAL_STATUS.SHIPPED, shipping_id: shipping.id };

@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/providers/app-providers";
 import { adminListWithdrawals, type WithdrawalAdminDetail } from "@/lib/api";
-import { formatMinor, withdrawalStatusLabel } from "@/lib/wallet-format";
+import { formatMinor } from "@/lib/wallet-format";
 
 interface AdminWithdrawalsListProps {
   adminToken: string;
@@ -23,6 +24,7 @@ const STATUS_OPTIONS = [
 ];
 
 export function AdminWithdrawalsList({ adminToken, initialStatus = "" }: AdminWithdrawalsListProps) {
+  const { t } = useI18n();
   const [status, setStatus] = useState(initialStatus);
   const [rows, setRows] = useState<WithdrawalAdminDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +53,7 @@ export function AdminWithdrawalsList({ adminToken, initialStatus = "" }: AdminWi
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-[var(--ink)]">Filter:</label>
+        <label className="text-sm font-medium text-[var(--ink)]">{t("common.optional")}:</label>
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
@@ -59,12 +61,14 @@ export function AdminWithdrawalsList({ adminToken, initialStatus = "" }: AdminWi
         >
           {STATUS_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
-              {opt.label}
+              {opt.value
+                ? t(`withdrawal.status.${opt.value}`)
+                : opt.label}
             </option>
           ))}
         </select>
         <Button variant="ghost" onClick={refresh}>
-          Refresh
+          {t("wallet.refresh")}
         </Button>
       </div>
 
@@ -75,9 +79,9 @@ export function AdminWithdrawalsList({ adminToken, initialStatus = "" }: AdminWi
       )}
 
       {loading && rows.length === 0 ? (
-        <p className="text-sm text-[var(--muted)]">Loading...</p>
+        <p className="text-sm text-[var(--muted)]">{t("common.loading")}...</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-[var(--muted)]">No withdrawals match this filter.</p>
+        <p className="text-sm text-[var(--muted)]">{t("wallet.no_withdrawals")}</p>
       ) : (
         <table className="w-full border-collapse rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] text-sm">
           <thead className="bg-[var(--surface-soft)] text-left text-xs uppercase text-[var(--muted)]">
@@ -100,13 +104,13 @@ export function AdminWithdrawalsList({ adminToken, initialStatus = "" }: AdminWi
                 <td className="px-3 py-2 font-semibold">
                   {formatMinor(w.amount_minor, w.currency)}
                 </td>
-                <td className="px-3 py-2">{withdrawalStatusLabel(w.status)}</td>
+                <td className="px-3 py-2">{t(`withdrawal.status.${w.status}`)}</td>
                 <td className="px-3 py-2 text-[var(--muted)]">
                   {new Date(w.created_at).toLocaleString()}
                 </td>
                 <td className="px-3 py-2 text-right">
                   <Link href={`/admin/withdrawals/${w.id}`}>
-                    <Button variant="ghost">Review</Button>
+                    <Button variant="ghost">{t("common.view")}</Button>
                   </Link>
                 </td>
               </tr>
