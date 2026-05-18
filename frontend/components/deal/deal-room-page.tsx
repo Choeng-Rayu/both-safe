@@ -33,6 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { DealProgressSteps } from "@/components/deal/deal-progress-steps";
+import { PayWithWallet } from "@/components/deal/pay-with-wallet";
 import { DealStatusCard } from "@/components/deal/deal-status-card";
 import { ProductCard } from "@/components/deal/product-card";
 import { ParticipantCard } from "@/components/deal/participant-card";
@@ -907,6 +908,16 @@ if (
                       className="scroll-mt-24"
                     >
                       <div id="payment-section" className="space-y-4">
+                        {deal.status === "READY_FOR_PAYMENT" &&
+                          deal.current_user_role === "buyer" &&
+                          deal.amount != null && (
+                            <PayWithWallet
+                              publicId={publicId}
+                              currency={(deal.currency as "USD" | "KHR") ?? "USD"}
+                              amount={deal.amount}
+                              onPaid={() => router.refresh()}
+                            />
+                          )}
                         {paymentInstruction ? (
                           <div className="space-y-4">
                             <div className="grid gap-3 sm:grid-cols-2">

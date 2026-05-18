@@ -4,6 +4,8 @@ import {
   Get,
   Param,
   Post,
+  Req,
+  UnauthorizedException,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -12,6 +14,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
 import { Throttle } from '@nestjs/throttler';
+import type { Request } from 'express';
 import { DealAccessGuard } from '../auth/guards/deal-access.guard';
 import { UserSessionGuard } from '../auth/guards/user-session.guard';
 import { CurrentActor } from '../common/decorators/current-actor.decorator';
@@ -19,10 +22,26 @@ import type { RequestActor } from '../common/decorators/current-actor.decorator'
 import { UploadPaymentProofDto } from './dto/upload-payment-proof.dto';
 import { PaymentsService } from './payments.service';
 
+interface AuthedRequest extends Request {
+  sessionUser?: { id: string };
+}
+
 @ApiTags('payments')
 @Controller('deals/:publicId')
 export class PaymentsController {
   constructor(private readonly payments: PaymentsService) {}
+
+  @Post('payments/wallet')
+  @UseGuards(UserSessionGuard)
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @ApiOperation({ summary: 'Buyer pays this deal from their BothSafe wallet' })
+  payFromWallet(@Param('publicId') publicId: string, @Req() req: AuthedRequest) {
+    const userId = req.sessionUser?.id;
+    if (!userId) {
+      throw new UnauthorizedException({ messageKey: 'auth.login_required' });
+    }
+    return this.payments.payFromWallet(publicId, userId);
+  }
 
   @Get('payment-instruction')
   @UseGuards(UserSessionGuard, DealAccessGuard)

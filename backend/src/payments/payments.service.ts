@@ -14,11 +14,16 @@ import { LedgerService } from '../ledger/ledger.service';
 import { AuditService } from '../common/services/audit.service';
 import { WinstonLoggerService } from '../common/logger/winston-logger.service';
 import { NotificationService } from '../notifications/notification.service';
+import { WalletsService } from '../wallets/wallets.service';
+import { assertCurrency, toMinorUnits } from '../wallets/helpers/money';
 import {
   DEAL_STATUS,
   FILE_CATEGORIES,
   MESSAGE_KEYS,
   NOTIFICATION_EVENTS,
+  PAYMENT_METHODS,
+  WALLET_LEDGER_DIRECTIONS,
+  WALLET_LEDGER_ENTRY_TYPES,
 } from '../common/constants';
 import { canUploadPaymentProof } from '../deals/status.engine';
 import type { RequestActor } from '../common/decorators/current-actor.decorator';
@@ -35,8 +40,168 @@ export class PaymentsService {
     private readonly ledger: LedgerService,
     private readonly audit: AuditService,
     private readonly notif: NotificationService,
+    private readonly wallets: WalletsService,
     private readonly logger: WinstonLoggerService,
   ) {}
+
+  // ─── Wallet payment ──────────────────────────────────────────────────────
+  //
+  // Buyer pays for a deal from their internal BothSafe wallet. Atomically
+  // debits the buyer's wallet and advances the deal to PAID_ESCROWED (and
+  // then SELLER_PREPARING) without any external transfer.
+
+  async payFromWallet(publicId: string, sessionUserId: string) {
+    const deal = await this.prisma.deal.findUnique({
+      where: { publicId },
+      include: { participants: true },
+    });
+    if (!deal) throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
+    if (deal.status !== DEAL_STATUS.READY_FOR_PAYMENT) {
+      throw new BadRequestException({ messageKey: MESSAGE_KEYS.PAYMENT_NOT_READY });
+    }
+
+    const buyer = deal.participants.find((p) => p.role === 'buyer');
+    if (!buyer?.userId) {
+      throw new BadRequestException({ messageKey: 'transfer.missing_buyer_user' });
+    }
+    if (buyer.userId !== sessionUserId) {
+      throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
+    }
+
+    const amountMajor = deal.amount ?? 0;
+    if (amountMajor <= 0) {
+      throw new BadRequestException({ messageKey: MESSAGE_KEYS.VALIDATION_FAILED });
+    }
+    const currency = assertCurrency(deal.currency);
+    const amountMinor = toMinorUnits(amountMajor, currency);
+
+    const platformFeePct = Number(this.cfg.get<string>('PLATFORM_FEE_PERCENT') ?? '2');
+    const fee = +(amountMajor * (platformFeePct / 100)).toFixed(2);
+    const sellerNet = +(amountMajor - fee).toFixed(2);
+
+    const walletIdempotencyKey = `deal_payment:${deal.id}`;
+    await this.wallets.getOrCreateWallet(buyer.userId);
+
+    const { paymentId } = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.payment.findFirst({
+        where: {
+          dealId: deal.id,
+          paymentMethod: PAYMENT_METHODS.WALLET_INTERNAL,
+          adminStatus: 'verified',
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        return { paymentId: existing.id };
+      }
+      const payment = await tx.payment.create({
+        data: {
+          dealId: deal.id,
+          expectedAmount: amountMajor,
+          paidAmount: amountMajor,
+          currency: deal.currency,
+          paymentMethod: PAYMENT_METHODS.WALLET_INTERNAL,
+          receiverAccountLabel: 'BothSafe Wallet (internal)',
+          adminStatus: 'verified',
+          autoVerified: true,
+          verifiedAt: new Date(),
+          idempotencyKey: walletIdempotencyKey,
+        },
+      });
+      await this.wallets.debitInTx(tx, {
+        userId: buyer.userId!,
+        entryType: WALLET_LEDGER_ENTRY_TYPES.DEAL_PAYMENT_DEBIT,
+        direction: WALLET_LEDGER_DIRECTIONS.DEBIT,
+        amount: amountMinor,
+        currency,
+        idempotencyKey: walletIdempotencyKey,
+        dealId: deal.id,
+        paymentId: payment.id,
+        description: `Deal ${deal.publicId} payment`,
+      });
+      await tx.deal.update({
+        where: { id: deal.id },
+        data: {
+          status: DEAL_STATUS.PAID_ESCROWED,
+          feeAmount: fee,
+          netSellerAmount: sellerNet,
+        },
+      });
+      return { paymentId: payment.id };
+    });
+
+    // Auto-transition to SELLER_PREPARING (mirrors adminVerify path).
+    await this.prisma.deal.update({
+      where: { id: deal.id },
+      data: { status: DEAL_STATUS.SELLER_PREPARING },
+    });
+
+    if (!(await this.ledger.hasEntry(deal.id, 'ESCROW_RECEIVED'))) {
+      await this.ledger.append({
+        dealId: deal.id,
+        entryType: 'ESCROW_RECEIVED',
+        amount: amountMajor,
+        currency: deal.currency,
+        reference: paymentId,
+      });
+    }
+    if (!(await this.ledger.hasEntry(deal.id, 'PLATFORM_FEE_RESERVED'))) {
+      await this.ledger.append({
+        dealId: deal.id,
+        entryType: 'PLATFORM_FEE_RESERVED',
+        amount: fee,
+        currency: deal.currency,
+        reference: paymentId,
+      });
+    }
+
+    await this.audit.record({
+      dealId: deal.id,
+      actorType: 'participant',
+      actorId: buyer.id,
+      action: 'payment.paid_from_wallet',
+      details: {
+        payment_id: paymentId,
+        amount_minor: amountMinor.toString(),
+        currency,
+      },
+    });
+    this.logger.action('payment.paid_from_wallet', {
+      deal_id: deal.id,
+      payment_id: paymentId,
+      user_id: buyer.userId,
+    });
+
+    const seller = deal.participants.find((p) => p.role === 'seller');
+    await this.notif.notify({
+      dealId: deal.id,
+      eventKey: NOTIFICATION_EVENTS.PAYMENT_VERIFIED,
+      messageKey: MESSAGE_KEYS.PAID_FROM_WALLET,
+      recipients: [
+        ...deal.participants.map((p) => ({ channel: 'inapp' as const, ref: p.id })),
+        ...(seller?.telegramChatId
+          ? [{ channel: 'telegram' as const, ref: seller.telegramChatId }]
+          : []),
+      ],
+    });
+    await this.notif.notify({
+      dealId: deal.id,
+      eventKey: NOTIFICATION_EVENTS.SELLER_SHOULD_SHIP,
+      messageKey: 'seller.should_ship',
+      recipients: [
+        ...(seller ? [{ channel: 'inapp' as const, ref: seller.id }] : []),
+        ...(seller?.telegramChatId
+          ? [{ channel: 'telegram' as const, ref: seller.telegramChatId }]
+          : []),
+      ],
+    });
+
+    return {
+      message_key: MESSAGE_KEYS.PAID_FROM_WALLET,
+      status: DEAL_STATUS.SELLER_PREPARING,
+      payment_id: paymentId,
+    };
+  }
 
   private generateKhqr(amount: number | null, publicId: string): { khqr_string: string; khqr_md5: string } | null {
     const accountId = this.cfg.get<string>('BAKONG_ACCOUNT_ID');
