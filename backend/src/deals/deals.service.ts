@@ -110,6 +110,12 @@ export class DealsService {
   }
 
   async createDeal(dto: CreateDealDto, userId?: string) {
+    // The wallet-enabled flow requires every deal participant to be a
+    // registered user. The Telegram bot path uses chat-id-based identity
+    // and is exempt from this guard for now.
+    if (dto.source === 'web' && !userId) {
+      throw new BadRequestException({ messageKey: 'auth.login_required' });
+    }
     const publicId = generatePublicId();
     const inviteToken = generateOpaqueToken();
     const creatorAccess = generateOpaqueToken();
@@ -207,6 +213,11 @@ export class DealsService {
   async joinDeal(publicId: string, dto: JoinDealDto, actor: RequestActor, userId?: string) {
     if (actor.type !== 'invite') throw new ForbiddenException({ messageKey: MESSAGE_KEYS.INVALID_TOKEN });
     const deal = await this.loadDeal(publicId);
+    if (deal.source === 'web' && !userId && !dto.telegram_chat_id) {
+      // Web-originated deals require the joining party to be authenticated
+      // so the wallet model has a known participant identity.
+      throw new BadRequestException({ messageKey: 'auth.login_required' });
+    }
 
     // Validate invite token
     if (deal.inviteTokenHash !== hashToken(dto.invite_token)) {

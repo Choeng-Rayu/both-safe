@@ -34,8 +34,8 @@ export class DealsController {
 
   @Post(':publicId/join')
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
-  @UseGuards(DealAccessGuard)
-  @ApiOperation({ summary: 'Counterparty joins via invite token' })
+  @UseGuards(UserSessionGuard, DealAccessGuard)
+  @ApiOperation({ summary: 'Counterparty joins via invite token (authenticated only for web)' })
   join(@Param('publicId') publicId: string, @Body() dto: JoinDealDto, @CurrentActor() actor: RequestActor, @Req() req: Request) {
     const userId = (req as Request & { sessionUser?: { id: string } }).sessionUser?.id;
     return this.deals.joinDeal(publicId, dto, actor, userId);
