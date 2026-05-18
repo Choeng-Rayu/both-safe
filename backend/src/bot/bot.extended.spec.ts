@@ -55,6 +55,19 @@ function makeCfg(env: Record<string, string> = {}) {
   };
 }
 
+function makeLogger() {
+  return {
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    verbose: jest.fn(),
+    event: jest.fn(),
+    httpAccess: jest.fn(),
+    action: jest.fn(),
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // BotStateService tests
 // ═══════════════════════════════════════════════════════════════════════════
@@ -302,7 +315,7 @@ describe('BotTelegramService', () => {
     prisma = makePrisma();
     bot = makeBot();
     cfg = makeCfg({ APP_BASE_URL: 'https://bothsafe.app' });
-    service = new BotTelegramService(bot as any, cfg as any, prisma as any);
+    service = new BotTelegramService(bot as any, cfg as any, prisma as any, makeLogger() as any);
   });
 
   describe('sendNotification()', () => {
@@ -347,7 +360,7 @@ describe('BotTelegramService', () => {
     });
 
     it('does nothing (no throw) when bot is null', async () => {
-      const nullBotService = new BotTelegramService(null as any, cfg as any, prisma as any);
+      const nullBotService = new BotTelegramService(null as any, cfg as any, prisma as any, makeLogger() as any);
       await expect(
         nullBotService.sendNotification({ chatId: '111', eventKey: 'DEAL_UPDATED' }),
       ).resolves.not.toThrow();
@@ -451,7 +464,7 @@ describe('BotTelegramService', () => {
     });
 
     it('does nothing (no throw) when bot is null', async () => {
-      const nullBotService = new BotTelegramService(null as any, cfg as any, prisma as any);
+      const nullBotService = new BotTelegramService(null as any, cfg as any, prisma as any, makeLogger() as any);
       await expect(nullBotService.sendMessage('111', 'Test')).resolves.not.toThrow();
     });
 

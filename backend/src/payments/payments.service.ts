@@ -3,7 +3,6 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -13,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { FilesService } from '../files/files.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { AuditService } from '../common/services/audit.service';
+import { WinstonLoggerService } from '../common/logger/winston-logger.service';
 import { NotificationService } from '../notifications/notification.service';
 import {
   DEAL_STATUS,
@@ -26,7 +26,6 @@ import { UploadPaymentProofDto } from './dto/upload-payment-proof.dto';
 
 @Injectable()
 export class PaymentsService {
-  private readonly logger = new Logger(PaymentsService.name);
   private readonly baker = new BakongKHQR();
 
   constructor(
@@ -36,6 +35,7 @@ export class PaymentsService {
     private readonly ledger: LedgerService,
     private readonly audit: AuditService,
     private readonly notif: NotificationService,
+    private readonly logger: WinstonLoggerService,
   ) {}
 
   private generateKhqr(amount: number | null, publicId: string): { khqr_string: string; khqr_md5: string } | null {
@@ -44,7 +44,7 @@ export class PaymentsService {
     const merchantCity = this.cfg.get<string>('BAKONG_MERCHANT_CITY') ?? 'Phnom Penh';
 
     if (!accountId) {
-      this.logger.warn('BAKONG_ACCOUNT_ID is not configured — KHQR generation skipped');
+      this.logger.warn('BAKONG_ACCOUNT_ID is not configured — KHQR generation skipped', PaymentsService.name);
       return null;
     }
 
@@ -65,13 +65,13 @@ export class PaymentsService {
       const result = this.baker.generateIndividual(info);
 
       if (result.status.code !== 0 || !result.data) {
-        this.logger.warn(`KHQR generation failed: ${result.status.message}`);
+        this.logger.warn(`KHQR generation failed: ${result.status.message}`, PaymentsService.name);
         return null;
       }
 
       return { khqr_string: result.data.qr, khqr_md5: result.data.md5 };
     } catch (err) {
-      this.logger.error('KHQR generation error', err);
+      this.logger.error('KHQR generation error', (err as Error).stack, PaymentsService.name);
       return null;
     }
   }
@@ -171,6 +171,7 @@ export class PaymentsService {
       action: proofImageUrl ? 'payment.receipt_uploaded' : 'payment.intent_confirmed',
       details: { payment_id: payment.id, paid_amount: dto.paid_amount },
     });
+    this.logger.action('payment.proof_uploaded', { public_id: publicId, payment_id: payment.id, paid_amount: dto.paid_amount, has_proof_image: !!proofImageUrl });
 
     await this.notif.notify({
       dealId: deal.id,
@@ -225,6 +226,7 @@ export class PaymentsService {
       action: 'payment.intent_created',
       details: { payment_id: payment.id, khqr_md5: payment.khqrMd5 },
     });
+    this.logger.action('payment.intent_created', { deal_id: deal.id, payment_id: payment.id, khqr_md5: payment.khqrMd5 });
 
     return payment;
   }
@@ -293,6 +295,7 @@ export class PaymentsService {
       action: 'payment.verified',
       details: { payment_id: payment.id },
     });
+    this.logger.action('payment.verified', { deal_id: deal.id, payment_id: payment.id, admin_id: adminId });
 
     const seller = deal.participants.find((p) => p.role === 'seller');
     await this.notif.notify({
@@ -350,6 +353,7 @@ export class PaymentsService {
       action: 'payment.rejected',
       details: { payment_id: payment.id, reason },
     });
+    this.logger.action('payment.rejected', { deal_id: payment.dealId, payment_id: payment.id, admin_id: adminId, reason });
 
     const buyer = deal.participants.find((p) => p.role === 'buyer');
     await this.notif.notify({
@@ -390,7 +394,7 @@ export class PaymentsService {
       const confirmed = response.ok && json.responseCode === 0;
       return { confirmed, data: json };
     } catch (err) {
-      this.logger.error('Bakong API check failed', err);
+      this.logger.error('Bakong API check failed', (err as Error).stack, PaymentsService.name);
       return { confirmed: false, data: { error: 'API request failed' } };
     }
   }

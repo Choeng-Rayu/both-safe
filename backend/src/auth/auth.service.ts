@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashToken } from '../common/utils/tokens';
+import { WinstonLoggerService } from '../common/logger/winston-logger.service';
 import { RequestActor } from '../common/decorators/current-actor.decorator';
 
 @Injectable()
@@ -10,14 +11,22 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly logger: WinstonLoggerService,
   ) {}
 
   async loginAdmin(email: string, password: string): Promise<{ token: string; admin: { id: string; email: string; name: string | null } }> {
     const admin = await this.prisma.admin.findUnique({ where: { email } });
-    if (!admin || !admin.active) throw new UnauthorizedException({ messageKey: 'auth.invalid_credentials' });
+    if (!admin || !admin.active) {
+      this.logger.warn(`Admin login failed for ${email}: invalid credentials or inactive`, AuthService.name);
+      throw new UnauthorizedException({ messageKey: 'auth.invalid_credentials' });
+    }
     const ok = await bcrypt.compare(password, admin.passwordHash);
-    if (!ok) throw new UnauthorizedException({ messageKey: 'auth.invalid_credentials' });
+    if (!ok) {
+      this.logger.warn(`Admin login failed for ${email}: wrong password`, AuthService.name);
+      throw new UnauthorizedException({ messageKey: 'auth.invalid_credentials' });
+    }
     const token = await this.jwt.signAsync({ sub: admin.id, role: 'admin', email: admin.email });
+    this.logger.action('admin.login', { admin_id: admin.id, email: admin.email });
     return { token, admin: { id: admin.id, email: admin.email, name: admin.name } };
   }
 

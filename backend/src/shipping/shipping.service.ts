@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { FilesService } from '../files/files.service';
 import { AuditService } from '../common/services/audit.service';
+import { WinstonLoggerService } from '../common/logger/winston-logger.service';
 import { NotificationService } from '../notifications/notification.service';
 import {
   DEAL_STATUS,
@@ -25,6 +26,7 @@ export class ShippingService {
     private readonly files: FilesService,
     private readonly audit: AuditService,
     private readonly notif: NotificationService,
+    private readonly logger: WinstonLoggerService,
   ) {}
 
   async uploadShippingProof(
@@ -99,6 +101,7 @@ export class ShippingService {
       action: 'shipping.uploaded',
       details: { shipping_id: shipping.id },
     });
+    this.logger.action('shipping.uploaded', { public_id: publicId, shipping_id: shipping.id, participant_id: actor.participantId });
 
     const buyer = deal.participants.find((p) => p.role === 'buyer');
     await this.notif.notify({

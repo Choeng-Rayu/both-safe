@@ -8,6 +8,7 @@ import type { PaymentsService } from '../payments/payments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { AuditService } from '../common/services/audit.service';
+import { WinstonLoggerService } from '../common/logger/winston-logger.service';
 import { NotificationService } from '../notifications/notification.service';
 import {
   DEAL_STATUS,
@@ -22,6 +23,7 @@ export class AdminService {
     private readonly ledger: LedgerService,
     private readonly audit: AuditService,
     private readonly notif: NotificationService,
+    private readonly logger: WinstonLoggerService,
   ) {}
 
   async listDeals(query: { status?: string; from_date?: string; to_date?: string; search?: string; page?: string; pageSize?: string }) {
@@ -135,6 +137,7 @@ export class AdminService {
       action: 'admin.released',
       details: { reference: body.payout_reference, note: body.admin_note },
     });
+    this.logger.action('admin.release', { deal_id: deal.id, admin_id: adminId, reference: body.payout_reference });
 
     const seller = deal.participants.find((p) => p.role === 'seller');
     await this.notif.notify({
@@ -218,6 +221,7 @@ export class AdminService {
       action: 'admin.refunded',
       details: { reference: body.refund_reference, note: body.admin_note },
     });
+    this.logger.action('admin.refund', { deal_id: deal.id, admin_id: adminId, reference: body.refund_reference });
 
     const buyer = deal.participants.find((p) => p.role === 'buyer');
     await this.notif.notify({
@@ -287,6 +291,7 @@ export class AdminService {
         action: 'dispute.resolved_release',
         details: { dispute_id: disputeId, note: dto.admin_note, payout_reference: dto.payout_reference },
       });
+      this.logger.action('dispute.resolved_release', { deal_id: deal.id, admin_id: adminId, dispute_id: disputeId });
 
       const seller = deal.participants.find((p) => p.role === 'seller');
       await this.notif.notify({
@@ -342,6 +347,7 @@ export class AdminService {
         action: 'dispute.resolved_refund',
         details: { dispute_id: disputeId, note: dto.admin_note, refund_reference: dto.refund_reference },
       });
+      this.logger.action('dispute.resolved_refund', { deal_id: deal.id, admin_id: adminId, dispute_id: disputeId });
 
       const buyer = deal.participants.find((p) => p.role === 'buyer');
       await this.notif.notify({

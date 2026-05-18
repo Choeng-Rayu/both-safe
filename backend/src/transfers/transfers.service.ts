@@ -1,13 +1,13 @@
 import {
   BadRequestException,
   Injectable,
-  Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { AuditService } from '../common/services/audit.service';
+import { WinstonLoggerService } from '../common/logger/winston-logger.service';
 import { NotificationService } from '../notifications/notification.service';
 import {
   DEAL_STATUS,
@@ -27,7 +27,6 @@ type ProviderResult = {
 
 @Injectable()
 export class TransfersService {
-  private readonly logger = new Logger(TransfersService.name);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -35,6 +34,7 @@ export class TransfersService {
     private readonly ledger: LedgerService,
     private readonly audit: AuditService,
     private readonly notif: NotificationService,
+    private readonly logger: WinstonLoggerService,
   ) {}
 
   async payoutSeller(dealId: string, reason = 'buyer_confirmed') {
@@ -268,6 +268,7 @@ export class TransfersService {
     if (!baseUrl) {
       this.logger.warn(
         `No TRANSFER_API_BASE_URL configured — using MVP manual fallback for ${String(request.type)} deal=${String(request.deal_public_id)}`,
+        TransfersService.name,
       );
       const manualRef = `mvp_manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       return {
@@ -282,7 +283,7 @@ export class TransfersService {
     const apiSecret = this.cfg.get<string>('TRANSFER_API_SECRET') ?? '';
     const url = new URL(endpoint, baseUrl).toString();
 
-    this.logger.log(`Calling transfer provider for ${String(request.type)} deal=${String(request.deal_public_id)}`);
+    this.logger.log(`Calling transfer provider for ${String(request.type)} deal=${String(request.deal_public_id)}`, TransfersService.name);
     const response = await fetch(url, {
       method: 'POST',
       headers: {

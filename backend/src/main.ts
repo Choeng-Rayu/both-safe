@@ -4,13 +4,18 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import * as dns from 'dns';
 import { AppModule } from './app.module';
+import { WinstonLoggerService } from './common/logger/winston-logger.service';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const cookieParser: (options?: import('cookie-parser').CookieParseOptions) => import('express').RequestHandler = require('cookie-parser');
 
 dns.setDefaultResultOrder('ipv4first');
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: false });
+  const winstonLogger = new WinstonLoggerService();
+  const app = await NestFactory.create(AppModule, {
+    logger: winstonLogger,
+    bufferLogs: true,
+  });
   const logger = new Logger('bootstrap');
 
   // Parse cookies for session auth

@@ -1,10 +1,10 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectBot } from 'nestjs-telegraf';
 import type { Telegraf } from 'telegraf';
 import { t, statusLabel, type BotLang } from './bot.messages';
 import { PrismaService } from '../prisma/prisma.service';
-
+import { WinstonLoggerService } from '../common/logger/winston-logger.service';
 /**
  * BotTelegramService — sends Telegram messages from backend notification events.
  * Called by NotificationService when channel === 'telegram'.
@@ -12,13 +12,13 @@ import { PrismaService } from '../prisma/prisma.service';
  */
 @Injectable()
 export class BotTelegramService {
-  private readonly logger = new Logger(BotTelegramService.name);
   private readonly appBase: string;
 
   constructor(
     @Optional() @InjectBot() private readonly bot: Telegraf | null,
     private readonly cfg: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly logger: WinstonLoggerService,
   ) {
     this.appBase = this.cfg.get<string>('APP_BASE_URL') ?? 'http://localhost:3000';
   }
@@ -36,7 +36,7 @@ export class BotTelegramService {
     payload?: Record<string, unknown>;
   }): Promise<void> {
     if (!this.bot) {
-      this.logger.warn('Bot not initialised — skipping Telegram notification');
+      this.logger.warn('Bot not initialised — skipping Telegram notification', BotTelegramService.name);
       return;
     }
 
@@ -102,6 +102,7 @@ export class BotTelegramService {
         lastErr = err as Error;
         this.logger.warn(
           `Telegram send attempt ${attempt + 1}/${MAX_RETRIES} failed chatId=${opts.chatId} event=${opts.eventKey}: ${lastErr.message}`,
+          BotTelegramService.name,
         );
       }
     }
@@ -109,6 +110,8 @@ export class BotTelegramService {
     // All retries exhausted — store failure for admin review
     this.logger.error(
       `Telegram notification permanently failed chatId=${opts.chatId} event=${opts.eventKey}: ${lastErr?.message}`,
+      undefined,
+      BotTelegramService.name,
     );
 
     if (opts.dealId) {
@@ -137,7 +140,7 @@ export class BotTelegramService {
     },
   ): Promise<void> {
     if (!this.bot) {
-      this.logger.warn('Bot not initialised — skipping sendMessage');
+      this.logger.warn('Bot not initialised — skipping sendMessage', BotTelegramService.name);
       return;
     }
 
@@ -151,7 +154,7 @@ export class BotTelegramService {
         }),
       });
     } catch (err) {
-      this.logger.warn(`Telegram sendMessage failed chatId=${chatId}: ${(err as Error).message}`);
+      this.logger.warn(`Telegram sendMessage failed chatId=${chatId}: ${(err as Error).message}`, BotTelegramService.name);
     }
   }
 
@@ -171,7 +174,7 @@ export class BotTelegramService {
         last_success_at: new Date().toISOString(),
       };
     } catch (err) {
-      this.logger.warn(`Telegram health check failed: ${(err as Error).message}`);
+      this.logger.warn(`Telegram health check failed: ${(err as Error).message}`, BotTelegramService.name);
       return { status: 'unhealthy', ok: false };
     }
   }

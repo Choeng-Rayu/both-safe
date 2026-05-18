@@ -15,6 +15,7 @@ import { LedgerModule } from './ledger/ledger.module';
 import { NotificationModule } from './notifications/notification.module';
 import { FilesModule } from './files/files.module';
 import { AuditModule } from './common/services/audit.module';
+import { LoggerModule } from './common/logger/logger.module';
 import { HealthModule } from './health/health.module';
 import { SeedModule } from './seed/seed.module';
 import { BotModule } from './bot/bot.module';
@@ -61,6 +62,7 @@ class EnvValidationService implements OnModuleInit {
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     ScheduleModule.forRoot(),
 
+    LoggerModule,
     PrismaModule,
     AuditModule,
     NotificationModule,

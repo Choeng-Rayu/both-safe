@@ -4,19 +4,20 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
-  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { WinstonLoggerService } from '../logger/winston-logger.service';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  private readonly logger = new Logger(AllExceptionsFilter.name);
+  constructor(private readonly logger: WinstonLoggerService) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
     if (host.getType() !== 'http') {
       this.logger.error(
         'Non-HTTP exception',
-        exception instanceof Error ? exception.stack : exception,
+        exception instanceof Error ? exception.stack : undefined,
+        AllExceptionsFilter.name,
       );
       return;
     }
@@ -47,8 +48,32 @@ export class AllExceptionsFilter implements ExceptionFilter {
       if (status === HttpStatus.NOT_FOUND) messageKey = 'resource.not_found';
       if (status === 429) messageKey = 'auth.rate_limited';
     } else if (exception instanceof Error) {
-      this.logger.error(exception.message, exception.stack);
+      this.logger.error(
+        `Unhandled exception: ${exception.message}`,
+        exception.stack,
+        AllExceptionsFilter.name,
+      );
       message = 'Internal server error';
+    }
+
+    // Log structured error for all 5xx and important 4xx
+    if (status >= 400) {
+      this.logger.error(
+        `HTTP ${status} ${request.method} ${request.url} — ${messageKey}: ${Array.isArray(message) ? message.join(', ') : message}`,
+        exception instanceof Error ? exception.stack : undefined,
+        AllExceptionsFilter.name,
+      );
+      this.logger.event('http_error', {
+        statusCode: status,
+        method: request.method,
+        url: request.url,
+        messageKey,
+        message: Array.isArray(message) ? message.join(', ') : message,
+        details,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'],
+        stack: exception instanceof Error ? exception.stack : undefined,
+      });
     }
 
     response.status(status).json({

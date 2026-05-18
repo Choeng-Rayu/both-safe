@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../common/services/audit.service';
+import { WinstonLoggerService } from '../common/logger/winston-logger.service';
 import { NotificationService } from '../notifications/notification.service';
 import { generateOpaqueToken, generatePublicId, hashToken } from '../common/utils/tokens';
 import { sanitizeText } from '../common/utils/sanitize';
@@ -25,6 +26,7 @@ export class DealsService {
     private readonly cfg: ConfigService,
     private readonly audit: AuditService,
     private readonly notif: NotificationService,
+    private readonly logger: WinstonLoggerService,
   ) {}
 
   private appBase(): string { return this.cfg.get<string>('APP_BASE_URL') ?? 'http://localhost:3000'; }
@@ -156,6 +158,7 @@ export class DealsService {
     });
 
     await this.audit.record({ dealId: deal.id, actorType: 'participant', action: 'deal.created', details: { source: dto.source, creator_role: dto.creator_role } });
+    this.logger.action('deal.created', { public_id: publicId, creator_role: dto.creator_role, source: dto.source });
 
     const urls = this.buildUrls(publicId, creatorAccess, inviteToken);
     const fresh = await this.loadDeal(publicId);
@@ -237,6 +240,7 @@ export class DealsService {
     });
 
     await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: participant.id, action: 'participant.joined', details: { role: counterpartyRole } });
+    this.logger.action('participant.joined', { public_id: publicId, role: counterpartyRole, participant_id: participant.id });
 
     const creator = deal.participants.find((p) => p.role === deal.creatorRole);
     await this.notif.notify({ dealId: deal.id, eventKey: NOTIFICATION_EVENTS.COUNTERPARTY_JOINED, messageKey: MESSAGE_KEYS.COUNTERPARTY_JOINED, recipients: [{ channel: 'inapp', ref: creator?.id ?? null }, ...(creator?.telegramChatId ? [{ channel: 'telegram' as const, ref: creator.telegramChatId }] : [])] });
@@ -272,6 +276,7 @@ export class DealsService {
     });
 
     await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: participant.id, action: 'deal.approved', details: { role: actor.role } });
+    this.logger.action('deal.approved', { public_id: publicId, role: actor.role, participant_id: participant.id });
 
     // Check if both approved and all fields complete
     const fresh = await this.loadDeal(publicId);
@@ -284,6 +289,7 @@ export class DealsService {
         data: { status: DEAL_STATUS.READY_FOR_PAYMENT },
       });
       await this.audit.record({ dealId: deal.id, actorType: 'system', action: 'status.transition', details: { from: DEAL_STATUS.AWAITING_BOTH_APPROVAL, to: DEAL_STATUS.READY_FOR_PAYMENT } });
+      this.logger.action('status.transition', { public_id: publicId, from: DEAL_STATUS.AWAITING_BOTH_APPROVAL, to: DEAL_STATUS.READY_FOR_PAYMENT });
       await this.notif.notify({ dealId: deal.id, eventKey: NOTIFICATION_EVENTS.BOTH_APPROVED, messageKey: MESSAGE_KEYS.BOTH_APPROVED, recipients: fresh.participants.map((p) => ({ channel: 'inapp' as const, ref: p.id })) });
     }
 
@@ -320,6 +326,7 @@ export class DealsService {
       await this.prisma.participant.updateMany({ where: { dealId: deal.id }, data: { approvedAt: null } });
     }
     await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: actor.participantId ?? null, action: 'product.updated', details: dto as any });
+    this.logger.action('product.updated', { public_id: publicId, participant_id: actor.participantId });
     await this.recomputeStatusAfterEdit(deal.id);
     return this.summary(await this.loadDeal(publicId), actor);
   }
@@ -332,6 +339,7 @@ export class DealsService {
     if (!participant) throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
     await this.prisma.participant.update({ where: { id: participant.id }, data: { name: dto.name !== undefined ? sanitizeText(dto.name) ?? participant.name : participant.name, phone: dto.phone !== undefined ? sanitizeText(dto.phone) : participant.phone, telegramChatId: dto.telegram_chat_id ?? participant.telegramChatId, wechatId: dto.wechat_id ?? participant.wechatId, messengerName: dto.messenger_name ?? participant.messengerName, preferredLanguage: dto.preferred_language ?? participant.preferredLanguage } });
     await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: participant.id, action: 'participant.updated', details: dto as any });
+    this.logger.action('participant.updated', { public_id: publicId, participant_id: participant.id });
     return this.summary(await this.loadDeal(publicId), actor);
   }
 
@@ -343,6 +351,7 @@ export class DealsService {
     if (!seller) throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
     await this.prisma.participant.update({ where: { id: seller.id }, data: { payoutKhqr: dto.payout_khqr ?? seller.payoutKhqr, payoutBankName: dto.payout_bank_name ?? seller.payoutBankName, payoutAccountName: dto.payout_account_name ?? seller.payoutAccountName, payoutAccountNumber: dto.payout_account_number ?? seller.payoutAccountNumber, payoutKhqrImage: dto.payout_khqr_image ?? seller.payoutKhqrImage } });
     await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: seller.id, action: 'payout.updated' });
+    this.logger.action('payout.updated', { public_id: publicId, participant_id: seller.id });
     await this.recomputeStatusAfterEdit(deal.id);
     return this.summary(await this.loadDeal(publicId), actor);
   }
@@ -361,6 +370,7 @@ export class DealsService {
     const buyer = deal.participants.find((p) => p.role === 'buyer');
     await this.prisma.deal.update({ where: { id: deal.id }, data: { status: DEAL_STATUS.CANCELLED } });
     await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: buyer?.id ?? null, action: 'deal.cancelled_by_buyer' });
+    this.logger.action('deal.cancelled_by_buyer', { public_id: publicId, buyer_id: buyer?.id });
 
     const fresh = await this.loadDeal(publicId);
     return { status: fresh.status, message_key: MESSAGE_KEYS.DEAL_CANCELLED };
@@ -375,6 +385,7 @@ export class DealsService {
     const buyer = deal.participants.find((p) => p.role === 'buyer');
     await this.transitionStatus(deal.id, deal.status as DealStatus, DEAL_STATUS.BUYER_CONFIRMED);
     await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: buyer?.id ?? null, action: 'buyer.confirmed_received' });
+    this.logger.action('buyer.confirmed_received', { public_id: publicId, buyer_id: buyer?.id });
 
     // Auto-transition to RELEASE_PENDING
     await this.transitionStatus(deal.id, DEAL_STATUS.BUYER_CONFIRMED, DEAL_STATUS.RELEASE_PENDING);
@@ -398,6 +409,7 @@ export class DealsService {
     assertTransition(from, to);
     await this.prisma.deal.update({ where: { id: dealId }, data: { status: to } });
     await this.audit.record({ dealId, actorType: 'system', action: 'status.transition', details: { from, to } });
+    this.logger.action('status.transition', { deal_id: dealId, from, to });
   }
 
   private async recomputeStatusAfterEdit(dealId: string) {
@@ -411,6 +423,7 @@ export class DealsService {
     // Advance DRAFT to AWAITING_COUNTERPARTY once product + amount + creator name are ready
     if (fresh.product?.title && fresh.amount && fresh.amount > 0) {
       await this.transitionStatus(dealId, status, DEAL_STATUS.AWAITING_COUNTERPARTY);
+      this.logger.action('status.auto_advance', { deal_id: dealId, from: status, to: DEAL_STATUS.AWAITING_COUNTERPARTY });
     }
   }
 
