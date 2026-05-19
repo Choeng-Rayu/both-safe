@@ -11,7 +11,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WalletsService } from '../wallets/wallets.service';
 import { AuditService } from '../common/services/audit.service';
 import {
+  CURRENCIES,
   Currency,
+  FILE_CATEGORIES,
   MESSAGE_KEYS,
   WALLET_LEDGER_DIRECTIONS,
   WALLET_LEDGER_ENTRY_TYPES,
@@ -21,6 +23,7 @@ import {
   WithdrawalDestinationType,
   WithdrawalStatus,
 } from '../common/constants';
+import { FilesService } from '../files/files.service';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
 import { CompleteWithdrawalDto, RejectWithdrawalDto } from './dto/admin-action.dto';
 
@@ -30,7 +33,70 @@ export class WithdrawalsService {
     private readonly prisma: PrismaService,
     private readonly wallets: WalletsService,
     private readonly audit: AuditService,
+    private readonly files: FilesService,
   ) {}
+
+  /**
+   * Simplified path: user uploads a QR image (Bakong, Binance, AcleDA, any
+   * supported wallet) plus the amount. The image is stored privately, its
+   * signed URL is recorded as the destination, and the withdrawal queues
+   * for admin review. The admin opens the request, scans the QR with their
+   * own wallet app, pays, then marks the withdrawal completed which debits
+   * the user's BothSafe wallet.
+   */
+  async createWithQrUpload(
+    userId: string,
+    input: {
+      currency: string;
+      amount_minor: number | string;
+      provider_label?: string;
+    },
+    file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException({
+        messageKey: MESSAGE_KEYS.VALIDATION_FAILED,
+        details: { field: 'qr_image', reason: 'required' },
+      });
+    }
+    if (input.currency !== CURRENCIES.USD && input.currency !== CURRENCIES.KHR) {
+      throw new BadRequestException({
+        messageKey: MESSAGE_KEYS.VALIDATION_FAILED,
+        details: { field: 'currency', allowed: Object.values(CURRENCIES) },
+      });
+    }
+    const amountMinor = Number(input.amount_minor);
+    if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
+      throw new BadRequestException({
+        messageKey: MESSAGE_KEYS.VALIDATION_FAILED,
+        details: { field: 'amount_minor' },
+      });
+    }
+
+    // Withdrawal QR images are marked public so the admin's <img> tag and
+    // the user's own wallet view can render them without juggling auth
+    // headers. Security boundary is the 16-byte random storage key in the
+    // signed URL — same model used for shareable deal invite tokens.
+    const stored = await this.files.store(file, {
+      category: FILE_CATEGORIES.WITHDRAWAL_QR,
+      uploadedBy: userId,
+      isPublic: true,
+    });
+    const imageUrl = this.files.signedUrlFor(stored);
+
+    return this.createForUser(userId, {
+      currency: input.currency as Currency,
+      amount_minor: amountMinor,
+      destination: {
+        type: WITHDRAWAL_DESTINATION_TYPES.BAKONG_KHQR,
+        khqr_image: imageUrl,
+        // Provider label is optional context for admin — stored as bank_name
+        // since the schema doesn't have a dedicated label column. Admin UI
+        // surfaces it next to the QR image.
+        bank_name: input.provider_label?.trim() || undefined,
+      },
+    });
+  }
 
   // ─── User-side ──────────────────────────────────────────────────────────
 

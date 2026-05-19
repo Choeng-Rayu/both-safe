@@ -353,6 +353,25 @@ export async function getWalletLedger(params: {
   );
 }
 
+export async function createWithdrawalWithQr(input: {
+  amount_minor: number;
+  currency: WalletCurrency;
+  provider_label?: string;
+  qr_image: File;
+}) {
+  const form = new FormData();
+  form.set("amount_minor", String(input.amount_minor));
+  form.set("currency", input.currency);
+  if (input.provider_label) form.set("provider_label", input.provider_label);
+  form.set("qr_image", input.qr_image);
+  const response = await fetch(`${getApiBaseUrl()}/wallet/withdrawals/with-image`, {
+    method: "POST",
+    body: form,
+    credentials: "include",
+  });
+  return parseResponse<{ message_key: string; withdrawal: WithdrawalSummary }>(response);
+}
+
 export async function createWithdrawal(payload: {
   currency: WalletCurrency;
   amount_minor: number;

@@ -71,6 +71,26 @@ export function AdminWithdrawalDetail({ adminToken, withdrawal: initial }: Props
           </div>
         </header>
 
+        {withdrawal.destination.khqr_image && (
+          <div className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-4">
+            <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
+              Scan this QR to pay
+            </p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={withdrawal.destination.khqr_image}
+              alt="Withdrawal destination QR code"
+              className="mt-2 h-64 w-64 rounded-lg border border-[var(--border)] bg-white object-contain p-2"
+            />
+            {withdrawal.destination.bank_name && (
+              <p className="mt-2 text-sm">
+                <span className="text-[var(--muted)]">Provider hint:</span>{" "}
+                <strong>{withdrawal.destination.bank_name}</strong>
+              </p>
+            )}
+          </div>
+        )}
+
         <dl className="mt-6 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
           <Detail label="Destination type" value={withdrawal.destination.type} />
           {withdrawal.destination.khqr && (
@@ -83,7 +103,7 @@ export function AdminWithdrawalDetail({ adminToken, withdrawal: initial }: Props
               }
             />
           )}
-          {withdrawal.destination.bank_name && (
+          {!withdrawal.destination.khqr_image && withdrawal.destination.bank_name && (
             <Detail label="Bank" value={withdrawal.destination.bank_name} />
           )}
           {withdrawal.destination.account_name && (

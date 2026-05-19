@@ -67,6 +67,7 @@ export const FILE_CATEGORIES = {
   PACKAGE_PHOTO: 'package_photo',
   DELIVERY_RECEIPT: 'delivery_receipt',
   DISPUTE_EVIDENCE: 'dispute_evidence',
+  WITHDRAWAL_QR: 'withdrawal_qr',
 } as const;
 
 export const MESSAGE_KEYS = {
