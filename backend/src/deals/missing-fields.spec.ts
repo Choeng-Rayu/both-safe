@@ -95,26 +95,6 @@ describe('MissingFieldsCalculator (Kiro spec)', () => {
     expect(missing).toContain('seller.name');
   });
 
-  it('should identify missing seller payout KHQR', () => {
-    const deal = baseDeal({
-      amount: 100,
-      participants: [{ role: 'buyer', name: 'John' } as any, { role: 'seller', name: 'Jane', payoutKhqrImage: null, payoutBankName: null, payoutAccountNumber: null } as any],
-      product: { title: 'iPhone', type: 'electronics' } as any,
-    });
-    const missing = computeMissingFields(deal);
-    expect(missing).toContain('seller.payout_khqr');
-  });
-
-  it('should NOT flag payout missing if bank details provided', () => {
-    const deal = baseDeal({
-      amount: 100,
-      participants: [{ role: 'buyer', name: 'John' } as any, { role: 'seller', name: 'Jane', payoutKhqrImage: null, payoutBankName: 'ABA', payoutAccountNumber: '12345' } as any],
-      product: { title: 'iPhone', type: 'electronics' } as any,
-    });
-    const missing = computeMissingFields(deal);
-    expect(missing).not.toContain('seller.payout_khqr');
-  });
-
   it('should return empty array when all fields complete', () => {
     const deal = baseDeal({
       amount: 100,

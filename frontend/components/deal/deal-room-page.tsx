@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, Building2, ExternalLink, Pencil, QrCode, RefreshCcw } from "lucide-react";
+import { AlertTriangle, ExternalLink, Pencil, RefreshCcw } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import {
   approveDeal,
@@ -24,7 +24,6 @@ import {
   setStoredAccessToken,
 } from "@/lib/token-store";
 import { formatCurrency } from "@/lib/utils";
-import { CAMBODIA_KHQR_BANKS } from "@/lib/cambodia-banks";
 import { PublicHeader } from "@/components/layout/public-header";
 import { useAuth, useI18n } from "@/components/providers/app-providers";
 import { Button } from "@/components/ui/button";
@@ -69,14 +68,6 @@ const initialParticipantForm = {
   messenger_name: "",
 };
 
-const initialPayoutForm = {
-  payout_khqr: "",
-  payout_bank_name: "",
-  payout_account_name: "",
-  payout_account_number: "",
-  payout_method: "bank" as "bank" | "khqr",
-};
-
 export function DealRoomPage({ publicId }: { publicId: string }) {
   const { locale, t } = useI18n();
   const { user } = useAuth();
@@ -112,8 +103,7 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
   const [productForm, setProductForm] = useState(initialProductForm);
   const [participantForm, setParticipantForm] = useState(initialParticipantForm);
   const [deliveryNote, setDeliveryNote] = useState("");
-  const [payoutForm, setPayoutForm] = useState(initialPayoutForm);
-  const [editor, setEditor] = useState<null | "product" | "participant" | "delivery" | "payout">(null);
+  const [editor, setEditor] = useState<null | "product" | "participant" | "delivery">(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -129,7 +119,6 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
     useState<DisputeReason>("ITEM_NOT_RECEIVED");
   const [disputeMessage, setDisputeMessage] = useState("");
   const [disputeFile, setDisputeFile] = useState<File | null>(null);
-  const [payoutKhqrImage, setPayoutKhqrImage] = useState<File | null>(null);
 
   const activeAccessToken = accessFromUrl || localAccessToken;
   const activeInviteLink = localInviteLink;
@@ -331,11 +320,6 @@ if (
       messenger_name: "",
     });
     setEditor("participant");
-  }
-
-  function openPayoutEditor() {
-    setPayoutForm(initialPayoutForm);
-    setEditor("payout");
   }
 
   return (
@@ -658,158 +642,6 @@ if (
                         </Field>
                       </div>
                     </EditorCard>
-                  ) : null}
-
-                  {currentRole === "seller" ? (
-                    <>
-                      <SectionCard
-                        title={t("payout.section.title")}
-                        description={t("payout.section.hint")}
-                        action={
-                          <EditTrigger
-                            onClick={() =>
-                              editor === "payout" ? setEditor(null) : openPayoutEditor()
-                            }
-                          />
-                        }
-                      >
-                        {deal.participants.find((p) => p.role === "seller")?.has_payout ? (
-                          <p className="text-sm text-[var(--ink-soft)]">
-                            ✓ Payout info saved. Buyer cannot see your details.
-                          </p>
-                        ) : (
-                          <p className="text-sm text-[var(--danger)]">
-                            ⚠ No payout info yet. Add your Bakong ID or bank account so you can receive payment.
-                          </p>
-                        )}
-                      </SectionCard>
-                      {editor === "payout" ? (
-                        <EditorCard
-                          title="Seller payout"
-                          onSave={() =>
-                            runAction(async () => {
-                              const payload: Record<string, string> = {};
-                              if (payoutForm.payout_method === "bank") {
-                                if (payoutForm.payout_bank_name) payload.payout_bank_name = payoutForm.payout_bank_name;
-                                if (payoutForm.payout_account_name) payload.payout_account_name = payoutForm.payout_account_name;
-                                if (payoutForm.payout_account_number) payload.payout_account_number = payoutForm.payout_account_number;
-                                if (payoutForm.payout_khqr) payload.payout_khqr = payoutForm.payout_khqr;
-                              } else {
-                                if (payoutKhqrImage) payload.payout_khqr_image = "pending_upload";
-                              }
-                              await updateDealSection(
-                                publicId,
-                                "payout",
-                                payload,
-                                { accessToken: activeAccessToken },
-                              );
-                            })
-                          }
-                          onCancel={() => setEditor(null)}
-                          pending={pending}
-                        >
-                          {/* Payout Method Toggle */}
-                          <div className="grid grid-cols-2 gap-3 mb-4">
-                            <button
-                              type="button"
-                              onClick={() => setPayoutForm(f => ({ ...f, payout_method: "bank" }))}
-                              className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
-                                payoutForm.payout_method === "bank"
-                                  ? "border-[var(--brand)] bg-[rgba(47,106,82,0.05)] shadow-sm"
-                                  : "border-[var(--border)] bg-transparent hover:border-[var(--ink-soft)]"
-                              }`}
-                            >
-                              <Building2 className={`h-5 w-5 ${payoutForm.payout_method === "bank" ? "text-[var(--brand)]" : "text-[var(--ink-soft)]"}`} />
-                              <div>
-                                <p className={`text-sm font-semibold ${payoutForm.payout_method === "bank" ? "text-[var(--brand)]" : "text-[var(--ink)]"}`}>Bank Account</p>
-                                <p className="text-xs text-[var(--ink-soft)]">Select your bank</p>
-                              </div>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPayoutForm(f => ({ ...f, payout_method: "khqr" }))}
-                              className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
-                                payoutForm.payout_method === "khqr"
-                                  ? "border-[var(--brand)] bg-[rgba(47,106,82,0.05)] shadow-sm"
-                                  : "border-[var(--border)] bg-transparent hover:border-[var(--ink-soft)]"
-                              }`}
-                            >
-                              <QrCode className={`h-5 w-5 ${payoutForm.payout_method === "khqr" ? "text-[var(--brand)]" : "text-[var(--ink-soft)]"}`} />
-                              <div>
-                                <p className={`text-sm font-semibold ${payoutForm.payout_method === "khqr" ? "text-[var(--brand)]" : "text-[var(--ink)]"}`}>KHQR Image</p>
-                                <p className="text-xs text-[var(--ink-soft)]">Upload your QR</p>
-                              </div>
-                            </button>
-                          </div>
-
-                          {payoutForm.payout_method === "bank" ? (
-                            <div className="grid gap-4 sm:grid-cols-2">
-                              <Field label={t("field.payout_bank_name")} required>
-                                <Select
-                                  value={payoutForm.payout_bank_name}
-                                  onChange={(event) =>
-                                    setPayoutForm((current) => ({
-                                      ...current,
-                                      payout_bank_name: event.target.value,
-                                    }))
-                                  }
-                                >
-                                  <option value="">Select a bank...</option>
-                                  {CAMBODIA_KHQR_BANKS.map(bank => (
-                                    <option key={bank.code} value={bank.code}>{bank.name}</option>
-                                  ))}
-                                </Select>
-                              </Field>
-                              <Field label={t("field.payout_account_name")} required>
-                                <Input
-                                  value={payoutForm.payout_account_name}
-                                  onChange={(event) =>
-                                    setPayoutForm((current) => ({
-                                      ...current,
-                                      payout_account_name: event.target.value,
-                                    }))
-                                  }
-                                  placeholder="Your name on the account"
-                                />
-                              </Field>
-                              <Field label={t("field.payout_account_number")} required>
-                                <Input
-                                  value={payoutForm.payout_account_number}
-                                  onChange={(event) =>
-                                    setPayoutForm((current) => ({
-                                      ...current,
-                                      payout_account_number: event.target.value,
-                                    }))
-                                  }
-                                  placeholder="e.g. 000 123 456"
-                                />
-                              </Field>
-                              <Field label="Bakong ID" hint="Optional">
-                                <Input
-                                  value={payoutForm.payout_khqr}
-                                  onChange={(event) =>
-                                    setPayoutForm((current) => ({
-                                      ...current,
-                                      payout_khqr: event.target.value,
-                                    }))
-                                  }
-                                  placeholder="yourname@aba"
-                                />
-                              </Field>
-                            </div>
-                          ) : (
-                            <div className="space-y-3">
-                              <p className="text-xs text-[var(--ink-soft)]">
-                                Upload a screenshot of your KHQR code from your banking app.
-                              </p>
-                              <Field label="KHQR Image" required>
-                                <ImageUploader value={payoutKhqrImage} onChange={setPayoutKhqrImage} />
-                              </Field>
-                            </div>
-                          )}
-                        </EditorCard>
-                      ) : null}
-                    </>
                   ) : null}
 
                     {/* Approval Section — visible when both parties must approve */}
