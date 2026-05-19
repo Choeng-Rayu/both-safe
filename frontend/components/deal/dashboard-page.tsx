@@ -123,7 +123,9 @@ export function DashboardPage({ user }: { user: SessionUser }) {
     void load();
   }, [load]);
 
-  const currentDeals: DealCard[] = data ? (data[activeTab] as DealCard[]) : [];
+  const currentDeals: DealCard[] = Array.isArray(data?.[activeTab])
+    ? (data![activeTab] as DealCard[])
+    : [];
   const totalNeedingAction = data?.waiting_my_approval?.length ?? 0;
 
   return (

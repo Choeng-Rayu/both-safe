@@ -472,6 +472,7 @@ export class DealsService {
     });
 
     const created: any[] = [];
+    const waitingMyApproval: any[] = [];
     const active: any[] = [];
     const completedCancelled: any[] = [];
 
@@ -500,6 +501,16 @@ export class DealsService {
         updated_at: deal.updatedAt,
       };
       if (deal.createdByUserId === userId) created.push(card);
+
+      // "Waiting my approval" = deal is in the approval gate AND the
+      // current user is a participant who hasn't approved yet.
+      if (deal.status === DEAL_STATUS.AWAITING_BOTH_APPROVAL) {
+        const me = deal.participants.find((p) => p.userId === userId);
+        if (me && me.approvedAt == null) {
+          waitingMyApproval.push(card);
+        }
+      }
+
       if (ACTIVE_STATUSES.includes(deal.status as any)) {
         active.push(card);
       } else if (isTerminal(deal.status as DealStatus)) {
@@ -507,6 +518,11 @@ export class DealsService {
       }
     }
 
-    return { created, active, completed_cancelled: completedCancelled };
+    return {
+      created,
+      waiting_my_approval: waitingMyApproval,
+      active,
+      completed_cancelled: completedCancelled,
+    };
   }
 }
