@@ -136,6 +136,7 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
     const s = deal.status;
     const r = deal.current_user_role ?? "buyer";
     if (s === "READY_FOR_PAYMENT") return `deal.instruction.ready_for_payment_${r}`;
+    if (s === "SELLER_PREPARING") return `deal.instruction.seller_preparing_${r}`;
     if (s === "SHIPPED") return `deal.instruction.shipped_${r}`;
     return `deal.instruction.${s.toLowerCase()}`;
   }, [deal, canJoinOnly]);
@@ -1017,7 +1018,8 @@ if (
                     </SectionCard>
                   )}
 
-                  {(deal.status === "SHIPPED" ||
+                  {(deal.status === "SELLER_PREPARING" ||
+                    deal.status === "SHIPPED" ||
                     deal.status === "DISPUTED" ||
                     actionSet.has("confirm_received") ||
                     actionSet.has("open_dispute")) && (

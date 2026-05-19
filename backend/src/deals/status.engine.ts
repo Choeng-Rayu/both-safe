@@ -1,26 +1,36 @@
 import { DEAL_STATUS, DealStatus } from '../common/constants';
 
 /**
- * Unified escrow state machine per Kiro spec.
+ * Unified escrow state machine.
  *
- * DRAFT → AWAITING_COUNTERPARTY → AWAITING_BOTH_APPROVAL → READY_FOR_PAYMENT
- * → PAYMENT_PENDING_VERIFICATION → PAID_ESCROWED → SELLER_PREPARING → SHIPPED
- * → BUYER_CONFIRMED → RELEASE_PENDING → RELEASED
+ * Happy path (no shipping-proof friction, no admin release step):
+ *   DRAFT → AWAITING_COUNTERPARTY → AWAITING_BOTH_APPROVAL → READY_FOR_PAYMENT
+ *   → PAYMENT_PENDING_VERIFICATION → PAID_ESCROWED → SELLER_PREPARING
+ *   → BUYER_CONFIRMED → RELEASED (auto-credit seller wallet)
  *
- * Terminal: RELEASED, REFUNDED, CANCELLED, EXPIRED, DISPUTED (terminal-ish).
+ * Optional shipping-proof branch (seller chooses to attach tracking):
+ *   ... → SELLER_PREPARING → SHIPPED → BUYER_CONFIRMED → RELEASED
+ *
+ * Terminal: RELEASED, REFUNDED, CANCELLED, EXPIRED.
+ * RELEASE_PENDING remains for the admin-resolved dispute flow only.
  */
 const TRANSITIONS: Record<DealStatus, DealStatus[]> = {
   DRAFT: [DEAL_STATUS.AWAITING_COUNTERPARTY, DEAL_STATUS.CANCELLED, DEAL_STATUS.EXPIRED],
   AWAITING_COUNTERPARTY: [DEAL_STATUS.AWAITING_BOTH_APPROVAL, DEAL_STATUS.CANCELLED, DEAL_STATUS.EXPIRED],
   AWAITING_BOTH_APPROVAL: [DEAL_STATUS.READY_FOR_PAYMENT, DEAL_STATUS.CANCELLED, DEAL_STATUS.EXPIRED],
-  READY_FOR_PAYMENT: [DEAL_STATUS.PAYMENT_PENDING_VERIFICATION, DEAL_STATUS.EXPIRED],
+  // Wallet payment skips PAYMENT_PENDING_VERIFICATION entirely; Bakong
+  // KHQR auto-verify still goes through it.
+  READY_FOR_PAYMENT: [DEAL_STATUS.PAYMENT_PENDING_VERIFICATION, DEAL_STATUS.PAID_ESCROWED, DEAL_STATUS.EXPIRED],
   PAYMENT_PENDING_VERIFICATION: [DEAL_STATUS.PAID_ESCROWED, DEAL_STATUS.READY_FOR_PAYMENT, DEAL_STATUS.DISPUTED],
   PAID_ESCROWED: [DEAL_STATUS.SELLER_PREPARING, DEAL_STATUS.DISPUTED],
-  SELLER_PREPARING: [DEAL_STATUS.SHIPPED, DEAL_STATUS.DISPUTED],
+  // Buyer can confirm receipt without waiting for a shipping-proof upload.
+  SELLER_PREPARING: [DEAL_STATUS.SHIPPED, DEAL_STATUS.BUYER_CONFIRMED, DEAL_STATUS.DISPUTED],
   SHIPPED: [DEAL_STATUS.BUYER_CONFIRMED, DEAL_STATUS.DISPUTED],
-  BUYER_CONFIRMED: [DEAL_STATUS.RELEASE_PENDING],
+  // Buyer confirmation auto-credits the seller's wallet and moves to
+  // RELEASED in the same transaction.
+  BUYER_CONFIRMED: [DEAL_STATUS.RELEASED, DEAL_STATUS.RELEASE_PENDING],
   RELEASE_PENDING: [DEAL_STATUS.RELEASED, DEAL_STATUS.REFUNDED],
-  DISPUTED: [DEAL_STATUS.RELEASE_PENDING, DEAL_STATUS.REFUNDED],
+  DISPUTED: [DEAL_STATUS.RELEASE_PENDING, DEAL_STATUS.REFUNDED, DEAL_STATUS.RELEASED],
   RELEASED: [],
   REFUNDED: [],
   CANCELLED: [],
@@ -71,7 +81,9 @@ export function canUploadShippingProof(status: DealStatus): boolean {
 }
 
 export function canConfirmReceived(status: DealStatus): boolean {
-  return status === DEAL_STATUS.SHIPPED;
+  // Shipping proof is optional — buyer can confirm receipt as soon as the
+  // seller is preparing (or after shipping proof has been uploaded).
+  return status === DEAL_STATUS.SHIPPED || status === DEAL_STATUS.SELLER_PREPARING;
 }
 
 export function canOpenDispute(status: DealStatus): boolean {

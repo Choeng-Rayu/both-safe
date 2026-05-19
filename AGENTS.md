@@ -437,13 +437,13 @@ PostgreSQL is already running in local Docker — do not start a new instance.
 <claude-mem-context>
 # Memory Context
 
-# [both-safe] recent context, 2026-05-06 11:56am GMT+7
+# [both-safe] recent context, 2026-05-19 9:03am GMT+7
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 35 obs (13,309t read) | 142,939t work | 91% savings
+Stats: 44 obs (17,384t read) | 199,392t work | 91% savings
 
 ### May 5, 2026
 1 10:06a 🔵 OpenCode Orchestrator Architecture and Sub-Agent Dispatch Pattern
@@ -459,7 +459,8 @@ S3 Create a skill based on Ruflo v3.7.0-alpha.1 CLI tool for optimized performan
 S4 Create Ruflo skill based on v3.7.0-alpha.1 release for token optimization and performance improvement in Claude Code environment (May 6, 11:30 AM)
 8 11:33a 🟣 Ruflo Optimizer skill created for token and performance optimization
 9 " ✅ Comprehensive Ruflo Optimizer skill usage documentation created
-S5 Create Ruflo skill based on v3.7.0-alpha.1 release for token optimization and performance improvement in Claude Code environment (May 6, 11:34 AM)
+S5 Create Ruflo skill based on v3.7.0-alpha.1 release for token optimization and performance improvement in Claude Code environment (May 6, 11:33 AM)
+S6 Version bump task initiated - determining scope and components to update (May 6, 11:34 AM)
 10 11:50a 🔵 NestJS Backend Project Structure Baseline
 11 " 🔵 Backend Infrastructure Requirements Identified
 12 " ⚖️ Backend Implementation Roadmap Established
@@ -487,6 +488,26 @@ S5 Create Ruflo skill based on v3.7.0-alpha.1 release for token optimization and
 34 " 🟣 Deal Access Guard and Admin Login Endpoint Implemented
 35 " 🟣 Deal Status State Machine Implemented
 36 " 🟣 Missing Fields Detection Engine Implemented
+37 11:56a 🟣 Deal Creation DTO with Validation and Swagger Documentation
+38 " 🟣 Join and Section Update DTOs Implemented
+39 " 🟣 Audit Service Implemented
+40 " 🟣 Notification Service and Global Modules Implemented
+41 11:57a 🟣 Core Deals Service Implemented
+42 11:58a 🟣 Deals Controller and Module Implemented
+43 " 🟣 Files Service Implemented with Security Validation
+44 " 🟣 Files Controller Implemented with Multi-Mode Access Control
+S35 Initial greeting; user opened conversation regarding BothSafe project (May 6, 10:10 PM)
+### May 18, 2026
+584 10:44p ✅ Removed deprecated baseUrl from backend TypeScript configuration
+S73 Resolve TypeScript deprecation warning for deprecated baseUrl compiler option in backend/tsconfig.json (May 18, 10:44 PM)
+**Investigated**: The tsconfig.json compiler options in the backend directory, specifically the baseUrl setting and its deprecation status in TypeScript 6.0+. Examined the moduleResolution configuration which is set to "nodenext" with resolvePackageJsonExports enabled.
 
-Access 143k tokens of past work via get_observations([IDs]) or mem-search skill.
+**Learned**: baseUrl is a deprecated compiler option originally designed for AMD module loaders in browsers and is no longer recommended. TypeScript 4.1+ removed the requirement for baseUrl when using modern module resolution. With "moduleResolution": "nodenext", TypeScript uses Node's native resolution (relative paths + node_modules lookup), making baseUrl redundant. The option will stop functioning entirely in TypeScript 7.0.
+
+**Completed**: Successfully removed "baseUrl": "./" from the compilerOptions in backend/tsconfig.json. The deprecation warning should now be resolved, and the project is prepared for TypeScript 7.0 compatibility.
+
+**Next Steps**: No further steps indicated at this time. The TypeScript configuration deprecation issue has been addressed by removing the unnecessary baseUrl option.
+
+
+Access 199k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

@@ -11,7 +11,18 @@ import { WinstonLoggerService } from '../common/logger/winston-logger.service';
 import { NotificationService } from '../notifications/notification.service';
 import { generateOpaqueToken, generatePublicId, hashToken } from '../common/utils/tokens';
 import { sanitizeText } from '../common/utils/sanitize';
-import { DEAL_STATUS, DealStatus, MESSAGE_KEYS, NOTIFICATION_EVENTS } from '../common/constants';
+import {
+  DEAL_STATUS,
+  DealStatus,
+  LEDGER_ENTRY_TYPES,
+  MESSAGE_KEYS,
+  NOTIFICATION_EVENTS,
+  WALLET_LEDGER_DIRECTIONS,
+  WALLET_LEDGER_ENTRY_TYPES,
+} from '../common/constants';
+import { WalletsService } from '../wallets/wallets.service';
+import { LedgerService } from '../ledger/ledger.service';
+import { assertCurrency, toMinorUnits } from '../wallets/helpers/money';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { JoinDealDto } from './dto/join-deal.dto';
 import { UpdateDeliveryDto, UpdateParticipantDto, UpdatePayoutDto, UpdateProductDto } from './dto/update-sections.dto';
@@ -26,6 +37,8 @@ export class DealsService {
     private readonly cfg: ConfigService,
     private readonly audit: AuditService,
     private readonly notif: NotificationService,
+    private readonly wallets: WalletsService,
+    private readonly ledger: LedgerService,
     private readonly logger: WinstonLoggerService,
   ) {}
 
@@ -65,7 +78,13 @@ export class DealsService {
     if ((status === DEAL_STATUS.PAID_ESCROWED || status === DEAL_STATUS.SELLER_PREPARING) && role === 'seller') {
       acts.push('upload_shipping_proof');
     }
-    if (status === DEAL_STATUS.SHIPPED && role === 'buyer') {
+    // Buyer can confirm receipt as soon as the seller is preparing (no
+    // shipping proof required) — the act of confirming is what releases
+    // the funds.
+    if (
+      role === 'buyer' &&
+      (status === DEAL_STATUS.SELLER_PREPARING || status === DEAL_STATUS.SHIPPED)
+    ) {
       acts.push('confirm_received', 'open_dispute');
     }
     if (canOpenDispute(status)) acts.push('open_dispute');
@@ -407,33 +426,147 @@ export class DealsService {
     return { status: fresh.status, message_key: MESSAGE_KEYS.DEAL_CANCELLED };
   }
 
-  /** Buyer confirms receipt; transitions SHIPPED → BUYER_CONFIRMED → RELEASE_PENDING */
+  /**
+   * Buyer confirms receipt. This is the canonical release trigger:
+   *   1. Status moves from SELLER_PREPARING (or SHIPPED) → BUYER_CONFIRMED.
+   *   2. The seller's wallet is credited atomically with the net seller
+   *      amount (deal.netSellerAmount, falling back to the gross amount
+   *      minus the platform fee if the verify path did not set it).
+   *   3. Status moves to RELEASED.
+   *
+   * No admin step is required for the happy path — the flow.deal.md spec
+   * says "the buyer approve that product they order is acceptable [and]
+   * the money will release to the seller".
+   */
   async confirmReceived(publicId: string, actor: RequestActor) {
-    if (actor.role !== 'buyer') throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
+    if (actor.role !== 'buyer') {
+      throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
+    }
     const deal = await this.loadDeal(publicId);
-    if (!canConfirmReceived(deal.status as DealStatus)) throw new BadRequestException({ messageKey: 'confirmation.not_shipped' });
+    if (!canConfirmReceived(deal.status as DealStatus)) {
+      throw new BadRequestException({ messageKey: 'confirmation.not_shipped' });
+    }
 
     const buyer = deal.participants.find((p) => p.role === 'buyer');
-    await this.transitionStatus(deal.id, deal.status as DealStatus, DEAL_STATUS.BUYER_CONFIRMED);
-    await this.audit.record({ dealId: deal.id, actorType: 'participant', actorId: buyer?.id ?? null, action: 'buyer.confirmed_received' });
-    this.logger.action('buyer.confirmed_received', { public_id: publicId, buyer_id: buyer?.id });
-
-    // Auto-transition to RELEASE_PENDING
-    await this.transitionStatus(deal.id, DEAL_STATUS.BUYER_CONFIRMED, DEAL_STATUS.RELEASE_PENDING);
-
     const seller = deal.participants.find((p) => p.role === 'seller');
+    if (!seller) {
+      throw new BadRequestException({ messageKey: 'transfer.missing_seller_user' });
+    }
+    const sellerUserId = await this.resolveParticipantUserId(seller);
+    if (!sellerUserId) {
+      throw new BadRequestException({ messageKey: 'transfer.missing_seller_user' });
+    }
+
+    const currency = assertCurrency(deal.currency);
+    const grossMajor = deal.amount ?? 0;
+    if (grossMajor <= 0) {
+      throw new BadRequestException({ messageKey: MESSAGE_KEYS.VALIDATION_FAILED });
+    }
+    const fee = +(grossMajor * (this.feePercent() / 100)).toFixed(2);
+    const netMajor = deal.netSellerAmount ?? +(grossMajor - fee).toFixed(2);
+    const amountMinor = toMinorUnits(netMajor, currency);
+    const walletIdempotencyKey = `deal_release:${deal.id}`;
+
+    await this.wallets.getOrCreateWallet(sellerUserId);
+
+    // Atomic: BUYER_CONFIRMED → RELEASED with wallet credit.
+    await this.prisma.$transaction(async (tx) => {
+      // status.transition: SELLER_PREPARING|SHIPPED → BUYER_CONFIRMED
+      await tx.deal.update({
+        where: { id: deal.id },
+        data: { status: DEAL_STATUS.BUYER_CONFIRMED },
+      });
+      // Credit seller wallet.
+      await this.wallets.creditInTx(tx, {
+        userId: sellerUserId,
+        entryType: WALLET_LEDGER_ENTRY_TYPES.DEAL_RELEASE_CREDIT,
+        direction: WALLET_LEDGER_DIRECTIONS.CREDIT,
+        amount: amountMinor,
+        currency,
+        idempotencyKey: walletIdempotencyKey,
+        dealId: deal.id,
+        description: `Deal ${deal.publicId} buyer-confirmed release`,
+      });
+      // Finalise status.
+      await tx.deal.update({
+        where: { id: deal.id },
+        data: { status: DEAL_STATUS.RELEASED, netSellerAmount: netMajor, feeAmount: fee },
+      });
+    });
+
+    // Deal-level audit log + post-transaction ledger entry (outside the
+    // wallet transaction so a logger hiccup does not roll back money).
+    if (!(await this.ledger.hasEntry(deal.id, LEDGER_ENTRY_TYPES.SELLER_PAYOUT_SENT))) {
+      await this.ledger.append({
+        dealId: deal.id,
+        entryType: LEDGER_ENTRY_TYPES.SELLER_PAYOUT_SENT,
+        amount: netMajor,
+        currency: deal.currency,
+        reference: walletIdempotencyKey,
+      });
+    }
+    await this.audit.record({
+      dealId: deal.id,
+      actorType: 'participant',
+      actorId: buyer?.id ?? null,
+      action: 'buyer.confirmed_received_auto_released',
+      details: {
+        amount_minor: amountMinor.toString(),
+        currency,
+      },
+    });
+    this.logger.action('buyer.confirmed_received', {
+      public_id: publicId,
+      buyer_id: buyer?.id,
+      released_to_wallet: true,
+    });
+
+    // Notify seller + Telegram.
     await this.notif.notify({
       dealId: deal.id,
-      eventKey: NOTIFICATION_EVENTS.BUYER_CONFIRMED,
-      messageKey: MESSAGE_KEYS.BUYER_CONFIRMED,
+      eventKey: NOTIFICATION_EVENTS.PAYOUT_RELEASED,
+      messageKey: MESSAGE_KEYS.RELEASED_TO_WALLET,
       recipients: [
-        ...(seller ? [{ channel: 'inapp' as const, ref: seller.id }] : []),
-        ...(seller?.telegramChatId ? [{ channel: 'telegram' as const, ref: seller.telegramChatId }] : []),
+        { channel: 'inapp' as const, ref: seller.id },
+        ...(seller.telegramChatId
+          ? [{ channel: 'telegram' as const, ref: seller.telegramChatId }]
+          : []),
       ],
+      payload: {
+        amount_minor: amountMinor.toString(),
+        currency,
+      },
     });
 
     const fresh = await this.loadDeal(publicId);
-    return { status: fresh.status, message_key: MESSAGE_KEYS.BUYER_CONFIRMED, allowed_actions: this.allowedActions(fresh, actor) };
+    return {
+      status: fresh.status,
+      message_key: MESSAGE_KEYS.RELEASED_TO_WALLET,
+      allowed_actions: this.allowedActions(fresh, actor),
+    };
+  }
+
+  /**
+   * Look up the BothSafe user id for a participant — prefers the linked
+   * userId, falls back to TelegramIdentity.linkedUserId for legacy
+   * bot-created deals where the participant row predates auto-linking.
+   */
+  private async resolveParticipantUserId(participant: {
+    id: string;
+    userId: string | null;
+    telegramChatId: string | null;
+  }): Promise<string | null> {
+    if (participant.userId) return participant.userId;
+    if (!participant.telegramChatId) return null;
+    const identity = await this.prisma.telegramIdentity.findUnique({
+      where: { chatId: participant.telegramChatId },
+    });
+    if (!identity?.linkedUserId) return null;
+    await this.prisma.participant.update({
+      where: { id: participant.id },
+      data: { userId: identity.linkedUserId },
+    });
+    return identity.linkedUserId;
   }
 
   async transitionStatus(dealId: string, from: DealStatus, to: DealStatus) {
