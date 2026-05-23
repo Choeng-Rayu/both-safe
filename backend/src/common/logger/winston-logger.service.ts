@@ -49,10 +49,13 @@ export class WinstonLoggerService implements LoggerService {
     dealId?: string;
     error?: string;
   }) {
-    this.logger.info(`[HTTP] ${meta.method} ${meta.url} ${meta.statusCode} ${meta.durationMs}ms`, {
-      type: 'http_access',
-      ...meta,
-    });
+    this.logger.info(
+      `[HTTP] ${meta.method} ${meta.url} ${meta.statusCode} ${meta.durationMs}ms`,
+      {
+        type: 'http_access',
+        ...meta,
+      },
+    );
   }
 
   // Business action logging for debugging issues

@@ -9,7 +9,13 @@ import { WalletsModule } from '../wallets/wallets.module';
 import { LedgerModule } from '../ledger/ledger.module';
 
 @Module({
-  imports: [ConfigModule, AuthModule, TransfersModule, WalletsModule, LedgerModule],
+  imports: [
+    ConfigModule,
+    AuthModule,
+    TransfersModule,
+    WalletsModule,
+    LedgerModule,
+  ],
   controllers: [DealsController],
   providers: [DealsService, ExpirationService],
   exports: [DealsService],

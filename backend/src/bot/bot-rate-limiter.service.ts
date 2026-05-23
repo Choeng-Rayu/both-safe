@@ -24,8 +24,12 @@ export class BotRateLimiterService {
     private readonly prisma: PrismaService,
     private readonly cfg: ConfigService,
   ) {
-    this.dealLimitPerHour = Number(this.cfg.get<string>('BOT_RATE_LIMIT_DEALS_PER_HOUR') ?? '3');
-    this.commandLimitPerMinute = Number(this.cfg.get<string>('BOT_RATE_LIMIT_COMMANDS_PER_MINUTE') ?? '10');
+    this.dealLimitPerHour = Number(
+      this.cfg.get<string>('BOT_RATE_LIMIT_DEALS_PER_HOUR') ?? '3',
+    );
+    this.commandLimitPerMinute = Number(
+      this.cfg.get<string>('BOT_RATE_LIMIT_COMMANDS_PER_MINUTE') ?? '10',
+    );
     this.dedupWindowMs = 2000;
   }
 
@@ -33,14 +37,24 @@ export class BotRateLimiterService {
    * Check if a user can create a deal (sliding window: per hour).
    */
   async checkDealCreation(chatId: string): Promise<RateLimitResult> {
-    return this.checkSlidingWindow(chatId, 'deal_creation', this.dealLimitPerHour, 60 * 60 * 1000);
+    return this.checkSlidingWindow(
+      chatId,
+      'deal_creation',
+      this.dealLimitPerHour,
+      60 * 60 * 1000,
+    );
   }
 
   /**
    * Check if a user can send a command (sliding window: per minute).
    */
   async checkCommand(chatId: string): Promise<RateLimitResult> {
-    return this.checkSlidingWindow(chatId, 'command', this.commandLimitPerMinute, 60 * 1000);
+    return this.checkSlidingWindow(
+      chatId,
+      'command',
+      this.commandLimitPerMinute,
+      60 * 1000,
+    );
   }
 
   /**
@@ -61,7 +75,10 @@ export class BotRateLimiterService {
    * Deduplicate identical messages within a short window.
    * Returns true if this message is a duplicate and should be ignored.
    */
-  async isDuplicateMessage(chatId: string, messageText: string): Promise<boolean> {
+  async isDuplicateMessage(
+    chatId: string,
+    messageText: string,
+  ): Promise<boolean> {
     const key = `last_msg:${chatId}`;
     const now = Date.now();
 
@@ -79,7 +96,11 @@ export class BotRateLimiterService {
       // ignore parse errors
     }
 
-    if (lastEntry && lastEntry.text === messageText && now - lastEntry.ts < this.dedupWindowMs) {
+    if (
+      lastEntry &&
+      lastEntry.text === messageText &&
+      now - lastEntry.ts < this.dedupWindowMs
+    ) {
       return true;
     }
 
@@ -120,7 +141,9 @@ export class BotRateLimiterService {
         allowed: false,
         remaining: 0,
         resetAt,
-        retryAfterSeconds: Math.ceil((resetAt.getTime() - now.getTime()) / 1000),
+        retryAfterSeconds: Math.ceil(
+          (resetAt.getTime() - now.getTime()) / 1000,
+        ),
       };
     }
 
@@ -134,11 +157,16 @@ export class BotRateLimiterService {
         data: {
           actorType: 'system',
           action: `bot.${type}.hit`,
-          details: JSON.stringify({ telegram_chat_id: chatId, ts: new Date().toISOString() }),
+          details: JSON.stringify({
+            telegram_chat_id: chatId,
+            ts: new Date().toISOString(),
+          }),
         },
       });
     } catch (err) {
-      this.logger.warn(`Failed to record rate limit hit: ${(err as Error).message}`);
+      this.logger.warn(
+        `Failed to record rate limit hit: ${(err as Error).message}`,
+      );
     }
   }
 }

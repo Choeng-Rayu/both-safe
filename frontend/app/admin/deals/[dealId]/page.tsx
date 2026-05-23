@@ -7,7 +7,7 @@ import { DisputeEvidenceViewer } from "@/components/admin/dispute-evidence-viewe
 import { PaymentProofViewer } from "@/components/admin/payment-proof-viewer";
 import { ShippingProofViewer } from "@/components/admin/shipping-proof-viewer";
 import { adminGetDeal } from "@/lib/api";
-import { requireAdminToken } from "@/lib/admin-session";
+import { requireAdmin, getSessionCookieHeader } from "@/lib/auth";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -18,10 +18,10 @@ export default async function AdminDealDetailPage({
   params: Promise<{ dealId: string }>;
 }) {
   const { dealId } = await params;
-  const token = await requireAdminToken();
-  const deal = await adminGetDeal(dealId, token);
+  await requireAdmin(`/admin/deals`);
+  const cookieHeader = await getSessionCookieHeader();
+  const deal = await adminGetDeal(dealId, cookieHeader);
 
-  const seller = deal.participants.find((p) => p.role === "seller");
   const netAmount = deal.netSellerAmount ?? deal.amount;
 
   return (
@@ -79,69 +79,8 @@ export default async function AdminDealDetailPage({
             </div>
           </SectionCard>
 
-          {/* Seller payout section — admin uses this to send money */}
-          {seller && (
-            <SectionCard title="💸 Seller payout info">
-              <div className="space-y-4">
-                <div className="rounded-lg bg-[rgba(47,106,82,0.06)] border border-[rgba(47,106,82,0.2)] p-3 text-sm">
-                  <span className="text-[var(--ink-soft)]">Amount to send seller: </span>
-                  <span className="font-bold text-[var(--brand)] text-base">
-                    {formatCurrency(netAmount, deal.currency)}
-                  </span>
-                  <span className="ml-3 text-[var(--ink-soft)]">
-                    Memo: <code className="text-xs bg-[var(--surface-strong)] px-1 rounded">{deal.publicId}</code>
-                    {deal.product?.title && (
-                      <> — {deal.product.title}</>
-                    )}
-                  </span>
-                </div>
-
-                {seller.payoutKhqrImage && seller.payoutKhqrImage !== "pending_upload" ? (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-[var(--ink)]">
-                      📱 Seller&apos;s KHQR — open your Bakong app and scan this:
-                    </p>
-                    <div className="flex justify-center rounded-xl border-2 border-[var(--brand)] bg-white p-5 shadow-sm">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={seller.payoutKhqrImage}
-                        alt="Seller KHQR code"
-                        className="max-w-xs w-full object-contain"
-                      />
-                    </div>
-                    <a
-                      href={seller.payoutKhqrImage}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-[var(--brand)] hover:underline"
-                    >
-                      ↗ Open full size image
-                    </a>
-                  </div>
-                ) : seller.payoutKhqr ? (
-                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4">
-                    <p className="text-xs text-[var(--ink-soft)] mb-1">Seller Bakong ID (enter in your Bakong app)</p>
-                    <p className="text-base font-mono font-semibold text-[var(--ink)]">{seller.payoutKhqr}</p>
-                  </div>
-                ) : seller.payoutBankName ? (
-                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4 space-y-2">
-                    <p className="text-xs text-[var(--ink-soft)]">Bank transfer details</p>
-                    <p className="text-sm font-semibold">{seller.payoutBankName}</p>
-                    {seller.payoutAccountName && <p className="text-sm">{seller.payoutAccountName}</p>}
-                    {seller.payoutAccountNumber && (
-                      <p className="text-sm font-mono">{seller.payoutAccountNumber}</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="rounded-lg bg-orange-50 border border-orange-200 p-3">
-                    <p className="text-sm text-orange-700">
-                      ⚠️ Seller has not uploaded their KHQR or payout information yet.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </SectionCard>
-          )}
+          {/* Seller payout details are no longer collected on the deal —
+              released funds land in the seller's BothSafe wallet. */}
 
           <SectionCard title="Payment review">
             <PaymentProofViewer deal={deal} />

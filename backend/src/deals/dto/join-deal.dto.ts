@@ -15,7 +15,10 @@ export class JoinDealDto {
   @MaxLength(120)
   name!: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(40)
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
   phone?: string;
 
   @ApiProperty({ enum: ['km', 'en', 'zh'] })

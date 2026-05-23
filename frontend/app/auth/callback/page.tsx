@@ -27,9 +27,13 @@ function CallbackInner() {
       // Fetch current user to populate AuthContext.
       fetch(`${API_BASE}/auth/me`, { credentials: "include" })
         .then((res) => res.json())
-        .then((data: { user?: { id: string; email: string | null; name: string | null; avatarUrl: string | null; emailVerified: boolean } }) => {
+        .then((data: { user?: { id: string; email: string | null; name: string | null; avatarUrl: string | null; emailVerified: boolean; role: "USER" | "ADMIN"; disabled: boolean } }) => {
           if (data.user) {
             setUser(data.user);
+            if (data.user.role === "ADMIN") {
+              router.replace("/admin/users");
+              return;
+            }
           }
           router.replace(redirectTo);
         })

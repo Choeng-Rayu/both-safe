@@ -38,7 +38,8 @@ export class BotStateService {
     cfg: ConfigService,
   ) {
     const raw = Number(cfg.get<string>('BOT_CONVERSATION_TIMEOUT_MINUTES'));
-    this.ttlMinutes = Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_STATE_TTL_MINUTES;
+    this.ttlMinutes =
+      Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_STATE_TTL_MINUTES;
   }
 
   /** Conversation TTL in minutes (configurable via BOT_CONVERSATION_TIMEOUT_MINUTES). */
@@ -114,7 +115,10 @@ export class BotStateService {
     });
   }
 
-  async update(chatId: string, patch: Partial<Omit<BotStateData, 'chatId'>>): Promise<void> {
+  async update(
+    chatId: string,
+    patch: Partial<Omit<BotStateData, 'chatId'>>,
+  ): Promise<void> {
     const expires = new Date(Date.now() + this.ttlMinutes * 60 * 1000);
     await this.prisma.botState.upsert({
       where: { chatId },
@@ -133,11 +137,17 @@ export class BotStateService {
       update: {
         ...(patch.flow !== undefined && { flow: patch.flow }),
         ...(patch.step !== undefined && { step: patch.step }),
-        ...(patch.creatorRole !== undefined && { creatorRole: patch.creatorRole }),
+        ...(patch.creatorRole !== undefined && {
+          creatorRole: patch.creatorRole,
+        }),
         ...(patch.language !== undefined && { language: patch.language }),
-        ...(patch.productTitle !== undefined && { productTitle: patch.productTitle }),
+        ...(patch.productTitle !== undefined && {
+          productTitle: patch.productTitle,
+        }),
         ...(patch.amount !== undefined && { amount: patch.amount }),
-        ...(patch.productType !== undefined && { productType: patch.productType }),
+        ...(patch.productType !== undefined && {
+          productType: patch.productType,
+        }),
         ...(patch.note !== undefined && { note: patch.note }),
         expiresAt: expires,
       },

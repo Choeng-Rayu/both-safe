@@ -51,8 +51,16 @@ export class ShippingController {
   uploadShipping(
     @Param('publicId') publicId: string,
     @UploadedFiles()
-    files: { package_photo?: Express.Multer.File[]; delivery_receipt?: Express.Multer.File[] },
-    @Body() body: { delivery_company?: string; tracking_number?: string; seller_note?: string },
+    files: {
+      package_photo?: Express.Multer.File[];
+      delivery_receipt?: Express.Multer.File[];
+    },
+    @Body()
+    body: {
+      delivery_company?: string;
+      tracking_number?: string;
+      seller_note?: string;
+    },
     @CurrentActor() actor: RequestActor,
   ) {
     return this.shipping.uploadShippingProof(publicId, actor, body, {

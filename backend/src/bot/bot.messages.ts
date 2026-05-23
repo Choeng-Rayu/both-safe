@@ -225,20 +225,76 @@ const messages: Record<string, Record<BotLang, string>> = {
   },
   // ── status labels ─────────────────────────────────────────────────────
   'bot.status.DRAFT': { km: '📝 ព្រាង', en: '📝 Draft', zh: '📝 草稿' },
-  'bot.status.AWAITING_COUNTERPARTY': { km: '👥 រង់ចាំសហការី', en: '👥 Waiting for counterparty', zh: '👥 等待对方' },
-  'bot.status.AWAITING_BOTH_APPROVAL': { km: '⏳ រង់ចាំការយល់ព្រមទាំងសងខាង', en: '⏳ Waiting for both to approve', zh: '⏳ 等待双方确认' },
-  'bot.status.READY_FOR_PAYMENT': { km: '💳 ត្រៀមបង់ប្រាក់', en: '💳 Ready for payment', zh: '💳 准备付款' },
-  'bot.status.PAYMENT_PENDING_VERIFICATION': { km: '🔍 កំពុងពិនិត្យការទូទាត់', en: '🔍 Verifying payment', zh: '🔍 正在验证付款' },
-  'bot.status.PAID_ESCROWED': { km: '🔒 ការទូទាត់ Escrow ហើយ', en: '🔒 Paid & escrowed', zh: '🔒 已付款托管' },
-  'bot.status.SELLER_PREPARING': { km: '📦 អ្នកលក់កំពុងរៀបចំ', en: '📦 Seller preparing', zh: '📦 卖家备货中' },
-  'bot.status.SHIPPED': { km: '🚚 ផ្ញើទំនិញហើយ', en: '🚚 Shipped', zh: '🚚 已发货' },
-  'bot.status.BUYER_CONFIRMED': { km: '👍 អ្នកទិញបញ្ជាក់ទទួលហើយ', en: '👍 Buyer confirmed receipt', zh: '👍 买家已确认收货' },
-  'bot.status.RELEASE_PENDING': { km: '⏳ កំពុងរង់ចាំការដោះលែង', en: '⏳ Release pending', zh: '⏳ 等待释放' },
-  'bot.status.DISPUTED': { km: '⚠️ មានវិវាទ', en: '⚠️ Disputed', zh: '⚠️ 有争议' },
-  'bot.status.RELEASED': { km: '✅ ប្រាក់ត្រូវបានដោះលែងទៅកាបូប', en: '✅ Released to wallet', zh: '✅ 已释放至钱包' },
-  'bot.status.REFUNDED': { km: '↩️ ប្រាក់ត្រូវបានដងវិញ', en: '↩️ Refunded to wallet', zh: '↩️ 已退款至钱包' },
-  'bot.status.CANCELLED': { km: '❌ បានលុបចោល', en: '❌ Cancelled', zh: '❌ 已取消' },
-  'bot.status.EXPIRED': { km: '⌛ ផុតកំណត់', en: '⌛ Expired', zh: '⌛ 已过期' },
+  'bot.status.AWAITING_COUNTERPARTY': {
+    km: '👥 រង់ចាំសហការី',
+    en: '👥 Waiting for counterparty',
+    zh: '👥 等待对方',
+  },
+  'bot.status.AWAITING_BOTH_APPROVAL': {
+    km: '⏳ រង់ចាំការយល់ព្រមទាំងសងខាង',
+    en: '⏳ Waiting for both to approve',
+    zh: '⏳ 等待双方确认',
+  },
+  'bot.status.READY_FOR_PAYMENT': {
+    km: '💳 ត្រៀមបង់ប្រាក់',
+    en: '💳 Ready for payment',
+    zh: '💳 准备付款',
+  },
+  'bot.status.PAYMENT_PENDING_VERIFICATION': {
+    km: '🔍 កំពុងពិនិត្យការទូទាត់',
+    en: '🔍 Verifying payment',
+    zh: '🔍 正在验证付款',
+  },
+  'bot.status.PAID_ESCROWED': {
+    km: '🔒 ការទូទាត់ Escrow ហើយ',
+    en: '🔒 Paid & escrowed',
+    zh: '🔒 已付款托管',
+  },
+  'bot.status.SELLER_PREPARING': {
+    km: '📦 អ្នកលក់កំពុងរៀបចំ',
+    en: '📦 Seller preparing',
+    zh: '📦 卖家备货中',
+  },
+  'bot.status.SHIPPED': {
+    km: '🚚 ផ្ញើទំនិញហើយ',
+    en: '🚚 Shipped',
+    zh: '🚚 已发货',
+  },
+  'bot.status.BUYER_CONFIRMED': {
+    km: '👍 អ្នកទិញបញ្ជាក់ទទួលហើយ',
+    en: '👍 Buyer confirmed receipt',
+    zh: '👍 买家已确认收货',
+  },
+  'bot.status.RELEASE_PENDING': {
+    km: '⏳ កំពុងរង់ចាំការដោះលែង',
+    en: '⏳ Release pending',
+    zh: '⏳ 等待释放',
+  },
+  'bot.status.DISPUTED': {
+    km: '⚠️ មានវិវាទ',
+    en: '⚠️ Disputed',
+    zh: '⚠️ 有争议',
+  },
+  'bot.status.RELEASED': {
+    km: '✅ ប្រាក់ត្រូវបានដោះលែងទៅកាបូប',
+    en: '✅ Released to wallet',
+    zh: '✅ 已释放至钱包',
+  },
+  'bot.status.REFUNDED': {
+    km: '↩️ ប្រាក់ត្រូវបានដងវិញ',
+    en: '↩️ Refunded to wallet',
+    zh: '↩️ 已退款至钱包',
+  },
+  'bot.status.CANCELLED': {
+    km: '❌ បានលុបចោល',
+    en: '❌ Cancelled',
+    zh: '❌ 已取消',
+  },
+  'bot.status.EXPIRED': {
+    km: '⌛ ផុតកំណត់',
+    en: '⌛ Expired',
+    zh: '⌛ 已过期',
+  },
   // ── notifications ─────────────────────────────────────────────────────
   'bot.notify.COUNTERPARTY_JOINED': {
     km: '👤 ភាគីម្ខាងទៀតបានចូលរួមការទូទាត់របស់អ្នក!',
@@ -294,11 +350,6 @@ const messages: Record<string, Record<BotLang, string>> = {
     km: '↩️ ការដង់ប្រាក់ត្រូវបានដំណើរការ! ប្រាក់ត្រូវបានផ្ញើត្រលប់ទៅអ្នកទិញ។',
     en: '↩️ Refund completed! Funds sent back to buyer.',
     zh: '↩️ 退款已完成！资金已退回给买家。',
-  },
-  'bot.notify.BUYER_CONFIRMED_PAYOUT_REQUIRED': {
-    km: '🔔 *ត្រូវការផ្ញើប្រាក់ទៅអ្នកលក់!*\n\nអ្នកទិញបានបញ្ជាក់ទទួលបានទំនិញ។ សូម login ទៅ Admin Dashboard ហើយប្រើ Bakong Deeplink ដើម្បីផ្ញើប្រាក់ទៅអ្នកលក់។',
-    en: '🔔 *Payout Required!*\n\nBuyer has confirmed receipt. Please open the Admin Dashboard and use the Bakong Deeplink button to send payment to the seller.',
-    zh: '🔔 *需要付款！*\n\n买家已确认收货。请打开管理员面板，使用 Bakong 深度链接按钮向卖家付款。',
   },
   // ── admin dev ─────────────────────────────────────────────────────────
   'bot.dev.chat_id': {

@@ -1,12 +1,12 @@
 import * as crypto from 'crypto';
 
 export interface KHQRParams {
-  bankAccount: string;   // Bakong account ID e.g. "seller@aba"
+  bankAccount: string; // Bakong account ID e.g. "seller@aba"
   merchantName: string;
   merchantCity: string;
   amount: number;
   currency: 'USD' | 'KHR';
-  billNumber: string;    // max 25 chars — use deal publicId
+  billNumber: string; // max 25 chars — use deal publicId
 }
 
 /**
@@ -46,5 +46,8 @@ export function buildKHQR(p: KHQRParams): { qrString: string; md5: string } {
   }
 
   const qrString = raw + crc.toString(16).padStart(4, '0').toUpperCase();
-  return { qrString, md5: crypto.createHash('md5').update(qrString).digest('hex') };
+  return {
+    qrString,
+    md5: crypto.createHash('md5').update(qrString).digest('hex'),
+  };
 }

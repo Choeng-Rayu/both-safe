@@ -31,7 +31,14 @@ export class AdminService {
     private readonly logger: WinstonLoggerService,
   ) {}
 
-  async listDeals(query: { status?: string; from_date?: string; to_date?: string; search?: string; page?: string; pageSize?: string }) {
+  async listDeals(query: {
+    status?: string;
+    from_date?: string;
+    to_date?: string;
+    search?: string;
+    page?: string;
+    pageSize?: string;
+  }) {
     const page = Math.max(1, Number(query.page ?? '1'));
     const pageSize = Math.min(100, Math.max(1, Number(query.pageSize ?? '20')));
     const where: any = {};
@@ -45,7 +52,11 @@ export class AdminService {
     if (query.search) {
       where.OR = [
         { publicId: { contains: query.search, mode: 'insensitive' } },
-        { participants: { some: { name: { contains: query.search, mode: 'insensitive' } } } },
+        {
+          participants: {
+            some: { name: { contains: query.search, mode: 'insensitive' } },
+          },
+        },
       ];
     }
 
@@ -74,7 +85,8 @@ export class AdminService {
         ledgerEntries: true,
       },
     });
-    if (!deal) throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
+    if (!deal)
+      throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
     return deal;
   }
 
@@ -86,37 +98,64 @@ export class AdminService {
     });
   }
 
-  async release(dealId: string, body: { payout_reference: string; admin_note?: string; idempotency_key?: string }, adminId: string) {
-    const deal = await this.prisma.deal.findUnique({ where: { id: dealId }, include: { participants: true } });
-    if (!deal) throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
+  async release(
+    dealId: string,
+    body: {
+      payout_reference: string;
+      admin_note?: string;
+      idempotency_key?: string;
+    },
+    adminId: string,
+  ) {
+    const deal = await this.prisma.deal.findUnique({
+      where: { id: dealId },
+      include: { participants: true },
+    });
+    if (!deal)
+      throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
 
     if (body.idempotency_key) {
-      const found = await this.prisma.idempotencyKey.findUnique({ where: { key: body.idempotency_key } });
+      const found = await this.prisma.idempotencyKey.findUnique({
+        where: { key: body.idempotency_key },
+      });
       if (found && found.scope === 'admin.release') {
-        return found.responseJson ? JSON.parse(found.responseJson) : { status: deal.status };
+        return found.responseJson
+          ? JSON.parse(found.responseJson)
+          : { status: deal.status };
       }
     }
 
     if (deal.status === DEAL_STATUS.RELEASED) {
       throw new ConflictException({ messageKey: 'admin.already_released' });
     }
-    if (deal.status !== DEAL_STATUS.RELEASE_PENDING && deal.status !== DEAL_STATUS.DISPUTED) {
-      throw new BadRequestException({ messageKey: 'admin.not_ready_for_release' });
+    if (
+      deal.status !== DEAL_STATUS.RELEASE_PENDING &&
+      deal.status !== DEAL_STATUS.DISPUTED
+    ) {
+      throw new BadRequestException({
+        messageKey: 'admin.not_ready_for_release',
+      });
     }
 
     const seller = deal.participants.find((p) => p.role === 'seller');
     if (!seller) {
-      throw new BadRequestException({ messageKey: 'transfer.missing_seller_user' });
+      throw new BadRequestException({
+        messageKey: 'transfer.missing_seller_user',
+      });
     }
     const sellerUserId = await this.resolveParticipantUserId(seller);
     if (!sellerUserId) {
-      throw new BadRequestException({ messageKey: 'transfer.missing_seller_user' });
+      throw new BadRequestException({
+        messageKey: 'transfer.missing_seller_user',
+      });
     }
 
     const currency = assertCurrency(deal.currency);
     const amountMajor = deal.netSellerAmount ?? deal.amount ?? 0;
     if (amountMajor <= 0) {
-      throw new BadRequestException({ messageKey: MESSAGE_KEYS.VALIDATION_FAILED });
+      throw new BadRequestException({
+        messageKey: MESSAGE_KEYS.VALIDATION_FAILED,
+      });
     }
     const amountMinor = toMinorUnits(amountMajor, currency);
     const walletIdempotencyKey = `deal_release:${deal.id}`;
@@ -186,7 +225,11 @@ export class AdminService {
         currency,
       },
     });
-    this.logger.action('admin.release', { deal_id: deal.id, admin_id: adminId, reference: body.payout_reference });
+    this.logger.action('admin.release', {
+      deal_id: deal.id,
+      admin_id: adminId,
+      reference: body.payout_reference,
+    });
 
     await this.notif.notify({
       dealId: deal.id,
@@ -212,45 +255,79 @@ export class AdminService {
     if (body.idempotency_key) {
       await this.prisma.idempotencyKey.upsert({
         where: { key: body.idempotency_key },
-        update: { scope: 'admin.release', responseJson: JSON.stringify(result) },
-        create: { key: body.idempotency_key, scope: 'admin.release', responseJson: JSON.stringify(result) },
+        update: {
+          scope: 'admin.release',
+          responseJson: JSON.stringify(result),
+        },
+        create: {
+          key: body.idempotency_key,
+          scope: 'admin.release',
+          responseJson: JSON.stringify(result),
+        },
       });
     }
 
     return result;
   }
 
-  async refund(dealId: string, body: { refund_reference: string; admin_note?: string; idempotency_key?: string }, adminId: string) {
-    const deal = await this.prisma.deal.findUnique({ where: { id: dealId }, include: { participants: true } });
-    if (!deal) throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
+  async refund(
+    dealId: string,
+    body: {
+      refund_reference: string;
+      admin_note?: string;
+      idempotency_key?: string;
+    },
+    adminId: string,
+  ) {
+    const deal = await this.prisma.deal.findUnique({
+      where: { id: dealId },
+      include: { participants: true },
+    });
+    if (!deal)
+      throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
 
     if (body.idempotency_key) {
-      const found = await this.prisma.idempotencyKey.findUnique({ where: { key: body.idempotency_key } });
+      const found = await this.prisma.idempotencyKey.findUnique({
+        where: { key: body.idempotency_key },
+      });
       if (found && found.scope === 'admin.refund') {
-        return found.responseJson ? JSON.parse(found.responseJson) : { status: deal.status };
+        return found.responseJson
+          ? JSON.parse(found.responseJson)
+          : { status: deal.status };
       }
     }
 
     if (deal.status === DEAL_STATUS.REFUNDED) {
       throw new ConflictException({ messageKey: 'admin.already_refunded' });
     }
-    if (deal.status !== DEAL_STATUS.DISPUTED && deal.status !== DEAL_STATUS.RELEASE_PENDING) {
-      throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
+    if (
+      deal.status !== DEAL_STATUS.DISPUTED &&
+      deal.status !== DEAL_STATUS.RELEASE_PENDING
+    ) {
+      throw new BadRequestException({
+        messageKey: MESSAGE_KEYS.INVALID_TRANSITION,
+      });
     }
 
     const buyer = deal.participants.find((p) => p.role === 'buyer');
     if (!buyer) {
-      throw new BadRequestException({ messageKey: 'transfer.missing_buyer_user' });
+      throw new BadRequestException({
+        messageKey: 'transfer.missing_buyer_user',
+      });
     }
     const buyerUserId = await this.resolveParticipantUserId(buyer);
     if (!buyerUserId) {
-      throw new BadRequestException({ messageKey: 'transfer.missing_buyer_user' });
+      throw new BadRequestException({
+        messageKey: 'transfer.missing_buyer_user',
+      });
     }
 
     const currency = assertCurrency(deal.currency);
     const amountMajor = deal.amount ?? 0;
     if (amountMajor <= 0) {
-      throw new BadRequestException({ messageKey: MESSAGE_KEYS.VALIDATION_FAILED });
+      throw new BadRequestException({
+        messageKey: MESSAGE_KEYS.VALIDATION_FAILED,
+      });
     }
     const amountMinor = toMinorUnits(amountMajor, currency);
     const walletIdempotencyKey = `deal_refund:${deal.id}`;
@@ -318,7 +395,11 @@ export class AdminService {
         currency,
       },
     });
-    this.logger.action('admin.refund', { deal_id: deal.id, admin_id: adminId, reference: body.refund_reference });
+    this.logger.action('admin.refund', {
+      deal_id: deal.id,
+      admin_id: adminId,
+      reference: body.refund_reference,
+    });
 
     await this.notif.notify({
       dealId: deal.id,
@@ -345,16 +426,33 @@ export class AdminService {
       await this.prisma.idempotencyKey.upsert({
         where: { key: body.idempotency_key },
         update: { scope: 'admin.refund', responseJson: JSON.stringify(result) },
-        create: { key: body.idempotency_key, scope: 'admin.refund', responseJson: JSON.stringify(result) },
+        create: {
+          key: body.idempotency_key,
+          scope: 'admin.refund',
+          responseJson: JSON.stringify(result),
+        },
       });
     }
 
     return result;
   }
 
-  async resolveDispute(disputeId: string, dto: { decision: 'release' | 'refund'; admin_note?: string; payout_reference?: string; refund_reference?: string }, adminId: string) {
-    const dispute = await this.prisma.dispute.findUnique({ where: { id: disputeId }, include: { deal: { include: { participants: true } } } });
-    if (!dispute) throw new NotFoundException({ messageKey: 'dispute.not_found' });
+  async resolveDispute(
+    disputeId: string,
+    dto: {
+      decision: 'release' | 'refund';
+      admin_note?: string;
+      payout_reference?: string;
+      refund_reference?: string;
+    },
+    adminId: string,
+  ) {
+    const dispute = await this.prisma.dispute.findUnique({
+      where: { id: disputeId },
+      include: { deal: { include: { participants: true } } },
+    });
+    if (!dispute)
+      throw new NotFoundException({ messageKey: 'dispute.not_found' });
     if (dispute.status !== 'open' && dispute.status !== 'under_review') {
       throw new ConflictException({ messageKey: 'dispute.already_resolved' });
     }
@@ -362,11 +460,18 @@ export class AdminService {
     const deal = dispute.deal;
 
     if (dto.decision === 'release') {
-      if (!dto.payout_reference) throw new BadRequestException({ messageKey: 'admin.payout_reference_required' });
+      if (!dto.payout_reference)
+        throw new BadRequestException({
+          messageKey: 'admin.payout_reference_required',
+        });
 
       await this.prisma.dispute.update({
         where: { id: disputeId },
-        data: { status: 'resolved_release', adminNote: dto.admin_note ?? null, resolvedAt: new Date() },
+        data: {
+          status: 'resolved_release',
+          adminNote: dto.admin_note ?? null,
+          resolvedAt: new Date(),
+        },
       });
 
       // Create ledger entry for seller payout
@@ -391,9 +496,17 @@ export class AdminService {
         actorType: 'admin',
         actorId: adminId,
         action: 'dispute.resolved_release',
-        details: { dispute_id: disputeId, note: dto.admin_note, payout_reference: dto.payout_reference },
+        details: {
+          dispute_id: disputeId,
+          note: dto.admin_note,
+          payout_reference: dto.payout_reference,
+        },
       });
-      this.logger.action('dispute.resolved_release', { deal_id: deal.id, admin_id: adminId, dispute_id: disputeId });
+      this.logger.action('dispute.resolved_release', {
+        deal_id: deal.id,
+        admin_id: adminId,
+        dispute_id: disputeId,
+      });
 
       const seller = deal.participants.find((p) => p.role === 'seller');
       await this.notif.notify({
@@ -402,18 +515,30 @@ export class AdminService {
         messageKey: MESSAGE_KEYS.RELEASED,
         recipients: [
           ...(seller ? [{ channel: 'inapp' as const, ref: seller.id }] : []),
-          ...(seller?.telegramChatId ? [{ channel: 'telegram' as const, ref: seller.telegramChatId }] : []),
+          ...(seller?.telegramChatId
+            ? [{ channel: 'telegram' as const, ref: seller.telegramChatId }]
+            : []),
         ],
       });
 
-      return { status: DEAL_STATUS.RELEASE_PENDING, dispute_status: 'resolved_release' };
+      return {
+        status: DEAL_STATUS.RELEASE_PENDING,
+        dispute_status: 'resolved_release',
+      };
     } else {
       // refund decision
-      if (!dto.refund_reference) throw new BadRequestException({ messageKey: 'admin.refund_reference_required' });
+      if (!dto.refund_reference)
+        throw new BadRequestException({
+          messageKey: 'admin.refund_reference_required',
+        });
 
       await this.prisma.dispute.update({
         where: { id: disputeId },
-        data: { status: 'resolved_refund', adminNote: dto.admin_note ?? null, resolvedAt: new Date() },
+        data: {
+          status: 'resolved_refund',
+          adminNote: dto.admin_note ?? null,
+          resolvedAt: new Date(),
+        },
       });
 
       if (!(await this.ledger.hasEntry(deal.id, 'BUYER_REFUND_PENDING'))) {
@@ -447,9 +572,17 @@ export class AdminService {
         actorType: 'admin',
         actorId: adminId,
         action: 'dispute.resolved_refund',
-        details: { dispute_id: disputeId, note: dto.admin_note, refund_reference: dto.refund_reference },
+        details: {
+          dispute_id: disputeId,
+          note: dto.admin_note,
+          refund_reference: dto.refund_reference,
+        },
       });
-      this.logger.action('dispute.resolved_refund', { deal_id: deal.id, admin_id: adminId, dispute_id: disputeId });
+      this.logger.action('dispute.resolved_refund', {
+        deal_id: deal.id,
+        admin_id: adminId,
+        dispute_id: disputeId,
+      });
 
       const buyer = deal.participants.find((p) => p.role === 'buyer');
       await this.notif.notify({
@@ -458,11 +591,16 @@ export class AdminService {
         messageKey: MESSAGE_KEYS.REFUNDED,
         recipients: [
           ...(buyer ? [{ channel: 'inapp' as const, ref: buyer.id }] : []),
-          ...(buyer?.telegramChatId ? [{ channel: 'telegram' as const, ref: buyer.telegramChatId }] : []),
+          ...(buyer?.telegramChatId
+            ? [{ channel: 'telegram' as const, ref: buyer.telegramChatId }]
+            : []),
         ],
       });
 
-      return { status: DEAL_STATUS.REFUNDED, dispute_status: 'resolved_refund' };
+      return {
+        status: DEAL_STATUS.REFUNDED,
+        dispute_status: 'resolved_refund',
+      };
     }
   }
 
@@ -484,9 +622,14 @@ export class AdminService {
   }
 
   async checkBakongByPaymentId(paymentId: string, payments: PaymentsService) {
-    const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
-    if (!payment) throw new NotFoundException({ messageKey: 'payment.not_found' });
-    const deal = await this.prisma.deal.findUnique({ where: { id: payment.dealId } });
+    const payment = await this.prisma.payment.findUnique({
+      where: { id: paymentId },
+    });
+    if (!payment)
+      throw new NotFoundException({ messageKey: 'payment.not_found' });
+    const deal = await this.prisma.deal.findUnique({
+      where: { id: payment.dealId },
+    });
     if (!deal) throw new NotFoundException({ messageKey: 'deal.not_found' });
 
     return payments.checkBakongTransaction(paymentId);

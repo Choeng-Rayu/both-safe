@@ -13,11 +13,10 @@ import {
 import { formatMinor } from "@/lib/wallet-format";
 
 interface Props {
-  adminToken: string;
   withdrawal: WithdrawalAdminDetail;
 }
 
-export function AdminWithdrawalDetail({ adminToken, withdrawal: initial }: Props) {
+export function AdminWithdrawalDetail({ withdrawal: initial }: Props) {
   const router = useRouter();
   const { t } = useI18n();
   const [withdrawal, setWithdrawal] = useState(initial);
@@ -141,7 +140,7 @@ export function AdminWithdrawalDetail({ adminToken, withdrawal: initial }: Props
             <div className="flex flex-wrap gap-2">
               <Button
                 onClick={() =>
-                  run(() => adminApproveWithdrawal(withdrawal.id, adminToken))
+                  run(() => adminApproveWithdrawal(withdrawal.id))
                 }
                 disabled={submitting}
               >
@@ -164,11 +163,9 @@ export function AdminWithdrawalDetail({ adminToken, withdrawal: initial }: Props
               <Button
                 onClick={() =>
                   run(() =>
-                    adminCompleteWithdrawal(
-                      withdrawal.id,
-                      { provider_reference: providerReference || undefined },
-                      adminToken,
-                    ),
+                    adminCompleteWithdrawal(withdrawal.id, {
+                      provider_reference: providerReference || undefined,
+                    }),
                   )
                 }
                 disabled={submitting}
@@ -189,9 +186,7 @@ export function AdminWithdrawalDetail({ adminToken, withdrawal: initial }: Props
             <Button
               variant="secondary"
               onClick={() =>
-                run(() =>
-                  adminRejectWithdrawal(withdrawal.id, rejectionReason, adminToken),
-                )
+                run(() => adminRejectWithdrawal(withdrawal.id, rejectionReason))
               }
               disabled={submitting || !rejectionReason}
             >

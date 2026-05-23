@@ -2,7 +2,10 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CompleteWithdrawalDto {
-  @ApiProperty({ required: false, description: 'Bank or Bakong reference for the completed payout' })
+  @ApiProperty({
+    required: false,
+    description: 'Bank or Bakong reference for the completed payout',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(200)

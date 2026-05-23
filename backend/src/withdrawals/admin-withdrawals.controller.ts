@@ -13,7 +13,10 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { MESSAGE_KEYS } from '../common/constants';
-import { CompleteWithdrawalDto, RejectWithdrawalDto } from './dto/admin-action.dto';
+import {
+  CompleteWithdrawalDto,
+  RejectWithdrawalDto,
+} from './dto/admin-action.dto';
 import { WithdrawalsService } from './withdrawals.service';
 
 interface AdminRequest extends Request {
@@ -37,7 +40,9 @@ export class AdminWithdrawalsController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get a withdrawal with full ledger context (admin)' })
+  @ApiOperation({
+    summary: 'Get a withdrawal with full ledger context (admin)',
+  })
   async get(@Param('id') id: string) {
     return {
       message_key: 'withdrawal.admin_detail',
@@ -56,7 +61,9 @@ export class AdminWithdrawalsController {
   }
 
   @Post(':id/complete')
-  @ApiOperation({ summary: 'Mark a withdrawal as completed; debits the wallet' })
+  @ApiOperation({
+    summary: 'Mark a withdrawal as completed; debits the wallet',
+  })
   async complete(
     @Req() req: AdminRequest,
     @Param('id') id: string,

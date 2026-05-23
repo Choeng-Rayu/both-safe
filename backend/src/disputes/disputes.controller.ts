@@ -39,10 +39,20 @@ export class DisputesController {
       properties: {
         reason: {
           type: 'string',
-          enum: ['ITEM_NOT_RECEIVED', 'WRONG_ITEM', 'DAMAGED_ITEM', 'FAKE_ITEM', 'PAYMENT_PROBLEM', 'OTHER'],
+          enum: [
+            'ITEM_NOT_RECEIVED',
+            'WRONG_ITEM',
+            'DAMAGED_ITEM',
+            'FAKE_ITEM',
+            'PAYMENT_PROBLEM',
+            'OTHER',
+          ],
         },
         message: { type: 'string' },
-        evidence_files: { type: 'array', items: { type: 'string', format: 'binary' } },
+        evidence_files: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+        },
       },
       required: ['reason', 'message'],
     },

@@ -55,7 +55,9 @@ export class CreateWithdrawalDto {
   @IsIn(Object.values(CURRENCIES))
   currency!: (typeof CURRENCIES)[keyof typeof CURRENCIES];
 
-  @ApiProperty({ description: 'Amount in smallest currency unit (USD cents or KHR riels)' })
+  @ApiProperty({
+    description: 'Amount in smallest currency unit (USD cents or KHR riels)',
+  })
   @IsInt()
   @Min(1)
   amount_minor!: number;

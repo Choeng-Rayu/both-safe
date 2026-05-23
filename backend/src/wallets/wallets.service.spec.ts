@@ -61,7 +61,11 @@ function makePrismaMock() {
   const withdrawals: WithdrawalRow[] = [];
 
   const walletClient = {
-    findUnique: async ({ where }: { where: { userId?: string; id?: string } }) => {
+    findUnique: async ({
+      where,
+    }: {
+      where: { userId?: string; id?: string };
+    }) => {
       if (where.userId) {
         for (const wallet of wallets.values()) {
           if (wallet.userId === where.userId) return wallet;
@@ -101,8 +105,10 @@ function makePrismaMock() {
         return { count: 0 };
       }
       const updated: WalletRow = { ...wallet };
-      if ('availableUsd' in data) updated.availableUsd = data.availableUsd as bigint;
-      if ('availableKhr' in data) updated.availableKhr = data.availableKhr as bigint;
+      if ('availableUsd' in data)
+        updated.availableUsd = data.availableUsd as bigint;
+      if ('availableKhr' in data)
+        updated.availableKhr = data.availableKhr as bigint;
       if (data.version && typeof data.version === 'object') {
         const v = data.version as { increment?: number };
         if (v.increment) updated.version = wallet.version + v.increment;
@@ -124,7 +130,9 @@ function makePrismaMock() {
       for (const row of ledger.values()) {
         if (row.idempotencyKey === data.idempotencyKey) {
           throw Object.assign(
-            new Error(`Unique constraint failed: idempotencyKey=${data.idempotencyKey}`),
+            new Error(
+              `Unique constraint failed: idempotencyKey=${data.idempotencyKey}`,
+            ),
             { code: 'P2002' },
           );
         }
@@ -343,7 +351,9 @@ describe('WalletsService', () => {
       expect(mocks.getWallet('user-1')?.availableUsd).toBe(200n);
       // Two ledger rows total: one credit, one debit (the second debit is
       // detected as a no-op via the idempotency key check).
-      expect(mocks.getLedger().filter((e) => e.direction === 'debit')).toHaveLength(1);
+      expect(
+        mocks.getLedger().filter((e) => e.direction === 'debit'),
+      ).toHaveLength(1);
     });
   });
 
@@ -433,7 +443,10 @@ describe('WalletsService', () => {
         currency: 'USD',
         status: WITHDRAWAL_STATUS.REJECTED,
       });
-      const effective = await service.getEffectiveAvailable('user-1', CURRENCIES.USD);
+      const effective = await service.getEffectiveAvailable(
+        'user-1',
+        CURRENCIES.USD,
+      );
       expect(effective).toBe(1000n);
     });
   });
@@ -458,20 +471,25 @@ describe('WalletsService', () => {
       // even though the underlying row will have advanced.
       const realFindUnique = mocks.prisma.wallet.findUnique;
       let firstCall = true;
-      jest.spyOn(mocks.prisma.wallet, 'findUnique').mockImplementation(async (args: any) => {
-        const fresh = await realFindUnique.call(mocks.prisma.wallet, args);
-        if (firstCall && fresh) {
-          firstCall = false;
-          // While the service is "in flight", bump the underlying row.
-          await mocks.prisma.wallet.updateMany({
-            where: { id: fresh.id, version: fresh.version },
-            data: { availableUsd: fresh.availableUsd + 1n, version: { increment: 1 } },
-          });
-          // Return the stale snapshot to the service.
-          return { ...fresh, version: originalVersion } as any;
-        }
-        return fresh;
-      });
+      jest
+        .spyOn(mocks.prisma.wallet, 'findUnique')
+        .mockImplementation(async (args: any) => {
+          const fresh = await realFindUnique.call(mocks.prisma.wallet, args);
+          if (firstCall && fresh) {
+            firstCall = false;
+            // While the service is "in flight", bump the underlying row.
+            await mocks.prisma.wallet.updateMany({
+              where: { id: fresh.id, version: fresh.version },
+              data: {
+                availableUsd: fresh.availableUsd + 1n,
+                version: { increment: 1 },
+              },
+            });
+            // Return the stale snapshot to the service.
+            return { ...fresh, version: originalVersion };
+          }
+          return fresh;
+        });
       await expect(
         service.credit({
           userId: 'user-1',

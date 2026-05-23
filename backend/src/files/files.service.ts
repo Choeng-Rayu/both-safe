@@ -24,34 +24,48 @@ export class FilesService {
     private readonly cfg: ConfigService,
   ) {
     this.uploadsRoot = resolve(process.cwd(), 'uploads');
-    if (!existsSync(this.uploadsRoot)) mkdirSync(this.uploadsRoot, { recursive: true });
+    if (!existsSync(this.uploadsRoot))
+      mkdirSync(this.uploadsRoot, { recursive: true });
   }
 
-  async store(file: Express.Multer.File, opts: {
-    dealId?: string;
-    category: string;
-    isPublic?: boolean;
-    uploadedBy?: string;
-  }) {
+  async store(
+    file: Express.Multer.File,
+    opts: {
+      dealId?: string;
+      category: string;
+      isPublic?: boolean;
+      uploadedBy?: string;
+    },
+  ) {
     if (!file) throw new BadRequestException({ messageKey: 'file.required' });
     if (!ALLOWED_MIME.has(file.mimetype)) {
-      throw new BadRequestException({ messageKey: 'file.mime_not_allowed', details: { mime: file.mimetype } });
+      throw new BadRequestException({
+        messageKey: 'file.mime_not_allowed',
+        details: { mime: file.mimetype },
+      });
     }
     if (file.size > MAX_BYTES) {
       throw new BadRequestException({ messageKey: 'file.too_large' });
     }
-    if (file.originalname && /\.(exe|sh|bat|cmd|js|php)$/i.test(file.originalname)) {
+    if (
+      file.originalname &&
+      /\.(exe|sh|bat|cmd|js|php)$/i.test(file.originalname)
+    ) {
       throw new BadRequestException({ messageKey: 'file.unsafe_extension' });
     }
 
     const id = randomBytes(16).toString('hex');
     const ext = file.mimetype === 'application/pdf' ? '.pdf' : '.bin';
     const safeExt =
-      file.mimetype === 'image/jpeg' ? '.jpg' :
-      file.mimetype === 'image/png' ? '.png' :
-      file.mimetype === 'image/webp' ? '.webp' :
-      file.mimetype === 'image/heic' ? '.heic' :
-      ext;
+      file.mimetype === 'image/jpeg'
+        ? '.jpg'
+        : file.mimetype === 'image/png'
+          ? '.png'
+          : file.mimetype === 'image/webp'
+            ? '.webp'
+            : file.mimetype === 'image/heic'
+              ? '.heic'
+              : ext;
     const key = `${opts.category}/${id}${safeExt}`;
     const fullPath = join(this.uploadsRoot, key);
     mkdirSync(join(this.uploadsRoot, opts.category), { recursive: true });

@@ -2,7 +2,6 @@ import { buildQueryString, getApiBaseUrl } from "@/lib/utils";
 import type {
   AdminDealDetail,
   AdminDealsResponse,
-  AdminLoginResponse,
   CreateDealResponse,
   DealResponse,
   JoinDealResponse,
@@ -11,7 +10,12 @@ import type {
 type RequestOptions = {
   accessToken?: string | null;
   inviteToken?: string | null;
-  adminToken?: string | null;
+  /**
+   * Server-side only: a raw `Cookie` header value to forward to the
+   * backend. Browser callers leave this undefined and rely on
+   * `credentials: 'include'` to ship the session cookie automatically.
+   */
+  cookieHeader?: string | null;
 };
 
 export class ApiError extends Error {
@@ -62,8 +66,8 @@ function buildAuthQuery(options?: RequestOptions) {
 
 function buildHeaders(options?: RequestOptions, init?: HeadersInit) {
   const headers = new Headers(init);
-  if (options?.adminToken) {
-    headers.set("Authorization", `Bearer ${options.adminToken}`);
+  if (options?.cookieHeader) {
+    headers.set("Cookie", options.cookieHeader);
   }
   return headers;
 }
@@ -121,7 +125,7 @@ export async function joinDeal(publicId: string, payload: Record<string, unknown
 
 export async function updateDealSection(
   publicId: string,
-  section: "product" | "participant" | "delivery" | "payout",
+  section: "product" | "participant" | "delivery",
   payload: Record<string, unknown>,
   options?: RequestOptions,
 ) {
@@ -162,6 +166,31 @@ export async function getPaymentInstruction(
     khqr_string: string | null;
     khqr_md5: string | null;
   }>(`/deals/${publicId}/payment-instruction`, options);
+}
+
+export async function regeneratePaymentInstruction(
+  publicId: string,
+  options?: RequestOptions,
+) {
+  return apiSend<{
+    method: string;
+    receiver_account_label: string | null;
+    receiver_account_id: string | null;
+    currency: string;
+    expected_amount: number | null;
+    reference_note: string;
+    payment_id: string;
+    khqr_string: string | null;
+    khqr_md5: string | null;
+  }>(
+    `/deals/${publicId}/payment-instruction/regenerate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    },
+    options,
+  );
 }
 
 export async function uploadPaymentProof(
@@ -221,33 +250,22 @@ export async function openDispute(
   );
 }
 
-export async function adminLogin(payload: { email: string; password: string }) {
-  return apiSend<AdminLoginResponse>(
-    "/auth/admin/login",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    },
-  );
-}
-
 export async function adminGetDeals(params: {
   status?: string;
   page?: string;
-  adminToken: string;
+  cookieHeader?: string | null;
 }) {
   return apiGet<AdminDealsResponse>(
     `/admin/deals${buildQueryString({
       status: params.status,
       page: params.page,
     })}`,
-    { adminToken: params.adminToken },
+    { cookieHeader: params.cookieHeader },
   );
 }
 
-export async function adminGetDeal(dealId: string, adminToken: string) {
-  return apiGet<AdminDealDetail>(`/admin/deals/${dealId}`, { adminToken });
+export async function adminGetDeal(dealId: string, cookieHeader?: string | null) {
+  return apiGet<AdminDealDetail>(`/admin/deals/${dealId}`, { cookieHeader });
 }
 
 export async function cancelDeal(publicId: string, options?: RequestOptions) {
@@ -413,22 +431,22 @@ export async function cancelWithdrawal(id: string) {
 
 export async function adminListWithdrawals(params: {
   status?: string;
-  adminToken: string;
+  cookieHeader?: string | null;
 }) {
   return apiGet<{ message_key: string; withdrawals: WithdrawalAdminDetail[] }>(
     `/admin/withdrawals${buildQueryString({ status: params.status })}`,
-    { adminToken: params.adminToken },
+    { cookieHeader: params.cookieHeader },
   );
 }
 
-export async function adminGetWithdrawal(id: string, adminToken: string) {
+export async function adminGetWithdrawal(id: string, cookieHeader?: string | null) {
   return apiGet<{ message_key: string; withdrawal: WithdrawalAdminDetail }>(
     `/admin/withdrawals/${id}`,
-    { adminToken },
+    { cookieHeader },
   );
 }
 
-export async function adminApproveWithdrawal(id: string, adminToken: string) {
+export async function adminApproveWithdrawal(id: string) {
   return apiSend<{ message_key: string; withdrawal: WithdrawalSummary }>(
     `/admin/withdrawals/${id}/approve`,
     {
@@ -436,14 +454,12 @@ export async function adminApproveWithdrawal(id: string, adminToken: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     },
-    { adminToken },
   );
 }
 
 export async function adminCompleteWithdrawal(
   id: string,
   payload: { provider_reference?: string; admin_note?: string },
-  adminToken: string,
 ) {
   return apiSend<{ message_key: string; withdrawal: WithdrawalSummary }>(
     `/admin/withdrawals/${id}/complete`,
@@ -452,15 +468,10 @@ export async function adminCompleteWithdrawal(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     },
-    { adminToken },
   );
 }
 
-export async function adminRejectWithdrawal(
-  id: string,
-  reason: string,
-  adminToken: string,
-) {
+export async function adminRejectWithdrawal(id: string, reason: string) {
   return apiSend<{ message_key: string; withdrawal: WithdrawalSummary }>(
     `/admin/withdrawals/${id}/reject`,
     {
@@ -468,7 +479,6 @@ export async function adminRejectWithdrawal(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reason }),
     },
-    { adminToken },
   );
 }
 
@@ -483,19 +493,163 @@ export async function payDealFromWallet(publicId: string) {
   );
 }
 
-export async function adminGeneratePayoutDeeplink(dealId: string, adminToken: string) {
-  return apiGet<{
-    deeplink: string;
-    md5: string;
-    seller_name: string | null;
-    seller_payout_method: "khqr_id" | "bank_account" | "khqr_image" | "none";
-    seller_bank_name: string | null;
-    seller_account_name: string | null;
-    seller_account_number: string | null;
-    seller_khqr: string | null;
-    seller_khqr_image: string | null;
-    amount: number;
-    currency: string;
-    deal_public_id: string;
-  }>(`/admin/deals/${dealId}/payout-deeplink`, { adminToken });
+// ─── Admin: User management ────────────────────────────────────────────────
+
+export interface AdminUserListItem {
+  id: string;
+  email: string | null;
+  name: string | null;
+  phone: string | null;
+  role: "USER" | "ADMIN";
+  disabled: boolean;
+  email_verified: boolean;
+  created_at: string;
+  updated_at: string;
+  wallet: {
+    wallet_id: string;
+    available_usd_minor: string;
+    available_khr_minor: string;
+    updated_at: string;
+  } | null;
+  deal_count: number;
+  withdrawal_count: number;
 }
+
+export interface AdminUserDetail {
+  id: string;
+  email: string | null;
+  name: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+  role: "USER" | "ADMIN";
+  disabled: boolean;
+  email_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminUserDetailResponse {
+  user: AdminUserDetail;
+  wallet: {
+    wallet_id: string;
+    available_usd_minor: string;
+    available_khr_minor: string;
+    effective_usd_minor: string;
+    effective_khr_minor: string;
+  } | null;
+  recent_deals: Array<{
+    id: string;
+    public_id: string;
+    status: string;
+    amount: number | null;
+    currency: string;
+    title: string | null;
+    created_at: string;
+    my_role: string | null;
+  }>;
+  recent_withdrawals: Array<{
+    id: string;
+    public_id: string;
+    amount_minor: string;
+    currency: WalletCurrency;
+    status: string;
+    created_at: string;
+  }>;
+}
+
+export async function adminListUsers(params: {
+  search?: string;
+  role?: "USER" | "ADMIN" | "all";
+  status?: "all" | "active" | "disabled";
+  page?: string;
+  pageSize?: string;
+  cookieHeader?: string | null;
+}) {
+  return apiGet<{
+    items: AdminUserListItem[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }>(
+    `/admin/users${buildQueryString({
+      search: params.search,
+      role: params.role,
+      status: params.status,
+      page: params.page,
+      pageSize: params.pageSize,
+    })}`,
+    { cookieHeader: params.cookieHeader },
+  );
+}
+
+export async function adminGetUser(
+  userId: string,
+  cookieHeader?: string | null,
+) {
+  return apiGet<AdminUserDetailResponse>(`/admin/users/${userId}`, {
+    cookieHeader,
+  });
+}
+
+export async function adminGetUserLedger(
+  userId: string,
+  params: {
+    currency?: WalletCurrency;
+    limit?: number;
+    cursor?: string;
+    cookieHeader?: string | null;
+  },
+) {
+  return apiGet<{
+    entries: WalletLedgerEntry[];
+    next_cursor: string | null;
+  }>(
+    `/admin/users/${userId}/wallet/ledger${buildQueryString({
+      currency: params.currency,
+      limit: params.limit?.toString(),
+      cursor: params.cursor,
+    })}`,
+    { cookieHeader: params.cookieHeader },
+  );
+}
+
+export async function adminDisableUser(userId: string, reason?: string) {
+  return apiSend<AdminUserDetail>(
+    `/admin/users/${userId}/disable`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(reason ? { reason } : {}),
+    },
+  );
+}
+
+export async function adminEnableUser(userId: string) {
+  return apiSend<AdminUserDetail>(
+    `/admin/users/${userId}/enable`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    },
+  );
+}
+
+// ─── User notifications ────────────────────────────────────────────────────
+
+export interface UserNotification {
+  id: string;
+  deal_id: string | null;
+  event_key: string;
+  message_key: string;
+  payload: unknown;
+  delivered: boolean;
+  created_at: string;
+}
+
+export async function listMyNotifications(limit = 50) {
+  return apiGet<{ message_key: string; notifications: UserNotification[] }>(
+    `/users/me/notifications${buildQueryString({ limit: String(limit) })}`,
+  );
+}
+

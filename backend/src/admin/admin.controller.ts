@@ -15,7 +15,6 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 import { AdminService } from './admin.service';
 import { PaymentsService } from '../payments/payments.service';
 import { RejectPaymentDto } from '../payments/dto/upload-payment-proof.dto';
-import { BakongDeeplinkService } from '../bakong/bakong-deeplink.service';
 
 class ReleaseDto {
   @IsString() @MaxLength(120) payout_reference!: string;
@@ -40,7 +39,6 @@ export class AdminController {
   constructor(
     private readonly admin: AdminService,
     private readonly payments: PaymentsService,
-    private readonly bakong: BakongDeeplinkService,
   ) {}
 
   @Get('deals')
@@ -53,7 +51,14 @@ export class AdminController {
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
-    return this.admin.listDeals({ status, from_date, to_date, search, page, pageSize });
+    return this.admin.listDeals({
+      status,
+      from_date,
+      to_date,
+      search,
+      page,
+      pageSize,
+    });
   }
 
   @Get('deals/:dealId')
@@ -82,25 +87,47 @@ export class AdminController {
 
   @Post('payment-proofs/:paymentId/reject')
   @ApiOperation({ summary: 'Reject a payment proof' })
-  reject(@Param('paymentId') paymentId: string, @Body() dto: RejectPaymentDto, @Req() req: any) {
+  reject(
+    @Param('paymentId') paymentId: string,
+    @Body() dto: RejectPaymentDto,
+    @Req() req: any,
+  ) {
     return this.payments.adminReject(paymentId, dto.reason, req.actor.adminId);
   }
 
   @Post('deals/:dealId/release')
   @ApiOperation({ summary: 'Release escrow → seller payout' })
-  release(@Param('dealId') dealId: string, @Body() dto: ReleaseDto, @Req() req: any) {
+  release(
+    @Param('dealId') dealId: string,
+    @Body() dto: ReleaseDto,
+    @Req() req: any,
+  ) {
     return this.admin.release(dealId, dto, req.actor.adminId);
   }
 
   @Post('deals/:dealId/refund')
   @ApiOperation({ summary: 'Refund buyer' })
-  refund(@Param('dealId') dealId: string, @Body() dto: RefundDto, @Req() req: any) {
+  refund(
+    @Param('dealId') dealId: string,
+    @Body() dto: RefundDto,
+    @Req() req: any,
+  ) {
     return this.admin.refund(dealId, dto, req.actor.adminId);
   }
 
   @Post('disputes/:disputeId/resolve')
   @ApiOperation({ summary: 'Resolve a dispute (release or refund)' })
-  resolveDispute(@Param('disputeId') disputeId: string, @Body() dto: { decision: 'release' | 'refund'; admin_note?: string; payout_reference?: string; refund_reference?: string }, @Req() req: any) {
+  resolveDispute(
+    @Param('disputeId') disputeId: string,
+    @Body()
+    dto: {
+      decision: 'release' | 'refund';
+      admin_note?: string;
+      payout_reference?: string;
+      refund_reference?: string;
+    },
+    @Req() req: any,
+  ) {
     return this.admin.resolveDispute(disputeId, dto, req.actor.adminId);
   }
 
@@ -111,16 +138,10 @@ export class AdminController {
   }
 
   @Get('payment-proofs/:paymentId/check-bakong')
-  @ApiOperation({ summary: 'Check Bakong transaction by MD5 (confirm real payment received)' })
+  @ApiOperation({
+    summary: 'Check Bakong transaction by MD5 (confirm real payment received)',
+  })
   checkBakong(@Param('paymentId') paymentId: string) {
     return this.admin.checkBakongByPaymentId(paymentId, this.payments);
-  }
-
-  @Get('deals/:dealId/payout-deeplink')
-  @ApiOperation({
-    summary: 'Generate Bakong deeplink for admin to send seller payout. Open deeplink on phone with Bakong app installed.',
-  })
-  payoutDeeplink(@Param('dealId') dealId: string) {
-    return this.bakong.generatePayoutDeeplink(dealId);
   }
 }

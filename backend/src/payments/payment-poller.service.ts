@@ -58,7 +58,9 @@ export class PaymentPollerService {
 
     if (pending.length === 0) return;
 
-    this.logger.debug(`Polling ${pending.length} pending payment(s) against Bakong`);
+    this.logger.debug(
+      `Polling ${pending.length} pending payment(s) against Bakong`,
+    );
 
     for (const payment of pending) {
       try {
@@ -70,15 +72,21 @@ export class PaymentPollerService {
   }
 
   private async checkAndAutoVerify(payment: any, token: string) {
-    const { confirmed, bakongData } = await this.queryBakong(payment.khqrMd5, token);
+    const { confirmed, bakongData } = await this.queryBakong(
+      payment.khqrMd5,
+      token,
+    );
 
     if (!confirmed) return; // Not paid yet — skip, will retry next cycle
 
-    this.logger.log(`Payment ${payment.id} confirmed by Bakong — auto-verifying`);
+    this.logger.log(
+      `Payment ${payment.id} confirmed by Bakong — auto-verifying`,
+    );
 
     const deal = payment.deal;
     const fee = this.feePercent();
-    const paidAmount = (bakongData as any)?.data?.amount ?? payment.expectedAmount;
+    const paidAmount =
+      (bakongData as any)?.data?.amount ?? payment.expectedAmount;
     const feeAmount = +(paidAmount * (fee / 100)).toFixed(2);
     const sellerNet = +(paidAmount - feeAmount).toFixed(2);
 
@@ -146,14 +154,21 @@ export class PaymentPollerService {
       recipients: [
         ...(buyer ? [{ channel: 'inapp' as const, ref: buyer.id }] : []),
         ...(seller ? [{ channel: 'inapp' as const, ref: seller.id }] : []),
-        ...(buyer?.telegramChatId ? [{ channel: 'telegram' as const, ref: buyer.telegramChatId }] : []),
-        ...(seller?.telegramChatId ? [{ channel: 'telegram' as const, ref: seller.telegramChatId }] : []),
+        ...(buyer?.telegramChatId
+          ? [{ channel: 'telegram' as const, ref: buyer.telegramChatId }]
+          : []),
+        ...(seller?.telegramChatId
+          ? [{ channel: 'telegram' as const, ref: seller.telegramChatId }]
+          : []),
       ],
       payload: { auto_verified: true, next_status: nextStatus },
     });
   }
 
-  private async queryBakong(md5: string, token: string): Promise<{ confirmed: boolean; bakongData: unknown }> {
+  private async queryBakong(
+    md5: string,
+    token: string,
+  ): Promise<{ confirmed: boolean; bakongData: unknown }> {
     const url = `${this.bakongApiBase}/check_transaction_by_md5`;
     const response = await fetch(url, {
       method: 'POST',
@@ -163,8 +178,11 @@ export class PaymentPollerService {
       },
       body: JSON.stringify({ md5 }),
     });
-    const json = (await response.json()) as { responseCode?: number; data?: unknown };
-    const confirmed = response.ok && json.responseCode === 0 && !!(json.data);
+    const json = (await response.json()) as {
+      responseCode?: number;
+      data?: unknown;
+    };
+    const confirmed = response.ok && json.responseCode === 0 && !!json.data;
     return { confirmed, bakongData: json };
   }
 

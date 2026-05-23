@@ -47,13 +47,21 @@ class EnvValidationService implements OnModuleInit {
 
     const missing = REQUIRED_ENV.filter((key) => {
       const value = this.config.get<string>(key);
-      return !value || value.startsWith('replace_') || value.startsWith('base64_');
+      return (
+        !value || value.startsWith('replace_') || value.startsWith('base64_')
+      );
     });
 
     if (missing.length) {
-      this.logger.error(`Missing or placeholder environment variables: ${missing.join(', ')}`);
-      this.logger.error('Please copy .env.example to .env and fill in real values.');
-      throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+      this.logger.error(
+        `Missing or placeholder environment variables: ${missing.join(', ')}`,
+      );
+      this.logger.error(
+        'Please copy .env.example to .env and fill in real values.',
+      );
+      throw new Error(
+        `Missing required environment variables: ${missing.join(', ')}`,
+      );
     }
   }
 }

@@ -11,9 +11,19 @@ import { DEAL_STATUS } from '../src/common/constants';
 // Mock file service
 export const createMockFilesService = () => ({
   store: jest.fn().mockImplementation((file: any, meta: any) =>
-    Promise.resolve({ id: `file-${Date.now()}`, ...meta, storageKey: `mock/${file?.originalname ?? 'test'}`, sizeBytes: file?.size ?? 0, mimeType: file?.mimetype ?? 'image/jpeg' }),
+    Promise.resolve({
+      id: `file-${Date.now()}`,
+      ...meta,
+      storageKey: `mock/${file?.originalname ?? 'test'}`,
+      sizeBytes: file?.size ?? 0,
+      mimeType: file?.mimetype ?? 'image/jpeg',
+    }),
   ),
-  signedUrlFor: jest.fn().mockImplementation((stored: any) => `https://mock-cdn.example.com/${stored.storageKey}`),
+  signedUrlFor: jest
+    .fn()
+    .mockImplementation(
+      (stored: any) => `https://mock-cdn.example.com/${stored.storageKey}`,
+    ),
   validateFile: jest.fn().mockReturnValue(true),
 });
 
@@ -35,14 +45,25 @@ export async function cleanDatabase(prisma: PrismaService) {
   >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename != '_prisma_migrations'`;
 
   for (const { tablename } of tablenames) {
-    await prisma.$executeRawUnsafe(`TRUNCATE TABLE "public"."${tablename}" CASCADE;`);
+    await prisma.$executeRawUnsafe(
+      `TRUNCATE TABLE "public"."${tablename}" CASCADE;`,
+    );
   }
 }
 
 // Create a test admin and return JWT token
-export async function createAdminAndToken(prisma: PrismaService, jwt: JwtService, email = 'admin@test.local') {
+export async function createAdminAndToken(
+  prisma: PrismaService,
+  jwt: JwtService,
+  email = 'admin@test.local',
+) {
   const admin = await prisma.admin.create({
-    data: { email, passwordHash: '$2a$10$testhash', name: 'Test Admin', active: true },
+    data: {
+      email,
+      passwordHash: '$2a$10$testhash',
+      name: 'Test Admin',
+      active: true,
+    },
   });
   const token = jwt.sign({ sub: admin.id, email: admin.email, role: 'admin' });
   return { admin, token };
@@ -95,7 +116,9 @@ export async function createTestDeal(
     include: { participants: true, product: true },
   });
 
-  const creatorParticipant = deal.participants.find((p) => p.role === creatorRole)!;
+  const creatorParticipant = deal.participants.find(
+    (p) => p.role === creatorRole,
+  )!;
 
   return {
     deal,
@@ -129,7 +152,9 @@ export async function joinDealAsCounterparty(
 }
 
 // Build a NestJS app for E2E tests with mocked external deps
-export async function buildTestApp(moduleRef: TestingModule): Promise<INestApplication> {
+export async function buildTestApp(
+  moduleRef: TestingModule,
+): Promise<INestApplication> {
   const app = moduleRef.createNestApplication();
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   await app.init();
@@ -139,31 +164,60 @@ export async function buildTestApp(moduleRef: TestingModule): Promise<INestAppli
 // Request helper for E2E tests
 export function apiRequest(app: INestApplication) {
   return {
-    get: (path: string, opts: { token?: string; query?: Record<string, string>; cookie?: string } = {}) => {
+    get: (
+      path: string,
+      opts: {
+        token?: string;
+        query?: Record<string, string>;
+        cookie?: string;
+      } = {},
+    ) => {
       let req = request(app.getHttpServer()).get(path);
       if (opts.token) req = req.set('Authorization', `Bearer ${opts.token}`);
       if (opts.cookie) req = req.set('Cookie', opts.cookie);
       if (opts.query) {
-        Object.entries(opts.query).forEach(([k, v]) => { if (v) req = req.query({ [k]: v }); });
+        Object.entries(opts.query).forEach(([k, v]) => {
+          if (v) req = req.query({ [k]: v });
+        });
       }
       return req;
     },
-    post: (path: string, opts: { token?: string; query?: Record<string, string>; cookie?: string; body?: any } = {}) => {
+    post: (
+      path: string,
+      opts: {
+        token?: string;
+        query?: Record<string, string>;
+        cookie?: string;
+        body?: any;
+      } = {},
+    ) => {
       let req = request(app.getHttpServer()).post(path);
       if (opts.token) req = req.set('Authorization', `Bearer ${opts.token}`);
       if (opts.cookie) req = req.set('Cookie', opts.cookie);
       if (opts.query) {
-        Object.entries(opts.query).forEach(([k, v]) => { if (v) req = req.query({ [k]: v }); });
+        Object.entries(opts.query).forEach(([k, v]) => {
+          if (v) req = req.query({ [k]: v });
+        });
       }
       if (opts.body) req = req.send(opts.body);
       return req;
     },
-    patch: (path: string, opts: { token?: string; query?: Record<string, string>; cookie?: string; body?: any } = {}) => {
+    patch: (
+      path: string,
+      opts: {
+        token?: string;
+        query?: Record<string, string>;
+        cookie?: string;
+        body?: any;
+      } = {},
+    ) => {
       let req = request(app.getHttpServer()).patch(path);
       if (opts.token) req = req.set('Authorization', `Bearer ${opts.token}`);
       if (opts.cookie) req = req.set('Cookie', opts.cookie);
       if (opts.query) {
-        Object.entries(opts.query).forEach(([k, v]) => { if (v) req = req.query({ [k]: v }); });
+        Object.entries(opts.query).forEach(([k, v]) => {
+          if (v) req = req.query({ [k]: v });
+        });
       }
       if (opts.body) req = req.send(opts.body);
       return req;

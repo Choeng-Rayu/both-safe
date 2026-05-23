@@ -1,4 +1,10 @@
-import { IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import {
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -10,19 +16,28 @@ export class UploadPaymentProofDto {
   @Min(0.01)
   paid_amount?: number;
 
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(500)
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
   buyer_note?: string;
 
   @ApiPropertyOptional({ description: 'Idempotency key (UUID)' })
-  @IsOptional() @IsString() @MaxLength(120)
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
   idempotency_key?: string;
 
   @ApiPropertyOptional({ description: 'KHQR MD5 hash if provided' })
-  @IsOptional() @IsString() @MaxLength(32)
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
   khqr_md5?: string;
 }
 
 export class RejectPaymentDto {
-  @ApiProperty() @IsString() @MaxLength(500)
+  @ApiProperty()
+  @IsString()
+  @MaxLength(500)
   reason!: string;
 }

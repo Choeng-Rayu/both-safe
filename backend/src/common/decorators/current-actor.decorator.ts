@@ -1,6 +1,11 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
-export type ActorType = 'participant' | 'creator' | 'invite' | 'admin' | 'public';
+export type ActorType =
+  | 'participant'
+  | 'creator'
+  | 'invite'
+  | 'admin'
+  | 'public';
 
 export interface RequestActor {
   type: ActorType;

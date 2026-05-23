@@ -44,7 +44,10 @@ export class ExpirationService {
           dealId: deal.id,
           actorType: 'system',
           action: 'deal.expired',
-          details: { previous_status: deal.status, expired_at: now.toISOString() },
+          details: {
+            previous_status: deal.status,
+            expired_at: now.toISOString(),
+          },
         });
 
         this.logger.log(`Deal ${deal.publicId} expired`);

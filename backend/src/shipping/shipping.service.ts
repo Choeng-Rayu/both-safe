@@ -37,7 +37,10 @@ export class ShippingService {
       tracking_number?: string;
       seller_note?: string;
     },
-    files: { package_photo?: Express.Multer.File; delivery_receipt?: Express.Multer.File },
+    files: {
+      package_photo?: Express.Multer.File;
+      delivery_receipt?: Express.Multer.File;
+    },
   ) {
     if (actor.role !== 'seller') {
       throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
@@ -46,9 +49,12 @@ export class ShippingService {
       where: { publicId },
       include: { participants: true },
     });
-    if (!deal) throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
+    if (!deal)
+      throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
     if (!canUploadShippingProof(deal.status as any)) {
-      throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
+      throw new BadRequestException({
+        messageKey: MESSAGE_KEYS.INVALID_TRANSITION,
+      });
     }
 
     let packagePhotoUrl: string | undefined;
@@ -101,7 +107,11 @@ export class ShippingService {
       action: 'shipping.uploaded',
       details: { shipping_id: shipping.id },
     });
-    this.logger.action('shipping.uploaded', { public_id: publicId, shipping_id: shipping.id, participant_id: actor.participantId });
+    this.logger.action('shipping.uploaded', {
+      public_id: publicId,
+      shipping_id: shipping.id,
+      participant_id: actor.participantId,
+    });
 
     const buyer = deal.participants.find((p) => p.role === 'buyer');
     await this.notif.notify({
@@ -110,7 +120,9 @@ export class ShippingService {
       messageKey: MESSAGE_KEYS.SHIPPING_UPLOADED,
       recipients: [
         ...(buyer ? [{ channel: 'inapp' as const, ref: buyer.id }] : []),
-        ...(buyer?.telegramChatId ? [{ channel: 'telegram' as const, ref: buyer.telegramChatId }] : []),
+        ...(buyer?.telegramChatId
+          ? [{ channel: 'telegram' as const, ref: buyer.telegramChatId }]
+          : []),
       ],
       payload: {
         delivery_company: shipping.deliveryCompany,

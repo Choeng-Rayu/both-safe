@@ -34,9 +34,6 @@ export function ParticipantCard({
                 {participant.name || "--"}
               </div>
               <div>{participant.preferred_language || "--"}</div>
-              <div>
-                {participant.has_payout ? "Payout ready" : "Payout pending"}
-              </div>
             </div>
           </div>
         ))}

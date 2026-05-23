@@ -22,7 +22,9 @@ export class BakongTokenService implements OnModuleInit {
   onModuleInit() {
     this.token = this.cfg.get<string>('BAKONG_API_TOKEN') ?? '';
     if (!this.token) {
-      this.logger.warn('BAKONG_API_TOKEN not set — deeplink generation will fail. Run /v1/bakong/setup/request-email to obtain one.');
+      this.logger.warn(
+        'BAKONG_API_TOKEN not set — deeplink generation will fail. Run /v1/bakong/setup/request-email to obtain one.',
+      );
     } else {
       this.logger.log('Bakong API token loaded from env.');
     }
@@ -30,11 +32,14 @@ export class BakongTokenService implements OnModuleInit {
 
   /** Step 1 (one-time setup): Request a verification code to be sent to the configured email. */
   async requestEmail(): Promise<void> {
-    const base = this.cfg.get<string>('BAKONG_BASE_URL') ?? 'https://api-bakong.nbc.gov.kh';
+    const base =
+      this.cfg.get<string>('BAKONG_BASE_URL') ??
+      'https://api-bakong.nbc.gov.kh';
     await firstValueFrom(
       this.http.post(`${base}/v1/request_token`, {
         email: this.cfg.get<string>('BAKONG_EMAIL'),
-        organization: this.cfg.get<string>('BAKONG_MERCHANT_NAME') ?? 'BothSafe',
+        organization:
+          this.cfg.get<string>('BAKONG_MERCHANT_NAME') ?? 'BothSafe',
         project: 'BothSafe Escrow',
       }),
     );
@@ -43,18 +48,23 @@ export class BakongTokenService implements OnModuleInit {
 
   /** Step 2 (one-time setup): Submit the code received by email to get the API token. */
   async verify(code: string): Promise<string> {
-    const base = this.cfg.get<string>('BAKONG_BASE_URL') ?? 'https://api-bakong.nbc.gov.kh';
+    const base =
+      this.cfg.get<string>('BAKONG_BASE_URL') ??
+      'https://api-bakong.nbc.gov.kh';
     const { data } = await firstValueFrom(
-      this.http.post<{ responseCode: number; responseMessage: string; data?: { token: string } }>(
-        `${base}/v1/verify`,
-        { code },
-      ),
+      this.http.post<{
+        responseCode: number;
+        responseMessage: string;
+        data?: { token: string };
+      }>(`${base}/v1/verify`, { code }),
     );
     if (data.responseCode !== 0) {
       throw new Error(`Bakong verify failed: ${data.responseMessage}`);
     }
     this.token = data.data!.token;
-    this.logger.log('Bakong API token verified and stored in memory. Copy it to BAKONG_API_TOKEN in .env to persist.');
+    this.logger.log(
+      'Bakong API token verified and stored in memory. Copy it to BAKONG_API_TOKEN in .env to persist.',
+    );
     return this.token;
   }
 
@@ -63,7 +73,9 @@ export class BakongTokenService implements OnModuleInit {
   async renew(): Promise<void> {
     if (!this.token) return;
     try {
-      const base = this.cfg.get<string>('BAKONG_BASE_URL') ?? 'https://api-bakong.nbc.gov.kh';
+      const base =
+        this.cfg.get<string>('BAKONG_BASE_URL') ??
+        'https://api-bakong.nbc.gov.kh';
       const { data } = await firstValueFrom(
         this.http.post<{ responseCode: number; data?: { token: string } }>(
           `${base}/v1/renew_token`,

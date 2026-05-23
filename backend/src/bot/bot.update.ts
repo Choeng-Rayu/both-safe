@@ -47,9 +47,13 @@ export class BotUpdate {
     private readonly audit: AuditService,
     private readonly rateLimiter: BotRateLimiterService,
   ) {
-    this.appBase = this.cfg.get<string>('APP_BASE_URL') ?? 'http://localhost:3000';
+    this.appBase =
+      this.cfg.get<string>('APP_BASE_URL') ?? 'http://localhost:3000';
     const adminIds = this.cfg.get<string>('TELEGRAM_ADMIN_CHAT_IDS') ?? '';
-    this.adminChatIds = adminIds.split(',').map((s) => s.trim()).filter(Boolean);
+    this.adminChatIds = adminIds
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
   }
 
   // ─── /start ────────────────────────────────────────────────────────────────
@@ -68,21 +72,35 @@ export class BotUpdate {
 
     // Detect user's Telegram language preference
     const tgLang = from?.language_code ?? 'en';
-    const detectedLang: BotLang = tgLang.startsWith('zh') ? 'zh' : tgLang.startsWith('km') ? 'km' : 'en';
+    const detectedLang: BotLang = tgLang.startsWith('zh')
+      ? 'zh'
+      : tgLang.startsWith('km')
+        ? 'km'
+        : 'en';
     await this.stateService.upsertLanguage(chatId, detectedLang);
 
     // Audit log: user registration
     await this.audit.record({
       actorType: 'system',
       action: 'bot.user.start',
-      details: { telegram_chat_id: chatId, username: from?.username, language: detectedLang },
+      details: {
+        telegram_chat_id: chatId,
+        username: from?.username,
+        language: detectedLang,
+      },
     });
 
     await ctx.reply(t('bot.start.title', detectedLang), {
       parse_mode: 'Markdown',
       ...Markup.keyboard([
-        [t('bot.menu.create_deal', detectedLang), t('bot.menu.my_deals', detectedLang)],
-        [t('bot.menu.language', detectedLang), t('bot.menu.help', detectedLang)],
+        [
+          t('bot.menu.create_deal', detectedLang),
+          t('bot.menu.my_deals', detectedLang),
+        ],
+        [
+          t('bot.menu.language', detectedLang),
+          t('bot.menu.help', detectedLang),
+        ],
       ]).resize(),
     });
   }
@@ -134,7 +152,9 @@ export class BotUpdate {
   async onHelp(@Ctx() ctx: Context): Promise<void> {
     const chatId = String(ctx.chat?.id ?? '');
     const lang = await this.getLang(chatId);
-    await ctx.reply(t('bot.help.escrow_explain', lang), { parse_mode: 'Markdown' });
+    await ctx.reply(t('bot.help.escrow_explain', lang), {
+      parse_mode: 'Markdown',
+    });
   }
 
   // ─── /cancel ───────────────────────────────────────────────────────────────
@@ -160,7 +180,9 @@ export class BotUpdate {
       return; // silently ignore in production for non-admins
     }
 
-    await ctx.reply(`${t('bot.dev.chat_id', 'en')} \`${chatId}\``, { parse_mode: 'Markdown' });
+    await ctx.reply(`${t('bot.dev.chat_id', 'en')} \`${chatId}\``, {
+      parse_mode: 'Markdown',
+    });
   }
 
   // ─── Inline keyboard: language selection ───────────────────────────────────
@@ -253,7 +275,9 @@ export class BotUpdate {
 
     if (!state || !state.flow) {
       // no active flow — show main menu hint
-      await ctx.reply(t('bot.error.unknown_command', lang), { parse_mode: 'Markdown' });
+      await ctx.reply(t('bot.error.unknown_command', lang), {
+        parse_mode: 'Markdown',
+      });
       return;
     }
 
@@ -274,8 +298,16 @@ export class BotUpdate {
     switch (state.step) {
       case 'ask_role': {
         // detect role from text
-        const isSellerText = text.includes('🏪') || text.toLowerCase().includes('seller') || text.includes('ខ្ញុំជាអ្នកលក់') || text.includes('我是卖家');
-        const isBuyerText = text.includes('🛒') || text.toLowerCase().includes('buyer') || text.includes('ខ្ញុំជាអ្នកទិញ') || text.includes('我是买家');
+        const isSellerText =
+          text.includes('🏪') ||
+          text.toLowerCase().includes('seller') ||
+          text.includes('ខ្ញុំជាអ្នកលក់') ||
+          text.includes('我是卖家');
+        const isBuyerText =
+          text.includes('🛒') ||
+          text.toLowerCase().includes('buyer') ||
+          text.includes('ខ្ញុំជាអ្នកទិញ') ||
+          text.includes('我是买家');
 
         if (!isSellerText && !isBuyerText) {
           await ctx.reply(t('bot.role.ask', lang), {
@@ -289,7 +321,10 @@ export class BotUpdate {
         }
 
         const role = isSellerText ? 'seller' : 'buyer';
-        await this.stateService.update(chatId, { step: 'ask_title', creatorRole: role });
+        await this.stateService.update(chatId, {
+          step: 'ask_title',
+          creatorRole: role,
+        });
         await ctx.reply(t('bot.deal.ask_title', lang), {
           parse_mode: 'Markdown',
           ...Markup.keyboard([[t('bot.deal.cancel', lang)]]).resize(),
@@ -303,7 +338,10 @@ export class BotUpdate {
           await ctx.reply(t('bot.error.empty_input', lang));
           return;
         }
-        await this.stateService.update(chatId, { step: 'ask_price', productTitle: sanitized });
+        await this.stateService.update(chatId, {
+          step: 'ask_price',
+          productTitle: sanitized,
+        });
         await ctx.reply(t('bot.deal.ask_price', lang), {
           parse_mode: 'Markdown',
           ...Markup.keyboard([[t('bot.deal.cancel', lang)]]).resize(),
@@ -324,7 +362,9 @@ export class BotUpdate {
             await ctx.reply(t('bot.error.too_many_retries', lang));
             return;
           }
-          await this.stateService.update(chatId, { amountRetryCount: retryCount });
+          await this.stateService.update(chatId, {
+            amountRetryCount: retryCount,
+          });
           await ctx.reply(t('bot.error.not_a_number', lang));
           return;
         }
@@ -336,7 +376,9 @@ export class BotUpdate {
             await ctx.reply(t('bot.error.too_many_retries', lang));
             return;
           }
-          await this.stateService.update(chatId, { amountRetryCount: retryCount });
+          await this.stateService.update(chatId, {
+            amountRetryCount: retryCount,
+          });
           await ctx.reply(t('bot.error.invalid_amount', lang));
           return;
         }
@@ -348,7 +390,9 @@ export class BotUpdate {
             await ctx.reply(t('bot.error.too_many_retries', lang));
             return;
           }
-          await this.stateService.update(chatId, { amountRetryCount: retryCount });
+          await this.stateService.update(chatId, {
+            amountRetryCount: retryCount,
+          });
           await ctx.reply(t('bot.error.amount_too_small', lang));
           return;
         }
@@ -360,15 +404,24 @@ export class BotUpdate {
             await ctx.reply(t('bot.error.too_many_retries', lang));
             return;
           }
-          await this.stateService.update(chatId, { amountRetryCount: retryCount });
+          await this.stateService.update(chatId, {
+            amountRetryCount: retryCount,
+          });
           await ctx.reply(t('bot.error.amount_too_large', lang));
           return;
         }
 
         // Valid amount — reset retry count
-        await this.stateService.update(chatId, { step: 'ask_extra', amount: String(amount), amountRetryCount: 0 });
+        await this.stateService.update(chatId, {
+          step: 'ask_extra',
+          amount: String(amount),
+          amountRetryCount: 0,
+        });
 
-        const extraKey = state.creatorRole === 'seller' ? 'bot.deal.ask_type_seller' : 'bot.deal.ask_note_buyer';
+        const extraKey =
+          state.creatorRole === 'seller'
+            ? 'bot.deal.ask_type_seller'
+            : 'bot.deal.ask_note_buyer';
         await ctx.reply(t(extraKey, lang), {
           parse_mode: 'Markdown',
           ...Markup.keyboard([
@@ -381,7 +434,11 @@ export class BotUpdate {
 
       case 'ask_extra': {
         // skip button or any text
-        const isSkip = text.includes('⏭️') || text.toLowerCase() === 'skip' || text === '跳过' || text === 'រំលង';
+        const isSkip =
+          text.includes('⏭️') ||
+          text.toLowerCase() === 'skip' ||
+          text === '跳过' ||
+          text === 'រំលង';
 
         if (state.creatorRole === 'seller' && !isSkip) {
           const sanitized = sanitizeText(text, MAX_NOTE_LENGTH);
@@ -422,16 +479,25 @@ export class BotUpdate {
         lastName: from?.last_name,
       });
 
-      const result = await this.dealsService.createDeal({
-        source: 'telegram',
-        creator_role: state.creatorRole!,
-        language: lang,
-        telegram_chat_id: chatId,
-        product_title: state.productTitle ?? undefined,
-        amount: state.amount ? parseFloat(state.amount) : undefined,
-        product_type: state.creatorRole === 'seller' ? (state.productType ?? undefined) : undefined,
-        product_description: state.creatorRole === 'buyer' ? (state.note ?? undefined) : undefined,
-      }, userId);
+      const result = await this.dealsService.createDeal(
+        {
+          source: 'telegram',
+          creator_role: state.creatorRole!,
+          language: lang,
+          telegram_chat_id: chatId,
+          product_title: state.productTitle ?? undefined,
+          amount: state.amount ? parseFloat(state.amount) : undefined,
+          product_type:
+            state.creatorRole === 'seller'
+              ? (state.productType ?? undefined)
+              : undefined,
+          product_description:
+            state.creatorRole === 'buyer'
+              ? (state.note ?? undefined)
+              : undefined,
+        },
+        userId,
+      );
 
       // Record rate limit hit for deal creation
       await this.rateLimiter.recordDealCreation(chatId);
@@ -441,7 +507,11 @@ export class BotUpdate {
         dealId: result.public_id,
         actorType: 'participant',
         action: 'bot.deal.created',
-        details: { telegram_chat_id: chatId, creator_role: state.creatorRole, source: 'telegram' },
+        details: {
+          telegram_chat_id: chatId,
+          creator_role: state.creatorRole,
+          source: 'telegram',
+        },
       });
 
       await this.stateService.clearFlow(chatId);
@@ -474,19 +544,28 @@ export class BotUpdate {
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([
             [
-              Markup.button.url(t('bot.link.open_deal_room', lang), dealRoomUrl),
+              Markup.button.url(
+                t('bot.link.open_deal_room', lang),
+                dealRoomUrl,
+              ),
             ],
           ]),
         },
       );
     } catch (err) {
-      this.logger.error(`createDeal failed chatId=${chatId}: ${(err as Error).message}`);
+      this.logger.error(
+        `createDeal failed chatId=${chatId}: ${(err as Error).message}`,
+      );
       await this.stateService.clearFlow(chatId);
       await ctx.reply(t('bot.error.unexpected', lang));
     }
   }
 
-  private async handleMyDeals(ctx: Context, chatId: string, lang: BotLang): Promise<void> {
+  private async handleMyDeals(
+    ctx: Context,
+    chatId: string,
+    lang: BotLang,
+  ): Promise<void> {
     try {
       // Fetch deals where user is creator OR participant
       const deals = await this.prisma.deal.findMany({
@@ -502,7 +581,9 @@ export class BotUpdate {
       });
 
       if (!deals.length) {
-        await ctx.reply(t('bot.mydeals.empty', lang), { parse_mode: 'Markdown' });
+        await ctx.reply(t('bot.mydeals.empty', lang), {
+          parse_mode: 'Markdown',
+        });
         return;
       }
 
@@ -525,7 +606,9 @@ export class BotUpdate {
         });
       }
     } catch (err) {
-      this.logger.error(`mydeals failed chatId=${chatId}: ${(err as Error).message}`);
+      this.logger.error(
+        `mydeals failed chatId=${chatId}: ${(err as Error).message}`,
+      );
       await ctx.reply(t('bot.error.unexpected', lang));
     }
   }
@@ -570,7 +653,12 @@ export class BotUpdate {
     });
   }
 
-  private async showMainMenu(ctx: Context, chatId: string, lang: BotLang, text?: string): Promise<void> {
+  private async showMainMenu(
+    ctx: Context,
+    chatId: string,
+    lang: BotLang,
+    text?: string,
+  ): Promise<void> {
     await ctx.reply(text ?? t('bot.start.title', lang), {
       parse_mode: 'Markdown',
       ...Markup.keyboard([
@@ -581,7 +669,10 @@ export class BotUpdate {
   }
 
   private async getLang(chatId: string): Promise<BotLang> {
-    const row = await this.prisma.botState.findUnique({ where: { chatId }, select: { language: true } });
+    const row = await this.prisma.botState.findUnique({
+      where: { chatId },
+      select: { language: true },
+    });
     return (row?.language as BotLang) ?? 'en';
   }
 }

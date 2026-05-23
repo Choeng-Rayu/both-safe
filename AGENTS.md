@@ -107,7 +107,6 @@ All routes use `/v1` prefix.
 | PATCH | `/v1/deals/:publicId/sections/product` | Frontend |
 | PATCH | `/v1/deals/:publicId/sections/participant` | Frontend |
 | PATCH | `/v1/deals/:publicId/sections/delivery` | Frontend |
-| PATCH | `/v1/deals/:publicId/sections/payout` | Frontend |
 | POST | `/v1/deals/:publicId/approval` | Frontend |
 | POST | `/v1/deals/:publicId/payment-proofs` | Frontend |
 | POST | `/v1/deals/:publicId/shipping-proofs` | Frontend |
@@ -121,7 +120,7 @@ All routes use `/v1` prefix.
 
 ### Core Domain Rules
 
-1. **Buyer pays BothSafe, not seller.** Seller KHQR is payout-only.
+1. **Buyer pays BothSafe, not seller.** Seller receives released funds in their internal BothSafe wallet and cashes out via the wallet/withdrawal flow.
 2. **Either side can create the Deal Room.** `creator_role` is stored.
 3. **Both sides must exist and approve before payment.** No skipping.
 4. **Lock price, product, payout info after payment.** Admin override only.
@@ -214,7 +213,6 @@ Bootstrapped Next.js project. Only default `app/page.tsx` and `app/layout.tsx` e
 | Edit product | `PATCH /v1/deals/{publicId}/sections/product` |
 | Edit participant | `PATCH /v1/deals/{publicId}/sections/participant` |
 | Edit delivery | `PATCH /v1/deals/{publicId}/sections/delivery` |
-| Edit payout | `PATCH /v1/deals/{publicId}/sections/payout` |
 | Approve | `POST /v1/deals/{publicId}/approval` |
 | Upload payment proof | `POST /v1/deals/{publicId}/payment-proofs` |
 | Upload shipping proof | `POST /v1/deals/{publicId}/shipping-proofs` |
@@ -285,7 +283,6 @@ admin.payment.verify
 - Client-side validate file type and size before upload.
 - Admin routes require server-side session check.
 - Never expose raw access tokens in console logs.
-- Do not show seller payout KHQR to buyer.
 
 ---
 
@@ -437,7 +434,7 @@ PostgreSQL is already running in local Docker — do not start a new instance.
 <claude-mem-context>
 # Memory Context
 
-# [both-safe] recent context, 2026-05-19 9:03am GMT+7
+# [both-safe] recent context, 2026-05-21 8:42am GMT+7
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
@@ -497,16 +494,19 @@ S6 Version bump task initiated - determining scope and components to update (May
 43 " 🟣 Files Service Implemented with Security Validation
 44 " 🟣 Files Controller Implemented with Multi-Mode Access Control
 S35 Initial greeting; user opened conversation regarding BothSafe project (May 6, 10:10 PM)
+### May 14, 2026
+S73 Resolve TypeScript deprecation warning for deprecated baseUrl compiler option in backend/tsconfig.json (May 14, 3:45 PM)
 ### May 18, 2026
 584 10:44p ✅ Removed deprecated baseUrl from backend TypeScript configuration
-S73 Resolve TypeScript deprecation warning for deprecated baseUrl compiler option in backend/tsconfig.json (May 18, 10:44 PM)
-**Investigated**: The tsconfig.json compiler options in the backend directory, specifically the baseUrl setting and its deprecation status in TypeScript 6.0+. Examined the moduleResolution configuration which is set to "nodenext" with resolvePackageJsonExports enabled.
+### May 19, 2026
+S74 Brainstorm and design wallet feature for deal platform; remove seller payout section from deal flow since funds now auto-credit to internal wallet (May 19, 9:03 AM)
+**Investigated**: Examined deal-room-page.tsx frontend component and missing-fields.spec.ts backend tests to understand current payout implementation; identified dead code and obsolete test cases
 
-**Learned**: baseUrl is a deprecated compiler option originally designed for AMD module loaders in browsers and is no longer recommended. TypeScript 4.1+ removed the requirement for baseUrl when using modern module resolution. With "moduleResolution": "nodenext", TypeScript uses Node's native resolution (relative paths + node_modules lookup), making baseUrl redundant. The option will stop functioning entirely in TypeScript 7.0.
+**Learned**: Seller payout details are no longer needed during deal approval—funds automatically credit to seller's BothSafe wallet on buyer confirmation, withdrawal handled separately at /wallet/withdraw endpoint
 
-**Completed**: Successfully removed "baseUrl": "./" from the compilerOptions in backend/tsconfig.json. The deprecation warning should now be resolved, and the project is prepared for TypeScript 7.0 compatibility.
+**Completed**: Removed payout section from deal flow: deleted openPayoutEditor() function and payoutForm state from frontend; removed seller.payout_khqr from required fields in backend; deleted two obsolete payout tests; all 306 unit tests pass; changes committed to main
 
-**Next Steps**: No further steps indicated at this time. The TypeScript configuration deprecation issue has been addressed by removing the unnecessary baseUrl option.
+**Next Steps**: Wallet integration implementation—likely designing deposit/withdrawal flows, transaction history, currency conversion (KHR/USD), and payout method configuration at /wallet/withdraw
 
 
 Access 199k tokens of past work via get_observations([IDs]) or mem-search skill.

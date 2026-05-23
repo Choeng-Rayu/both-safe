@@ -35,12 +35,16 @@ function detectBrowserLocale() {
 
 // ─── Auth Context ─────────────────────────────────────────────────────────────
 
+export type UserRole = "USER" | "ADMIN";
+
 export interface SessionUser {
   id: string;
   email: string | null;
   name: string | null;
   avatarUrl: string | null;
   emailVerified: boolean;
+  role: UserRole;
+  disabled: boolean;
 }
 
 type AuthContextValue = {

@@ -17,7 +17,8 @@ export class UserSessionGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
-    const rawToken: string | undefined = req.cookies?.[this.userAuth.cookieName];
+    const rawToken: string | undefined =
+      req.cookies?.[this.userAuth.cookieName];
 
     if (!rawToken) {
       throw new UnauthorizedException({ messageKey: 'auth.login_required' });

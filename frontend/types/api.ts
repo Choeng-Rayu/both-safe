@@ -18,7 +18,6 @@ export type ParticipantSummary = {
   preferred_language: Locale | null;
   approved_at: string | null;
   joined_at: string | null;
-  has_payout: boolean;
 };
 
 export type ProductSummary = {
@@ -136,11 +135,6 @@ export type AdminDealRecord = {
     preferredLanguage: Locale | null;
     approvedAt: string | null;
     joinedAt: string | null;
-    payoutKhqr?: string | null;
-    payoutBankName?: string | null;
-    payoutAccountName?: string | null;
-    payoutAccountNumber?: string | null;
-    payoutKhqrImage?: string | null;
   }>;
   product: {
     title: string | null;

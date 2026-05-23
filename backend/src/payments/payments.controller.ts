@@ -35,7 +35,10 @@ export class PaymentsController {
   @UseGuards(UserSessionGuard)
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @ApiOperation({ summary: 'Buyer pays this deal from their BothSafe wallet' })
-  payFromWallet(@Param('publicId') publicId: string, @Req() req: AuthedRequest) {
+  payFromWallet(
+    @Param('publicId') publicId: string,
+    @Req() req: AuthedRequest,
+  ) {
     const userId = req.sessionUser?.id;
     if (!userId) {
       throw new UnauthorizedException({ messageKey: 'auth.login_required' });
@@ -45,16 +48,44 @@ export class PaymentsController {
 
   @Get('payment-instruction')
   @UseGuards(UserSessionGuard, DealAccessGuard)
-  @ApiOperation({ summary: 'Get or create KHQR payment intent for automatic Bakong verification' })
-  instruction(@Param('publicId') publicId: string, @CurrentActor() actor: RequestActor) {
+  @ApiOperation({
+    summary:
+      'Get or create KHQR payment intent for automatic Bakong verification',
+  })
+  instruction(
+    @Param('publicId') publicId: string,
+    @CurrentActor() actor: RequestActor,
+  ) {
     return this.payments.paymentInstruction(publicId, actor);
+  }
+
+  @Post('payment-instruction/regenerate')
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @UseGuards(UserSessionGuard, DealAccessGuard)
+  @ApiOperation({
+    summary:
+      'Discard the current pending KHQR intent and issue a fresh one (buyer-only)',
+  })
+  regenerateInstruction(
+    @Param('publicId') publicId: string,
+    @CurrentActor() actor: RequestActor,
+  ) {
+    return this.payments.regeneratePaymentInstruction(publicId, actor);
   }
 
   @Post('payment-proofs')
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @UseGuards(UserSessionGuard, DealAccessGuard)
-  @UseInterceptors(FileInterceptor('proof_image', { storage: memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }))
-  @ApiOperation({ summary: 'Buyer optionally uploads a payment receipt for an automatic payment intent' })
+  @UseInterceptors(
+    FileInterceptor('proof_image', {
+      storage: memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  @ApiOperation({
+    summary:
+      'Buyer optionally uploads a payment receipt for an automatic payment intent',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {

@@ -26,10 +26,18 @@ export class LoggingInterceptor implements NestInterceptor {
 
     // Extract actor info if available (set by guards)
     const actor = (req as any).actor as
-      | { type: string; role?: string; participantId?: string; userId?: string; adminId?: string }
+      | {
+          type: string;
+          role?: string;
+          participantId?: string;
+          userId?: string;
+          adminId?: string;
+        }
       | undefined;
 
-    const dealPublicId = (req.params?.publicId || req.params?.id || req.body?.public_id) as string | undefined;
+    const dealPublicId = (req.params?.publicId ||
+      req.params?.id ||
+      req.body?.public_id) as string | undefined;
 
     return next.handle().pipe(
       tap({

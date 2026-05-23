@@ -37,7 +37,10 @@ describe('Integration: Critical Flows', () => {
     module = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({ isGlobal: true }),
-        JwtModule.register({ secret: 'test-secret', signOptions: { expiresIn: '1h' } }),
+        JwtModule.register({
+          secret: 'test-secret',
+          signOptions: { expiresIn: '1h' },
+        }),
       ],
       providers: [
         PrismaService,
@@ -48,7 +51,10 @@ describe('Integration: Critical Flows', () => {
         AdminService,
         LedgerService,
         { provide: FilesService, useValue: createMockFilesService() },
-        { provide: NotificationService, useValue: createMockNotificationService() },
+        {
+          provide: NotificationService,
+          useValue: createMockNotificationService(),
+        },
         { provide: AuditService, useValue: createMockAuditService() },
       ],
     }).compile();
@@ -98,7 +104,9 @@ describe('Integration: Critical Flows', () => {
       expect(created.public_id).toBeDefined();
 
       const publicId = created.public_id;
-      const inviteToken = new URL(created.invite_url).searchParams.get('invite')!;
+      const inviteToken = new URL(created.invite_url).searchParams.get(
+        'invite',
+      )!;
 
       // Step 2: Seller joins via invite token
       const joined = await deals.joinDeal(
@@ -123,8 +131,17 @@ describe('Integration: Critical Flows', () => {
 
       await deals.updatePayout(
         publicId,
-        { payout_khqr: 'bob@aba', payout_bank_name: 'ABA', payout_account_name: 'Bob', payout_account_number: '123456' } as any,
-        { type: 'participant', role: 'seller', participantId: sellerParticipant!.id } as any,
+        {
+          payout_khqr: 'bob@aba',
+          payout_bank_name: 'ABA',
+          payout_account_name: 'Bob',
+          payout_account_number: '123456',
+        } as any,
+        {
+          type: 'participant',
+          role: 'seller',
+          participantId: sellerParticipant!.id,
+        } as any,
       );
 
       // Step 4: Both approve
@@ -167,20 +184,34 @@ describe('Integration: Critical Flows', () => {
       expect(created.status).toBe(DEAL_STATUS.AWAITING_COUNTERPARTY);
 
       const publicId = created.public_id;
-      const inviteToken = new URL(created.invite_url).searchParams.get('invite')!;
+      const inviteToken = new URL(created.invite_url).searchParams.get(
+        'invite',
+      )!;
 
       const joined = await deals.joinDeal(
         publicId,
-        { invite_token: inviteToken, role: 'buyer', name: 'Dave', preferred_language: 'en' } as any,
+        {
+          invite_token: inviteToken,
+          role: 'buyer',
+          name: 'Dave',
+          preferred_language: 'en',
+        } as any,
         { type: 'invite', role: null } as any,
         null,
       );
 
       expect(joined.status).toBe(DEAL_STATUS.AWAITING_BOTH_APPROVAL);
 
-      const dealAfterJoin = await prisma.deal.findUnique({ where: { publicId }, include: { participants: true } });
-      const sellerP = dealAfterJoin!.participants.find((p) => p.role === 'seller')!;
-      const buyerP = dealAfterJoin!.participants.find((p) => p.role === 'buyer')!;
+      const dealAfterJoin = await prisma.deal.findUnique({
+        where: { publicId },
+        include: { participants: true },
+      });
+      const sellerP = dealAfterJoin!.participants.find(
+        (p) => p.role === 'seller',
+      )!;
+      const buyerP = dealAfterJoin!.participants.find(
+        (p) => p.role === 'buyer',
+      )!;
 
       // Add payout as seller
       await deals.updatePayout(
@@ -191,11 +222,23 @@ describe('Integration: Critical Flows', () => {
           payout_account_name: 'Carol',
           payout_account_number: '123456',
         } as any,
-        { type: 'participant', role: 'seller', participantId: sellerP.id } as any,
+        {
+          type: 'participant',
+          role: 'seller',
+          participantId: sellerP.id,
+        } as any,
       );
 
-      await deals.approveDeal(publicId, { type: 'participant', role: 'seller', participantId: sellerP!.id } as any);
-      const approved = await deals.approveDeal(publicId, { type: 'participant', role: 'buyer', participantId: buyerP!.id } as any);
+      await deals.approveDeal(publicId, {
+        type: 'participant',
+        role: 'seller',
+        participantId: sellerP.id,
+      } as any);
+      const approved = await deals.approveDeal(publicId, {
+        type: 'participant',
+        role: 'buyer',
+        participantId: buyerP.id,
+      } as any);
 
       expect(approved.status).toBe(DEAL_STATUS.READY_FOR_PAYMENT);
     });
@@ -204,26 +247,39 @@ describe('Integration: Critical Flows', () => {
   // ─── Task 23.2: Payment verification flow ────────────────────────────────
   describe('Payment Verification Flow', () => {
     it('buyer uploads payment proof → admin verifies → PAID_ESCROWED → SELLER_PREPARING', async () => {
-      const { deal, publicId, creatorParticipant } = await createTestDeal(prisma, {
-        creatorRole: 'seller',
-        status: DEAL_STATUS.READY_FOR_PAYMENT,
-      });
+      const { deal, publicId, creatorParticipant } = await createTestDeal(
+        prisma,
+        {
+          creatorRole: 'seller',
+          status: DEAL_STATUS.READY_FOR_PAYMENT,
+        },
+      );
 
-      const { participant: buyer } = await joinDealAsCounterparty(prisma, deal.id, 'buyer', 'Alice');
-      await prisma.participant.updateMany({ where: { dealId: deal.id }, data: { approvedAt: new Date() } });
+      const { participant: buyer } = await joinDealAsCounterparty(
+        prisma,
+        deal.id,
+        'buyer',
+        'Alice',
+      );
+      await prisma.participant.updateMany({
+        where: { dealId: deal.id },
+        data: { approvedAt: new Date() },
+      });
 
       // Buyer uploads payment proof
       const uploaded = await payments.uploadProof(
         publicId,
         undefined,
-        { paid_amount: 100, buyer_note: 'Sent via Bakong' } as any,
+        { paid_amount: 100, buyer_note: 'Sent via Bakong' },
         { type: 'participant', role: 'buyer', participantId: buyer.id } as any,
       );
 
       expect(uploaded.status).toBe(DEAL_STATUS.PAYMENT_PENDING_VERIFICATION);
 
       // Admin verifies
-      const payment = await prisma.payment.findFirst({ where: { dealId: deal.id } });
+      const payment = await prisma.payment.findFirst({
+        where: { dealId: deal.id },
+      });
       const { admin: adminUser } = await createAdminAndToken(prisma, jwt);
 
       const verified = await payments.adminVerify(payment!.id, adminUser.id);
@@ -231,8 +287,12 @@ describe('Integration: Critical Flows', () => {
 
       // Check ledger entries
       const entries = await ledger.list(deal.id);
-      const escrowEntry = entries.find((e) => e.entryType === 'ESCROW_RECEIVED');
-      const feeEntry = entries.find((e) => e.entryType === 'PLATFORM_FEE_RESERVED');
+      const escrowEntry = entries.find(
+        (e) => e.entryType === 'ESCROW_RECEIVED',
+      );
+      const feeEntry = entries.find(
+        (e) => e.entryType === 'PLATFORM_FEE_RESERVED',
+      );
       expect(escrowEntry).toBeDefined();
       expect(feeEntry).toBeDefined();
     });
@@ -243,22 +303,34 @@ describe('Integration: Critical Flows', () => {
         status: DEAL_STATUS.READY_FOR_PAYMENT,
       });
 
-      const { participant: buyer } = await joinDealAsCounterparty(prisma, deal.id, 'buyer', 'Alice');
-
-      await payments.uploadProof(
-        publicId,
-        undefined,
-        { paid_amount: 100 } as any,
-        { type: 'participant', role: 'buyer', participantId: buyer.id } as any,
+      const { participant: buyer } = await joinDealAsCounterparty(
+        prisma,
+        deal.id,
+        'buyer',
+        'Alice',
       );
 
-      const payment = await prisma.payment.findFirst({ where: { dealId: deal.id } });
+      await payments.uploadProof(publicId, undefined, { paid_amount: 100 }, {
+        type: 'participant',
+        role: 'buyer',
+        participantId: buyer.id,
+      } as any);
+
+      const payment = await prisma.payment.findFirst({
+        where: { dealId: deal.id },
+      });
       const { admin: adminUser } = await createAdminAndToken(prisma, jwt);
 
-      const rejected = await payments.adminReject(payment!.id, 'Amount does not match', adminUser.id);
+      const rejected = await payments.adminReject(
+        payment!.id,
+        'Amount does not match',
+        adminUser.id,
+      );
       expect(rejected.deal_status).toBe(DEAL_STATUS.READY_FOR_PAYMENT);
 
-      const updatedDeal = await prisma.deal.findUnique({ where: { id: deal.id } });
+      const updatedDeal = await prisma.deal.findUnique({
+        where: { id: deal.id },
+      });
       expect(updatedDeal!.status).toBe(DEAL_STATUS.READY_FOR_PAYMENT);
     });
   });
@@ -271,8 +343,16 @@ describe('Integration: Critical Flows', () => {
         status: DEAL_STATUS.SHIPPED,
       });
 
-      const { participant: buyer } = await joinDealAsCounterparty(prisma, deal.id, 'buyer', 'Alice');
-      await prisma.participant.updateMany({ where: { dealId: deal.id }, data: { approvedAt: new Date() } });
+      const { participant: buyer } = await joinDealAsCounterparty(
+        prisma,
+        deal.id,
+        'buyer',
+        'Alice',
+      );
+      await prisma.participant.updateMany({
+        where: { dealId: deal.id },
+        data: { approvedAt: new Date() },
+      });
 
       // Create payment record
       await prisma.payment.create({
@@ -298,17 +378,23 @@ describe('Integration: Critical Flows', () => {
 
       // Admin resolves with release
       const { admin: adminUser } = await createAdminAndToken(prisma, jwt);
-      const resolved = await admin.resolveDispute(dispute.dispute_id, {
-        decision: 'release',
-        payout_reference: 'PAYOUT-001',
-        admin_note: 'Seller provided tracking proof',
-      }, adminUser.id);
+      const resolved = await admin.resolveDispute(
+        dispute.dispute_id,
+        {
+          decision: 'release',
+          payout_reference: 'PAYOUT-001',
+          admin_note: 'Seller provided tracking proof',
+        },
+        adminUser.id,
+      );
 
       expect(resolved.status).toBe(DEAL_STATUS.RELEASE_PENDING);
 
       // Check ledger
       const entries = await ledger.list(deal.id);
-      expect(entries.some((e) => e.entryType === 'SELLER_PAYOUT_PENDING')).toBe(true);
+      expect(entries.some((e) => e.entryType === 'SELLER_PAYOUT_PENDING')).toBe(
+        true,
+      );
     });
 
     it('buyer opens dispute → admin resolves with refund → REFUNDED', async () => {
@@ -317,8 +403,16 @@ describe('Integration: Critical Flows', () => {
         status: DEAL_STATUS.SHIPPED,
       });
 
-      const { participant: buyer } = await joinDealAsCounterparty(prisma, deal.id, 'buyer', 'Alice');
-      await prisma.participant.updateMany({ where: { dealId: deal.id }, data: { approvedAt: new Date() } });
+      const { participant: buyer } = await joinDealAsCounterparty(
+        prisma,
+        deal.id,
+        'buyer',
+        'Alice',
+      );
+      await prisma.participant.updateMany({
+        where: { dealId: deal.id },
+        data: { approvedAt: new Date() },
+      });
 
       await prisma.payment.create({
         data: {
@@ -339,16 +433,22 @@ describe('Integration: Critical Flows', () => {
       );
 
       const { admin: adminUser } = await createAdminAndToken(prisma, jwt);
-      const resolved = await admin.resolveDispute(dispute.dispute_id, {
-        decision: 'refund',
-        refund_reference: 'REFUND-001',
-        admin_note: 'Confirmed counterfeit',
-      }, adminUser.id);
+      const resolved = await admin.resolveDispute(
+        dispute.dispute_id,
+        {
+          decision: 'refund',
+          refund_reference: 'REFUND-001',
+          admin_note: 'Confirmed counterfeit',
+        },
+        adminUser.id,
+      );
 
       expect(resolved.status).toBe(DEAL_STATUS.REFUNDED);
 
       const entries = await ledger.list(deal.id);
-      expect(entries.some((e) => e.entryType === 'BUYER_REFUND_SENT')).toBe(true);
+      expect(entries.some((e) => e.entryType === 'BUYER_REFUND_SENT')).toBe(
+        true,
+      );
     });
   });
 
@@ -373,60 +473,115 @@ describe('Integration: Critical Flows', () => {
       const publicId = created.public_id;
 
       // 2. Buyer joins
-      const inviteToken = new URL(created.invite_url).searchParams.get('invite')!;
+      const inviteToken = new URL(created.invite_url).searchParams.get(
+        'invite',
+      )!;
       const joined = await deals.joinDeal(
         publicId,
-        { invite_token: inviteToken, role: 'buyer', name: 'Luigi', preferred_language: 'en' } as any,
+        {
+          invite_token: inviteToken,
+          role: 'buyer',
+          name: 'Luigi',
+          preferred_language: 'en',
+        } as any,
         { type: 'invite', role: null } as any,
         null,
       );
 
-      const dealRecordAfterJoin = await prisma.deal.findUnique({ where: { publicId }, include: { participants: true } });
-      const sellerP = dealRecordAfterJoin!.participants.find((p) => p.role === 'seller')!;
-      const buyerP = dealRecordAfterJoin!.participants.find((p) => p.role === 'buyer')!;
+      const dealRecordAfterJoin = await prisma.deal.findUnique({
+        where: { publicId },
+        include: { participants: true },
+      });
+      const sellerP = dealRecordAfterJoin!.participants.find(
+        (p) => p.role === 'seller',
+      )!;
+      const buyerP = dealRecordAfterJoin!.participants.find(
+        (p) => p.role === 'buyer',
+      )!;
 
       // 3. Seller adds payout
       await deals.updatePayout(
         publicId,
-        { payout_khqr: 'mario@aba', payout_bank_name: 'ABA', payout_account_name: 'Mario', payout_account_number: '123' } as any,
-        { type: 'participant', role: 'seller', participantId: sellerP.id } as any,
+        {
+          payout_khqr: 'mario@aba',
+          payout_bank_name: 'ABA',
+          payout_account_name: 'Mario',
+          payout_account_number: '123',
+        } as any,
+        {
+          type: 'participant',
+          role: 'seller',
+          participantId: sellerP.id,
+        } as any,
       );
 
       // 4. Both approve
-      await deals.approveDeal(publicId, { type: 'participant', role: 'seller', participantId: sellerP.id } as any);
-      const approved = await deals.approveDeal(publicId, { type: 'participant', role: 'buyer', participantId: buyerP.id } as any);
+      await deals.approveDeal(publicId, {
+        type: 'participant',
+        role: 'seller',
+        participantId: sellerP.id,
+      } as any);
+      const approved = await deals.approveDeal(publicId, {
+        type: 'participant',
+        role: 'buyer',
+        participantId: buyerP.id,
+      } as any);
       expect(approved.status).toBe(DEAL_STATUS.READY_FOR_PAYMENT);
 
       // 5. Buyer uploads payment proof
       const paymentUploaded = await payments.uploadProof(
         publicId,
         undefined,
-        { paid_amount: 300, buyer_note: 'Paid via Bakong' } as any,
+        { paid_amount: 300, buyer_note: 'Paid via Bakong' },
         { type: 'participant', role: 'buyer', participantId: buyerP.id } as any,
       );
-      expect(paymentUploaded.status).toBe(DEAL_STATUS.PAYMENT_PENDING_VERIFICATION);
+      expect(paymentUploaded.status).toBe(
+        DEAL_STATUS.PAYMENT_PENDING_VERIFICATION,
+      );
 
       // 6. Admin verifies payment
-      const payment = await prisma.payment.findFirst({ where: { dealId: dealRecordAfterJoin!.id } });
-      const { admin: adminUser } = await createAdminAndToken(prisma, jwt, 'admin-happy@test.local');
+      const payment = await prisma.payment.findFirst({
+        where: { dealId: dealRecordAfterJoin!.id },
+      });
+      const { admin: adminUser } = await createAdminAndToken(
+        prisma,
+        jwt,
+        'admin-happy@test.local',
+      );
       const verified = await payments.adminVerify(payment!.id, adminUser.id);
       expect(verified.deal_status).toBe(DEAL_STATUS.SELLER_PREPARING);
 
       // 7. Seller ships
       const shipped = await shipping.uploadShippingProof(
         publicId,
-        { type: 'participant', role: 'seller', participantId: sellerP.id } as any,
-        { delivery_company: 'Kerry Express', tracking_number: 'KE123456', seller_note: 'Shipped today' },
+        {
+          type: 'participant',
+          role: 'seller',
+          participantId: sellerP.id,
+        } as any,
+        {
+          delivery_company: 'Kerry Express',
+          tracking_number: 'KE123456',
+          seller_note: 'Shipped today',
+        },
         {},
       );
       expect(shipped.status).toBe(DEAL_STATUS.SHIPPED);
 
       // 8. Buyer confirms receipt
-      const confirmed = await deals.confirmReceived(publicId, { type: 'participant', role: 'buyer', participantId: buyerP.id } as any);
+      const confirmed = await deals.confirmReceived(publicId, {
+        type: 'participant',
+        role: 'buyer',
+        participantId: buyerP.id,
+      } as any);
       expect(confirmed.status).toBe(DEAL_STATUS.RELEASE_PENDING);
 
       // 9. Admin releases
-      const released = await admin.release(dealRecordAfterJoin!.id, { payout_reference: 'PAYOUT-HAPPY-001' }, adminUser.id);
+      const released = await admin.release(
+        dealRecordAfterJoin!.id,
+        { payout_reference: 'PAYOUT-HAPPY-001' },
+        adminUser.id,
+      );
       expect(released.status).toBe(DEAL_STATUS.RELEASED);
 
       // Verify all ledger entries
@@ -441,7 +596,9 @@ describe('Integration: Critical Flows', () => {
       );
 
       // Verify final deal status
-      const finalDeal = await prisma.deal.findUnique({ where: { id: dealRecordAfterJoin!.id } });
+      const finalDeal = await prisma.deal.findUnique({
+        where: { id: dealRecordAfterJoin!.id },
+      });
       expect(finalDeal!.status).toBe(DEAL_STATUS.RELEASED);
     });
   });

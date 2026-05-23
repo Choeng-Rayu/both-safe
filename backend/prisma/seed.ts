@@ -124,7 +124,6 @@ async function main() {
     sellerTelegramChatId?: string;
     productTitle: string;
     productType?: string;
-    sellerPayoutKhqr?: string;
     paymentStatus?: 'pending' | 'verified' | 'rejected';
     shipping?: boolean;
     dispute?: { reason: string; message: string; status: string; openedByRole: string };
@@ -181,7 +180,6 @@ async function main() {
               name: opts.creatorRole === 'buyer' ? opts.sellerName : opts.buyerName,
               telegramChatId: opts.creatorRole === 'buyer' ? opts.sellerTelegramChatId : opts.buyerTelegramChatId,
               preferredLanguage: opts.creatorRole === 'buyer' ? 'en' : 'km',
-              payoutKhqr: opts.sellerPayoutKhqr,
               accessTokenHash: hashToken(participantToken),
               approvedAt: ['READY_FOR_PAYMENT', 'PAYMENT_PENDING_VERIFICATION', 'PAID_ESCROWED', 'SELLER_PREPARING', 'SHIPPED', 'BUYER_CONFIRMED', 'RELEASE_PENDING', 'RELEASED', 'DISPUTED', 'REFUNDED'].includes(opts.status)
                 ? hoursAgo(48)
@@ -321,7 +319,6 @@ async function main() {
     sellerTelegramChatId: '987654321',
     productTitle: 'Samsung Galaxy Tablet',
     productType: 'electronics',
-    sellerPayoutKhqr: 'vuthy.lim@bakong',
   });
   console.log('Created deal: AWAITING_COUNTERPARTY (await-c-002)');
 
@@ -339,7 +336,6 @@ async function main() {
     sellerTelegramChatId: '987654321',
     productTitle: 'Bluetooth Headphones',
     productType: 'electronics',
-    sellerPayoutKhqr: 'vuthy.lim@bakong',
     notifications: [
       { eventKey: 'COUNTERPARTY_JOINED', channel: 'telegram', recipientRef: '123456789', messageKey: 'deal.counterparty_joined', delivered: true },
     ],
@@ -361,7 +357,6 @@ async function main() {
     sellerTelegramChatId: '987654321',
     productTitle: 'Nike Running Shoes',
     productType: 'fashion',
-    sellerPayoutKhqr: 'vuthy.lim@bakong',
     notifications: [
       { eventKey: 'COUNTERPARTY_JOINED', channel: 'telegram', recipientRef: '123456789', messageKey: 'deal.counterparty_joined', delivered: true },
       { eventKey: 'BOTH_APPROVED', channel: 'telegram', recipientRef: '987654321', messageKey: 'deal.both_approved', delivered: true },
@@ -383,7 +378,6 @@ async function main() {
     sellerTelegramChatId: '987654321',
     productTitle: 'MacBook Air M2',
     productType: 'electronics',
-    sellerPayoutKhqr: 'vuthy.lim@bakong',
     paymentStatus: 'pending',
     notifications: [
       { eventKey: 'PAYMENT_PROOF_UPLOADED', channel: 'telegram', recipientRef: '987654321', messageKey: 'payment.proof_uploaded', delivered: true },
@@ -405,7 +399,6 @@ async function main() {
     sellerTelegramChatId: '987654321',
     productTitle: 'iPad Mini 6',
     productType: 'electronics',
-    sellerPayoutKhqr: 'vuthy.lim@bakong',
     paymentStatus: 'verified',
     ledgerEntries: [
       { entryType: 'ESCROW_RECEIVED', amount: 320, currency: 'USD', reference: 'bakong-tx-abc123' },
@@ -432,7 +425,6 @@ async function main() {
     sellerTelegramChatId: '987654321',
     productTitle: 'Wireless Mouse',
     productType: 'electronics',
-    sellerPayoutKhqr: 'vuthy.lim@bakong',
     paymentStatus: 'verified',
     shipping: true,
     ledgerEntries: [
@@ -459,7 +451,6 @@ async function main() {
     sellerTelegramChatId: '987654321',
     productTitle: 'Mechanical Keyboard',
     productType: 'electronics',
-    sellerPayoutKhqr: 'vuthy.lim@bakong',
     paymentStatus: 'verified',
     shipping: true,
     ledgerEntries: [
@@ -487,7 +478,6 @@ async function main() {
     sellerTelegramChatId: '987654321',
     productTitle: 'Sony WH-1000XM5',
     productType: 'electronics',
-    sellerPayoutKhqr: 'vuthy.lim@bakong',
     paymentStatus: 'verified',
     shipping: true,
     ledgerEntries: [
@@ -516,7 +506,6 @@ async function main() {
     sellerTelegramChatId: '987654321',
     productTitle: 'Refurbished Laptop',
     productType: 'electronics',
-    sellerPayoutKhqr: 'vuthy.lim@bakong',
     paymentStatus: 'verified',
     shipping: true,
     dispute: {
@@ -549,7 +538,6 @@ async function main() {
     sellerTelegramChatId: '987654321',
     productTitle: 'Smart Watch',
     productType: 'electronics',
-    sellerPayoutKhqr: 'vuthy.lim@bakong',
     paymentStatus: 'verified',
     shipping: true,
     dispute: {
@@ -584,7 +572,6 @@ async function main() {
     sellerTelegramChatId: '987654321',
     productTitle: 'Phone Charger',
     productType: 'accessories',
-    sellerPayoutKhqr: 'vuthy.lim@bakong',
     notifications: [],
   });
   console.log('Created deal: EXPIRED (exp-012)');

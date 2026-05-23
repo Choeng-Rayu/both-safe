@@ -20,7 +20,7 @@ async function apiRegister(email: string, password: string, name: string) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data?.message ?? "Registration failed");
-  return data as { user: { id: string; email: string | null; name: string | null; avatarUrl: string | null; emailVerified: boolean } };
+  return data as { user: { id: string; email: string | null; name: string | null; avatarUrl: string | null; emailVerified: boolean; role: "USER" | "ADMIN"; disabled: boolean } };
 }
 
 async function apiLogin(email: string, password: string) {
@@ -32,7 +32,7 @@ async function apiLogin(email: string, password: string) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data?.message ?? "Login failed");
-  return data as { user: { id: string; email: string | null; name: string | null; avatarUrl: string | null; emailVerified: boolean } };
+  return data as { user: { id: string; email: string | null; name: string | null; avatarUrl: string | null; emailVerified: boolean; role: "USER" | "ADMIN"; disabled: boolean } };
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ function EmailForm({
   onSuccess,
 }: {
   redirectAfter: string;
-  onSuccess: (user: { id: string; email: string | null; name: string | null; avatarUrl: string | null; emailVerified: boolean }) => void;
+  onSuccess: (user: { id: string; email: string | null; name: string | null; avatarUrl: string | null; emailVerified: boolean; role: "USER" | "ADMIN"; disabled: boolean }) => void;
 }) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
@@ -214,8 +214,16 @@ export function LoginPageComponent() {
     name: string | null;
     avatarUrl: string | null;
     emailVerified: boolean;
+    role: "USER" | "ADMIN";
+    disabled: boolean;
   }) => {
     setUser(user);
+    // Admins land in the admin dashboard; the rest follow the
+    // explicit redirectTo (or home).
+    if (user.role === "ADMIN") {
+      router.push("/admin/users");
+      return;
+    }
     router.push(redirectTo);
   };
 

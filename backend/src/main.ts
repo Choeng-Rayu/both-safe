@@ -5,8 +5,10 @@ import helmet from 'helmet';
 import * as dns from 'dns';
 import { AppModule } from './app.module';
 import { WinstonLoggerService } from './common/logger/winston-logger.service';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const cookieParser: (options?: import('cookie-parser').CookieParseOptions) => import('express').RequestHandler = require('cookie-parser');
+
+const cookieParser: (
+  options?: import('cookie-parser').CookieParseOptions,
+) => import('express').RequestHandler = require('cookie-parser');
 
 dns.setDefaultResultOrder('ipv4first');
 
@@ -48,7 +50,10 @@ async function bootstrap() {
   );
 
   // CORS — allow all in dev when CORS_ORIGINS is empty.
-  const corsList = (process.env.CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  const corsList = (process.env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   app.enableCors({
     origin: corsList.length ? corsList : true,
     credentials: true,

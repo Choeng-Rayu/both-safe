@@ -41,7 +41,9 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
     user: {
       create: jest.fn(),
     },
-    $transaction: jest.fn(async (work: (tx: unknown) => Promise<unknown>) => work(mock)),
+    $transaction: jest.fn(async (work: (tx: unknown) => Promise<unknown>) =>
+      work(mock),
+    ),
     ...overrides,
   };
   return mock;
@@ -85,7 +87,7 @@ describe('BotStateService', () => {
 
   beforeEach(() => {
     prisma = makePrisma();
-    service = new BotStateService(prisma as any, { get: () => undefined } as any);
+    service = new BotStateService(prisma, { get: () => undefined } as any);
   });
 
   describe('get()', () => {
@@ -191,7 +193,7 @@ describe('BotStateService', () => {
       prisma.botState.upsert.mockResolvedValue({});
       await service.startNewDeal('333');
 
-      const call = prisma.botState.upsert.mock.calls[0][0] as any;
+      const call = prisma.botState.upsert.mock.calls[0][0];
       expect(call.where).toEqual({ chatId: '333' });
       expect(call.create.flow).toBe('newdeal');
       expect(call.create.step).toBe('ask_role');
@@ -208,9 +210,13 @@ describe('BotStateService', () => {
   describe('update()', () => {
     it('calls upsert with provided patch fields', async () => {
       prisma.botState.upsert.mockResolvedValue({});
-      await service.update('444', { step: 'ask_price', productTitle: 'Bag', creatorRole: 'buyer' });
+      await service.update('444', {
+        step: 'ask_price',
+        productTitle: 'Bag',
+        creatorRole: 'buyer',
+      });
 
-      const call = prisma.botState.upsert.mock.calls[0][0] as any;
+      const call = prisma.botState.upsert.mock.calls[0][0];
       expect(call.where).toEqual({ chatId: '444' });
       expect(call.update.step).toBe('ask_price');
       expect(call.update.productTitle).toBe('Bag');
@@ -221,7 +227,7 @@ describe('BotStateService', () => {
       prisma.botState.upsert.mockResolvedValue({});
       await service.update('444', { step: 'ask_price' }); // only step
 
-      const call = prisma.botState.upsert.mock.calls[0][0] as any;
+      const call = prisma.botState.upsert.mock.calls[0][0];
       expect(call.update).not.toHaveProperty('flow');
       expect(call.update).not.toHaveProperty('productTitle');
     });
@@ -230,7 +236,7 @@ describe('BotStateService', () => {
       prisma.botState.upsert.mockResolvedValue({});
       const before = Date.now();
       await service.update('444', { language: 'zh' });
-      const call = prisma.botState.upsert.mock.calls[0][0] as any;
+      const call = prisma.botState.upsert.mock.calls[0][0];
       expect(call.update.expiresAt.getTime()).toBeGreaterThan(before);
     });
   });
@@ -277,7 +283,7 @@ describe('BotStateService', () => {
 
       expect(result).toEqual({ userId: 'user-1' });
       expect(prisma.user.create).toHaveBeenCalled();
-      const upsertCall = prisma.telegramIdentity.upsert.mock.calls[0][0] as any;
+      const upsertCall = prisma.telegramIdentity.upsert.mock.calls[0][0];
       expect(upsertCall.create.linkedUserId).toBe('user-1');
       expect(upsertCall.create.username).toBe('john');
     });
@@ -305,7 +311,7 @@ describe('BotStateService', () => {
       const result = await service.ensureIdentity('888', {});
 
       expect(result).toEqual({ userId: 'user-2' });
-      const userCall = prisma.user.create.mock.calls[0][0] as any;
+      const userCall = prisma.user.create.mock.calls[0][0];
       expect(userCall.data.name).toBeNull();
     });
   });
@@ -325,7 +331,12 @@ describe('BotTelegramService', () => {
     prisma = makePrisma();
     bot = makeBot();
     cfg = makeCfg({ APP_BASE_URL: 'https://bothsafe.app' });
-    service = new BotTelegramService(bot as any, cfg as any, prisma as any, makeLogger() as any);
+    service = new BotTelegramService(
+      bot as any,
+      cfg as any,
+      prisma,
+      makeLogger() as any,
+    );
   });
 
   describe('sendNotification()', () => {
@@ -347,7 +358,9 @@ describe('BotTelegramService', () => {
           reply_markup: expect.objectContaining({
             inline_keyboard: expect.arrayContaining([
               expect.arrayContaining([
-                expect.objectContaining({ url: 'https://bothsafe.app/d/deal-abc' }),
+                expect.objectContaining({
+                  url: 'https://bothsafe.app/d/deal-abc',
+                }),
               ]),
             ]),
           }),
@@ -370,19 +383,33 @@ describe('BotTelegramService', () => {
     });
 
     it('does nothing (no throw) when bot is null', async () => {
-      const nullBotService = new BotTelegramService(null as any, cfg as any, prisma as any, makeLogger() as any);
+      const nullBotService = new BotTelegramService(
+        null,
+        cfg as any,
+        prisma,
+        makeLogger() as any,
+      );
       await expect(
-        nullBotService.sendNotification({ chatId: '111', eventKey: 'DEAL_UPDATED' }),
+        nullBotService.sendNotification({
+          chatId: '111',
+          eventKey: 'DEAL_UPDATED',
+        }),
       ).resolves.not.toThrow();
       expect(bot.telegram.sendMessage).not.toHaveBeenCalled();
     });
 
     it('does not throw when telegram.sendMessage rejects', async () => {
       prisma.botState.findUnique.mockResolvedValue({ language: 'en' });
-      bot.telegram.sendMessage.mockRejectedValue(new Error('Telegram API error'));
+      bot.telegram.sendMessage.mockRejectedValue(
+        new Error('Telegram API error'),
+      );
 
       await expect(
-        service.sendNotification({ chatId: '111', eventKey: 'BOTH_APPROVED', dealPublicId: 'xyz' }),
+        service.sendNotification({
+          chatId: '111',
+          eventKey: 'BOTH_APPROVED',
+          dealPublicId: 'xyz',
+        }),
       ).resolves.not.toThrow();
     }, 15000);
 
@@ -414,7 +441,11 @@ describe('BotTelegramService', () => {
       prisma.botState.findUnique.mockResolvedValue({ language: 'km' });
       prisma.notification.updateMany.mockResolvedValue({});
 
-      await service.sendNotification({ chatId: '111', eventKey: 'PAYMENT_VERIFIED', dealPublicId: 'x' });
+      await service.sendNotification({
+        chatId: '111',
+        eventKey: 'PAYMENT_VERIFIED',
+        dealPublicId: 'x',
+      });
 
       const sentText = bot.telegram.sendMessage.mock.calls[0][1];
       // Khmer notification text should not be the English version
@@ -441,7 +472,11 @@ describe('BotTelegramService', () => {
 
       for (const eventKey of events) {
         bot.telegram.sendMessage.mockClear();
-        await service.sendNotification({ chatId: '111', eventKey, dealPublicId: 'pub' });
+        await service.sendNotification({
+          chatId: '111',
+          eventKey,
+          dealPublicId: 'pub',
+        });
         expect(bot.telegram.sendMessage).toHaveBeenCalledTimes(1);
       }
     });
@@ -450,7 +485,11 @@ describe('BotTelegramService', () => {
       prisma.botState.findUnique.mockResolvedValue(null);
       prisma.notification.updateMany.mockResolvedValue({});
 
-      await service.sendNotification({ chatId: '999', eventKey: 'DISPUTE_OPENED', dealPublicId: 'p' });
+      await service.sendNotification({
+        chatId: '999',
+        eventKey: 'DISPUTE_OPENED',
+        dealPublicId: 'p',
+      });
 
       const sentText = bot.telegram.sendMessage.mock.calls[0][1];
       expect(sentText).toContain('dispute'); // English fallback
@@ -468,14 +507,25 @@ describe('BotTelegramService', () => {
     });
 
     it('includes inline button when url is provided', async () => {
-      await service.sendMessage('111', 'Check deal', { url: 'https://bothsafe.app/d/abc' });
+      await service.sendMessage('111', 'Check deal', {
+        url: 'https://bothsafe.app/d/abc',
+      });
       const call = bot.telegram.sendMessage.mock.calls[0];
-      expect(call[2].reply_markup.inline_keyboard[0][0].url).toBe('https://bothsafe.app/d/abc');
+      expect(call[2].reply_markup.inline_keyboard[0][0].url).toBe(
+        'https://bothsafe.app/d/abc',
+      );
     });
 
     it('does nothing (no throw) when bot is null', async () => {
-      const nullBotService = new BotTelegramService(null as any, cfg as any, prisma as any, makeLogger() as any);
-      await expect(nullBotService.sendMessage('111', 'Test')).resolves.not.toThrow();
+      const nullBotService = new BotTelegramService(
+        null,
+        cfg as any,
+        prisma,
+        makeLogger() as any,
+      );
+      await expect(
+        nullBotService.sendMessage('111', 'Test'),
+      ).resolves.not.toThrow();
     });
 
     it('does not throw when telegram.sendMessage rejects', async () => {
@@ -496,7 +546,12 @@ describe('BotTelegramService', () => {
   describe('formatDealLine()', () => {
     it('formats deal with all fields present', () => {
       const line = service.formatDealLine(
-        { publicId: 'abc123', status: 'PAID_ESCROWED', amount: 50.0, product: { title: 'Watch' } },
+        {
+          publicId: 'abc123',
+          status: 'PAID_ESCROWED',
+          amount: 50.0,
+          product: { title: 'Watch' },
+        },
         'en',
       );
       expect(line).toContain('Watch');
@@ -515,7 +570,12 @@ describe('BotTelegramService', () => {
 
     it('uses dash when amount is null', () => {
       const line = service.formatDealLine(
-        { publicId: 'abc123', status: 'DRAFT', amount: null, product: { title: 'Bag' } },
+        {
+          publicId: 'abc123',
+          status: 'DRAFT',
+          amount: null,
+          product: { title: 'Bag' },
+        },
         'en',
       );
       expect(line).toContain('—');
@@ -523,7 +583,12 @@ describe('BotTelegramService', () => {
 
     it('formats in Khmer language', () => {
       const line = service.formatDealLine(
-        { publicId: 'x1', status: 'SHIPPED', amount: 25.0, product: { title: 'Phone' } },
+        {
+          publicId: 'x1',
+          status: 'SHIPPED',
+          amount: 25.0,
+          product: { title: 'Phone' },
+        },
         'km',
       );
       const kmStatus = statusLabel('SHIPPED', 'km');
@@ -532,7 +597,12 @@ describe('BotTelegramService', () => {
 
     it('formats in Chinese language', () => {
       const line = service.formatDealLine(
-        { publicId: 'x2', status: 'RELEASED', amount: 100, product: { title: 'Laptop' } },
+        {
+          publicId: 'x2',
+          status: 'RELEASED',
+          amount: 100,
+          product: { title: 'Laptop' },
+        },
         'zh',
       );
       const zhStatus = statusLabel('RELEASED', 'zh');
@@ -541,7 +611,12 @@ describe('BotTelegramService', () => {
 
     it('includes publicId in monospace code', () => {
       const line = service.formatDealLine(
-        { publicId: 'myPublicId', status: 'DRAFT', amount: 5, product: { title: 'X' } },
+        {
+          publicId: 'myPublicId',
+          status: 'DRAFT',
+          amount: 5,
+          product: { title: 'X' },
+        },
         'en',
       );
       expect(line).toContain('`myPublicId`');
@@ -606,7 +681,8 @@ describe('Bot flow: role detection (bot.update.ts logic)', () => {
   it('buyer km', () => expect(detect('🛒 ខ្ញុំជាអ្នកទិញ')).toBe('buyer'));
   it('seller zh', () => expect(detect('🏪 我是卖家')).toBe('seller'));
   it('buyer zh', () => expect(detect('🛒 我是买家')).toBe('buyer'));
-  it('returns null for gibberish', () => expect(detect('hello there')).toBeNull());
+  it('returns null for gibberish', () =>
+    expect(detect('hello there')).toBeNull());
   it('returns null for empty string', () => expect(detect('')).toBeNull());
 });
 
@@ -624,8 +700,10 @@ describe('Bot flow: skip detection (bot.update.ts logic)', () => {
   it('detects lowercase skip', () => expect(isSkip('skip')).toBe(true));
   it('detects Chinese skip', () => expect(isSkip('跳过')).toBe(true));
   it('detects Khmer skip', () => expect(isSkip('រំលង')).toBe(true));
-  it('does not skip on product title', () => expect(isSkip('Electronics')).toBe(false));
-  it('does not skip on partial skip word', () => expect(isSkip('skip this')).toBe(false));
+  it('does not skip on product title', () =>
+    expect(isSkip('Electronics')).toBe(false));
+  it('does not skip on partial skip word', () =>
+    expect(isSkip('skip this')).toBe(false));
 });
 
 describe('Bot flow: cancel detection (bot.update.ts logic)', () => {
@@ -634,9 +712,12 @@ describe('Bot flow: cancel detection (bot.update.ts logic)', () => {
   }
 
   it('detects ❌ Cancel', () => expect(isCancel('❌ Cancel')).toBe(true));
-  it('detects ❌ cancel (lowercase)', () => expect(isCancel('❌ cancel')).toBe(true));
-  it('returns false for text without ❌', () => expect(isCancel('cancel')).toBe(false));
-  it('returns false for ❌ without cancel keyword', () => expect(isCancel('❌ No')).toBe(false));
+  it('detects ❌ cancel (lowercase)', () =>
+    expect(isCancel('❌ cancel')).toBe(true));
+  it('returns false for text without ❌', () =>
+    expect(isCancel('cancel')).toBe(false));
+  it('returns false for ❌ without cancel keyword', () =>
+    expect(isCancel('❌ No')).toBe(false));
   it('returns false for empty string', () => expect(isCancel('')).toBe(false));
 });
 
@@ -645,14 +726,17 @@ describe('Bot flow: cancel detection (bot.update.ts logic)', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Bot flow: deal payload construction', () => {
-  function buildSellerPayload(chatId: string, state: {
-    creatorRole: 'seller' | 'buyer';
-    language: string;
-    productTitle: string | null;
-    amount: string | null;
-    productType: string | null;
-    note: string | null;
-  }) {
+  function buildSellerPayload(
+    chatId: string,
+    state: {
+      creatorRole: 'seller' | 'buyer';
+      language: string;
+      productTitle: string | null;
+      amount: string | null;
+      productType: string | null;
+      note: string | null;
+    },
+  ) {
     return {
       source: 'telegram' as const,
       creator_role: state.creatorRole,
@@ -660,8 +744,12 @@ describe('Bot flow: deal payload construction', () => {
       telegram_chat_id: chatId,
       product_title: state.productTitle ?? undefined,
       amount: state.amount ? parseFloat(state.amount) : undefined,
-      product_type: state.creatorRole === 'seller' ? (state.productType ?? undefined) : undefined,
-      product_description: state.creatorRole === 'buyer' ? (state.note ?? undefined) : undefined,
+      product_type:
+        state.creatorRole === 'seller'
+          ? (state.productType ?? undefined)
+          : undefined,
+      product_description:
+        state.creatorRole === 'buyer' ? (state.note ?? undefined) : undefined,
     };
   }
 
@@ -780,7 +868,11 @@ describe('Bot URLs and security', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('/chatid command: production guard logic', () => {
-  function shouldReply(nodeEnv: string, chatId: string, adminIds: string[]): boolean {
+  function shouldReply(
+    nodeEnv: string,
+    chatId: string,
+    adminIds: string[],
+  ): boolean {
     if (nodeEnv === 'production' && !adminIds.includes(chatId)) {
       return false;
     }
@@ -840,14 +932,25 @@ describe('/mydeals rendering logic', () => {
   });
 
   it('shows — when product is null', () => {
-    const deal = { publicId: 'x', status: 'DRAFT', amount: null, product: null };
+    const deal = {
+      publicId: 'x',
+      status: 'DRAFT',
+      amount: null,
+      product: null,
+    };
     const title = deal.product?.title ?? '—';
     expect(title).toBe('—');
   });
 
   it('shows — when amount is null', () => {
-    const deal = { publicId: 'x', status: 'DRAFT', amount: null, product: { title: 'Watch' } };
-    const amount = deal.amount != null ? `$${(deal.amount as number).toFixed(2)}` : '—';
+    const deal = {
+      publicId: 'x',
+      status: 'DRAFT',
+      amount: null,
+      product: { title: 'Watch' },
+    };
+    const amount =
+      deal.amount != null ? `$${(deal.amount as number).toFixed(2)}` : '—';
     expect(amount).toBe('—');
   });
 
@@ -961,7 +1064,7 @@ describe('Language preference persistence', () => {
 
   beforeEach(() => {
     prisma = makePrisma();
-    service = new BotStateService(prisma as any, { get: () => undefined } as any);
+    service = new BotStateService(prisma, { get: () => undefined } as any);
   });
 
   it('upsertLanguage stores km correctly', async () => {
@@ -976,7 +1079,7 @@ describe('Language preference persistence', () => {
     prisma.botState.upsert.mockResolvedValue({});
     await service.upsertLanguage('chat1', 'en');
     await service.upsertLanguage('chat1', 'zh');
-    const lastCall = prisma.botState.upsert.mock.calls[1][0] as any;
+    const lastCall = prisma.botState.upsert.mock.calls[1][0];
     expect(lastCall.update.language).toBe('zh');
   });
 });

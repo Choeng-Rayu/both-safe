@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { UserAuthService } from './user-auth.service';
 import { OAuthStateService } from './oauth-state.service';
@@ -10,19 +9,23 @@ import { DealAccessGuard } from './guards/deal-access.guard';
 import { UserSessionGuard } from './guards/user-session.guard';
 
 @Module({
-  imports: [
-    ConfigModule,
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (cfg: ConfigService) => ({
-        secret: cfg.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '12h' },
-      }),
-    }),
+  imports: [ConfigModule],
+  providers: [
+    AuthService,
+    UserAuthService,
+    OAuthStateService,
+    AdminGuard,
+    DealAccessGuard,
+    UserSessionGuard,
   ],
-  providers: [AuthService, UserAuthService, OAuthStateService, AdminGuard, DealAccessGuard, UserSessionGuard],
   controllers: [AuthController],
-  exports: [AuthService, UserAuthService, OAuthStateService, AdminGuard, DealAccessGuard, UserSessionGuard, JwtModule],
+  exports: [
+    AuthService,
+    UserAuthService,
+    OAuthStateService,
+    AdminGuard,
+    DealAccessGuard,
+    UserSessionGuard,
+  ],
 })
 export class AuthModule {}

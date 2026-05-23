@@ -34,7 +34,8 @@ export class DisputesService {
     body: { reason: string; message: string },
     evidenceFiles: Express.Multer.File[] = [],
   ) {
-    if (!actor.role) throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
+    if (!actor.role)
+      throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
     if (!DISPUTE_REASONS.includes(body.reason as any)) {
       throw new BadRequestException({ messageKey: 'dispute.invalid_reason' });
     }
@@ -42,9 +43,12 @@ export class DisputesService {
       where: { publicId },
       include: { participants: true },
     });
-    if (!deal) throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
+    if (!deal)
+      throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
     if (!canOpenDispute(deal.status as any)) {
-      throw new BadRequestException({ messageKey: MESSAGE_KEYS.INVALID_TRANSITION });
+      throw new BadRequestException({
+        messageKey: MESSAGE_KEYS.INVALID_TRANSITION,
+      });
     }
 
     const evidenceUrls: string[] = [];
@@ -87,10 +91,16 @@ export class DisputesService {
       messageKey: MESSAGE_KEYS.DISPUTE_OPENED,
       recipients: [
         { channel: 'inapp', ref: 'admin' },
-        ...deal.participants.map((p) => ({ channel: 'inapp' as const, ref: p.id })),
+        ...deal.participants.map((p) => ({
+          channel: 'inapp' as const,
+          ref: p.id,
+        })),
         ...deal.participants
           .filter((p) => p.telegramChatId)
-          .map((p) => ({ channel: 'telegram' as const, ref: p.telegramChatId! })),
+          .map((p) => ({
+            channel: 'telegram' as const,
+            ref: p.telegramChatId!,
+          })),
       ],
       payload: { reason: body.reason },
     });

@@ -1,11 +1,17 @@
 jest.mock('nanoid', () => ({
   customAlphabet: () => () =>
-    Array.from({ length: 10 }, () =>
-      '23456789abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 31)],
+    Array.from(
+      { length: 10 },
+      () => '23456789abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 31)],
     ).join(''),
 }));
 
-import { generateOpaqueToken, generatePublicId, hashToken, compareToken } from './tokens';
+import {
+  generateOpaqueToken,
+  generatePublicId,
+  hashToken,
+  compareToken,
+} from './tokens';
 
 describe('TokenService (Kiro spec)', () => {
   describe('token generation', () => {
@@ -39,7 +45,9 @@ describe('TokenService (Kiro spec)', () => {
     });
 
     it('should generate unique public IDs', () => {
-      const ids = new Set(Array.from({ length: 100 }, () => generatePublicId()));
+      const ids = new Set(
+        Array.from({ length: 100 }, () => generatePublicId()),
+      );
       expect(ids.size).toBe(100);
     });
   });

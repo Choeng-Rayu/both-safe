@@ -29,9 +29,15 @@ describe('money helpers', () => {
     });
 
     it('rejects negative or non-finite amounts', () => {
-      expect(() => toMinorUnits(-1, CURRENCIES.USD)).toThrow(BadRequestException);
-      expect(() => toMinorUnits(Number.NaN, CURRENCIES.USD)).toThrow(BadRequestException);
-      expect(() => toMinorUnits(Number.POSITIVE_INFINITY, CURRENCIES.USD)).toThrow(BadRequestException);
+      expect(() => toMinorUnits(-1, CURRENCIES.USD)).toThrow(
+        BadRequestException,
+      );
+      expect(() => toMinorUnits(Number.NaN, CURRENCIES.USD)).toThrow(
+        BadRequestException,
+      );
+      expect(() =>
+        toMinorUnits(Number.POSITIVE_INFINITY, CURRENCIES.USD),
+      ).toThrow(BadRequestException);
     });
 
     it('parses numeric strings', () => {

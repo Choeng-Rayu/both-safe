@@ -11,6 +11,13 @@ datasource db {
 
 // ---------- Users / Admins ----------
 
+// User roles. Admins are bootstrapped from environment variables only —
+// see SeedService. The HTTP register endpoint always creates USER rows.
+enum UserRole {
+  USER
+  ADMIN
+}
+
 model User {
   id            String              @id @default(uuid())
   email         String?             @unique
@@ -19,6 +26,10 @@ model User {
   avatarUrl     String?
   phone         String?             @unique
   emailVerified Boolean             @default(false)
+  role          UserRole            @default(USER)
+  // Soft-disabled users cannot sign in or perform any authenticated
+  // action. Set by the admin user-management dashboard.
+  disabled      Boolean             @default(false)
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
   deals         Deal[]
@@ -28,6 +39,9 @@ model User {
   wallet        Wallet?
   withdrawals   Withdrawal[]
   walletEntries WalletLedgerEntry[]
+
+  @@index([role])
+  @@index([disabled])
 }
 
 // OAuth account link (Telegram OIDC, Google)
@@ -151,11 +165,9 @@ model Participant {
   wechatId            String?
   messengerName       String?
   preferredLanguage   String    @default("en") // km|en|zh
-  payoutKhqr          String?
-  payoutBankName      String?
-  payoutAccountName   String?
-  payoutAccountNumber String?
-  payoutKhqrImage     String? // URL to uploaded KHQR image (alternative to typed KHQR string)
+  // Payout details are no longer stored on Participant — released funds
+  // are credited directly to the seller's BothSafe wallet (see Wallet
+  // and Withdrawal models). Sellers cash out via /v1/withdrawals.
   accessTokenHash     String
   approvedAt          DateTime?
   joinedAt            DateTime?

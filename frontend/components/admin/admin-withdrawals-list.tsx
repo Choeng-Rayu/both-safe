@@ -8,7 +8,6 @@ import { adminListWithdrawals, type WithdrawalAdminDetail } from "@/lib/api";
 import { formatMinor } from "@/lib/wallet-format";
 
 interface AdminWithdrawalsListProps {
-  adminToken: string;
   initialStatus?: string;
 }
 
@@ -23,7 +22,7 @@ const STATUS_OPTIONS = [
   { value: "FAILED", label: "Failed" },
 ];
 
-export function AdminWithdrawalsList({ adminToken, initialStatus = "" }: AdminWithdrawalsListProps) {
+export function AdminWithdrawalsList({ initialStatus = "" }: AdminWithdrawalsListProps) {
   const { t } = useI18n();
   const [status, setStatus] = useState(initialStatus);
   const [rows, setRows] = useState<WithdrawalAdminDetail[]>([]);
@@ -36,7 +35,6 @@ export function AdminWithdrawalsList({ adminToken, initialStatus = "" }: AdminWi
     try {
       const result = await adminListWithdrawals({
         status: status || undefined,
-        adminToken,
       });
       setRows(result.withdrawals);
     } catch (err) {
@@ -44,7 +42,7 @@ export function AdminWithdrawalsList({ adminToken, initialStatus = "" }: AdminWi
     } finally {
       setLoading(false);
     }
-  }, [status, adminToken]);
+  }, [status]);
 
   useEffect(() => {
     void refresh();

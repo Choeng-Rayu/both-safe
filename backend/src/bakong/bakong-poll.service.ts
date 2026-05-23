@@ -31,17 +31,24 @@ export class BakongPollService {
   ) {}
 
   async check(md5: string): Promise<TransactionStatus> {
-    const base = this.cfg.get<string>('BAKONG_BASE_URL') ?? 'https://api-bakong.nbc.gov.kh';
+    const base =
+      this.cfg.get<string>('BAKONG_BASE_URL') ??
+      'https://api-bakong.nbc.gov.kh';
     const tkn = this.token.get();
 
     if (!tkn) {
-      this.logger.warn('Bakong token not configured — cannot check transaction');
+      this.logger.warn(
+        'Bakong token not configured — cannot check transaction',
+      );
       return { paid: false };
     }
 
     try {
       const { data } = await firstValueFrom(
-        this.http.post<{ responseCode: number; data?: Record<string, unknown> }>(
+        this.http.post<{
+          responseCode: number;
+          data?: Record<string, unknown>;
+        }>(
           `${base}/v1/check_transaction_by_md5`,
           { md5 },
           {
@@ -63,7 +70,9 @@ export class BakongPollService {
           amount: data.data['amount'] as number | undefined,
           description: data.data['description'] as string | undefined,
           createdDateMs: data.data['createdDateMs'] as number | undefined,
-          acknowledgedDateMs: data.data['acknowledgedDateMs'] as number | undefined,
+          acknowledgedDateMs: data.data['acknowledgedDateMs'] as
+            | number
+            | undefined,
         };
       }
       return { paid: false };

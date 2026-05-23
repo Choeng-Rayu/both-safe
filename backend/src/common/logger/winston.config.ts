@@ -7,18 +7,18 @@ const { combine, timestamp, json, errors, printf, colorize } = format;
 const LOGS_DIR = process.env.LOGS_DIR || path.join(process.cwd(), 'logs');
 
 // Console format for development — human readable
-const consoleFormat = printf(({ level, message, timestamp: ts, context, ...metadata }) => {
-  const ctx = context ? ` [${context}]` : '';
-  const meta = Object.keys(metadata).length ? ` ${JSON.stringify(metadata)}` : '';
-  return `${ts}${ctx} ${level}: ${message}${meta}`;
-});
+const consoleFormat = printf(
+  ({ level, message, timestamp: ts, context, ...metadata }) => {
+    const ctx = context ? ` [${context}]` : '';
+    const meta = Object.keys(metadata).length
+      ? ` ${JSON.stringify(metadata)}`
+      : '';
+    return `${ts}${ctx} ${level}: ${message}${meta}`;
+  },
+);
 
 // File format — structured JSON for parsing
-const fileFormat = combine(
-  timestamp(),
-  errors({ stack: true }),
-  json(),
-);
+const fileFormat = combine(timestamp(), errors({ stack: true }), json());
 
 // Daily rotate file transport for all logs
 const dailyRotateCombined = new DailyRotateFile({
@@ -54,11 +54,7 @@ export function createWinstonLogger() {
   return createLogger({
     level: process.env.LOG_LEVEL || 'info',
     defaultMeta: { service: 'bothsafe-backend' },
-    transports: [
-      consoleTransport,
-      dailyRotateCombined,
-      dailyRotateError,
-    ],
+    transports: [consoleTransport, dailyRotateCombined, dailyRotateError],
     // Don't exit on uncaught errors — let NestJS handle it
     exitOnError: false,
   });

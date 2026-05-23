@@ -12,12 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import {
-  ApiBody,
-  ApiConsumes,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { UserSessionGuard } from '../auth/guards/user-session.guard';
@@ -36,7 +31,9 @@ export class WithdrawalsController {
   constructor(private readonly withdrawals: WithdrawalsService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a withdrawal request (JSON; typed KHQR or bank account)' })
+  @ApiOperation({
+    summary: 'Create a withdrawal request (JSON; typed KHQR or bank account)',
+  })
   async create(@Req() req: AuthedRequest, @Body() body: CreateWithdrawalDto) {
     const userId = this.requireUserId(req);
     const withdrawal = await this.withdrawals.createForUser(userId, body);
@@ -75,7 +72,11 @@ export class WithdrawalsController {
     @Req() req: AuthedRequest,
     @UploadedFile() file: Express.Multer.File,
     @Body()
-    body: { amount_minor: string | number; currency: string; provider_label?: string },
+    body: {
+      amount_minor: string | number;
+      currency: string;
+      provider_label?: string;
+    },
   ) {
     const userId = this.requireUserId(req);
     const withdrawal = await this.withdrawals.createWithQrUpload(

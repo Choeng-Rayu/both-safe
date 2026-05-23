@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ExternalLink, Loader2 } from "lucide-react";
-import { createDeal, updateDealSection } from "@/lib/api";
+import { createDeal } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import { setStoredAccessToken, setStoredInviteLink } from "@/lib/token-store";
 import { PublicHeader } from "@/components/layout/public-header";
@@ -26,10 +26,6 @@ const initialSellerFields = {
   product_description: "",
   amount: "",
   currency: "USD",
-  payout_khqr: "",
-  payout_bank_name: "",
-  payout_account_name: "",
-  payout_account_number: "",
 };
 
 export function CreateDealPage() {
@@ -83,20 +79,6 @@ export function CreateDealPage() {
         new URL(result.creator_access_url).searchParams.get("access") ?? "";
       setStoredAccessToken(result.public_id, creatorToken);
       setStoredInviteLink(result.public_id, result.invite_url);
-
-      if (role === "seller" && fields.payout_khqr.trim()) {
-        await updateDealSection(
-          result.public_id,
-          "payout",
-          {
-            payout_khqr: fields.payout_khqr,
-            payout_bank_name: fields.payout_bank_name || undefined,
-            payout_account_name: fields.payout_account_name || undefined,
-            payout_account_number: fields.payout_account_number || undefined,
-          },
-          { accessToken: creatorToken },
-        );
-      }
 
       setCreated(result);
     } catch (submitError) {
@@ -232,59 +214,6 @@ export function CreateDealPage() {
                   />
                 </Field>
               </div>
-              {role === "seller" ? (
-                <>
-                  <div className="sm:col-span-2">
-                    <Field
-                      label={t("field.payout_khqr")}
-                      hint={t("deal.create.seller_payout_hint")}
-                    >
-                      <Textarea
-                        value={fields.payout_khqr}
-                        onChange={(event) =>
-                          setFields((current) => ({
-                            ...current,
-                            payout_khqr: event.target.value,
-                          }))
-                        }
-                      />
-                    </Field>
-                  </div>
-                  <Field label={t("field.payout_bank_name")}>
-                    <Input
-                      value={fields.payout_bank_name}
-                      onChange={(event) =>
-                        setFields((current) => ({
-                          ...current,
-                          payout_bank_name: event.target.value,
-                        }))
-                      }
-                    />
-                  </Field>
-                  <Field label={t("field.payout_account_name")}>
-                    <Input
-                      value={fields.payout_account_name}
-                      onChange={(event) =>
-                        setFields((current) => ({
-                          ...current,
-                          payout_account_name: event.target.value,
-                        }))
-                      }
-                    />
-                  </Field>
-                  <Field label={t("field.payout_account_number")}>
-                    <Input
-                      value={fields.payout_account_number}
-                      onChange={(event) =>
-                        setFields((current) => ({
-                          ...current,
-                          payout_account_number: event.target.value,
-                        }))
-                      }
-                    />
-                  </Field>
-                </>
-              ) : null}
             </div>
             {error ? (
               <p className="mt-4 rounded-lg border border-[var(--danger)/0.2] bg-[var(--danger)/0.05] p-3 text-sm text-[var(--danger)]">

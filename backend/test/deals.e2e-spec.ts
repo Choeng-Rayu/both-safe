@@ -39,7 +39,10 @@ describe('E2E: BothSafe API', () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         AppModule,
-        JwtModule.register({ secret: process.env.JWT_SECRET, signOptions: { expiresIn: '1h' } }),
+        JwtModule.register({
+          secret: process.env.JWT_SECRET,
+          signOptions: { expiresIn: '1h' },
+        }),
       ],
     })
       .overrideProvider(ThrottlerGuard)
@@ -55,7 +58,9 @@ describe('E2E: BothSafe API', () => {
       .compile();
 
     app = module.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
 
     prisma = module.get(PrismaService);
@@ -76,7 +81,12 @@ describe('E2E: BothSafe API', () => {
   beforeEach(async () => {
     await cleanDatabase(prisma);
     const admin = await prisma.admin.create({
-      data: { email: 'admin@test.local', passwordHash: '$2a$10$testhash', name: 'Test Admin', active: true },
+      data: {
+        email: 'admin@test.local',
+        passwordHash: '$2a$10$testhash',
+        name: 'Test Admin',
+        active: true,
+      },
     });
     adminId = admin.id;
     adminToken = jwt.sign({ sub: admin.id, email: admin.email, role: 'admin' });
@@ -88,9 +98,36 @@ describe('E2E: BothSafe API', () => {
       // Seed some deals
       await prisma.deal.createMany({
         data: [
-          { publicId: 'deal1', creatorRole: 'buyer', source: 'web', status: DEAL_STATUS.DRAFT, currency: 'USD', creatorAccessTokenHash: '33112ee14ee469c3eb52fe90322ec81dd404a0093d565a6d71ce77cbc8124e3b', amount: 100 },
-          { publicId: 'deal2', creatorRole: 'seller', source: 'web', status: DEAL_STATUS.READY_FOR_PAYMENT, currency: 'USD', creatorAccessTokenHash: 'f998fe06afa0cfbe73e0449dc2b1698309e1b5714960f027b2858312b152c275', amount: 200 },
-          { publicId: 'deal3', creatorRole: 'buyer', source: 'telegram', status: DEAL_STATUS.SHIPPED, currency: 'USD', creatorAccessTokenHash: '97fb5f8538b89f6c1accfd19836b65a73b61fbc2e0cbf84bb858a0fffa3f1592', amount: 300 },
+          {
+            publicId: 'deal1',
+            creatorRole: 'buyer',
+            source: 'web',
+            status: DEAL_STATUS.DRAFT,
+            currency: 'USD',
+            creatorAccessTokenHash:
+              '33112ee14ee469c3eb52fe90322ec81dd404a0093d565a6d71ce77cbc8124e3b',
+            amount: 100,
+          },
+          {
+            publicId: 'deal2',
+            creatorRole: 'seller',
+            source: 'web',
+            status: DEAL_STATUS.READY_FOR_PAYMENT,
+            currency: 'USD',
+            creatorAccessTokenHash:
+              'f998fe06afa0cfbe73e0449dc2b1698309e1b5714960f027b2858312b152c275',
+            amount: 200,
+          },
+          {
+            publicId: 'deal3',
+            creatorRole: 'buyer',
+            source: 'telegram',
+            status: DEAL_STATUS.SHIPPED,
+            currency: 'USD',
+            creatorAccessTokenHash:
+              '97fb5f8538b89f6c1accfd19836b65a73b61fbc2e0cbf84bb858a0fffa3f1592',
+            amount: 300,
+          },
         ],
       });
 
@@ -107,8 +144,24 @@ describe('E2E: BothSafe API', () => {
     it('GET /admin/deals — filter by status', async () => {
       await prisma.deal.createMany({
         data: [
-          { publicId: 'd1', creatorRole: 'buyer', source: 'web', status: DEAL_STATUS.DRAFT, currency: 'USD', creatorAccessTokenHash: '33112ee14ee469c3eb52fe90322ec81dd404a0093d565a6d71ce77cbc8124e3b' },
-          { publicId: 'd2', creatorRole: 'buyer', source: 'web', status: DEAL_STATUS.SHIPPED, currency: 'USD', creatorAccessTokenHash: 'f998fe06afa0cfbe73e0449dc2b1698309e1b5714960f027b2858312b152c275' },
+          {
+            publicId: 'd1',
+            creatorRole: 'buyer',
+            source: 'web',
+            status: DEAL_STATUS.DRAFT,
+            currency: 'USD',
+            creatorAccessTokenHash:
+              '33112ee14ee469c3eb52fe90322ec81dd404a0093d565a6d71ce77cbc8124e3b',
+          },
+          {
+            publicId: 'd2',
+            creatorRole: 'buyer',
+            source: 'web',
+            status: DEAL_STATUS.SHIPPED,
+            currency: 'USD',
+            creatorAccessTokenHash:
+              'f998fe06afa0cfbe73e0449dc2b1698309e1b5714960f027b2858312b152c275',
+          },
         ],
       });
 
@@ -130,9 +183,17 @@ describe('E2E: BothSafe API', () => {
           status: DEAL_STATUS.READY_FOR_PAYMENT,
           currency: 'USD',
           amount: 500,
-          creatorAccessTokenHash: '33112ee14ee469c3eb52fe90322ec81dd404a0093d565a6d71ce77cbc8124e3b',
+          creatorAccessTokenHash:
+            '33112ee14ee469c3eb52fe90322ec81dd404a0093d565a6d71ce77cbc8124e3b',
           product: { create: { title: 'Test Product', type: 'electronics' } },
-          participants: { create: { role: 'seller', name: 'Seller', accessTokenHash: 'f998fe06afa0cfbe73e0449dc2b1698309e1b5714960f027b2858312b152c275' } },
+          participants: {
+            create: {
+              role: 'seller',
+              name: 'Seller',
+              accessTokenHash:
+                'f998fe06afa0cfbe73e0449dc2b1698309e1b5714960f027b2858312b152c275',
+            },
+          },
         },
       });
 
@@ -158,7 +219,12 @@ describe('E2E: BothSafe API', () => {
         },
       });
       await prisma.auditLog.create({
-        data: { dealId: deal.id, actorType: 'system', action: 'deal.created', details: '{}' },
+        data: {
+          dealId: deal.id,
+          actorType: 'system',
+          action: 'deal.created',
+          details: '{}',
+        },
       });
 
       const res = await request(app.getHttpServer())
@@ -265,7 +331,9 @@ describe('E2E: BothSafe API', () => {
         .field('buyer_note', 'Paid via Bakong')
         .expect(201);
 
-      expect(paymentRes.body.status).toBe(DEAL_STATUS.PAYMENT_PENDING_VERIFICATION);
+      expect(paymentRes.body.status).toBe(
+        DEAL_STATUS.PAYMENT_PENDING_VERIFICATION,
+      );
       const paymentId = paymentRes.body.payment_id;
 
       // 9. Admin verifies payment
@@ -296,7 +364,10 @@ describe('E2E: BothSafe API', () => {
       expect(confirmRes.body.status).toBe(DEAL_STATUS.RELEASE_PENDING);
 
       // 12. Get deal and verify ledger entries
-      const deal = await prisma.deal.findUnique({ where: { publicId }, include: { ledgerEntries: true } });
+      const deal = await prisma.deal.findUnique({
+        where: { publicId },
+        include: { ledgerEntries: true },
+      });
       expect(deal!.status).toBe(DEAL_STATUS.RELEASE_PENDING);
       expect(deal!.ledgerEntries.length).toBeGreaterThanOrEqual(2); // ESCROW_RECEIVED, PLATFORM_FEE_RESERVED
 
@@ -309,7 +380,9 @@ describe('E2E: BothSafe API', () => {
 
       expect(releaseRes.body.status).toBe(DEAL_STATUS.RELEASED);
 
-      const finalDeal = await prisma.deal.findUnique({ where: { id: deal!.id } });
+      const finalDeal = await prisma.deal.findUnique({
+        where: { id: deal!.id },
+      });
       expect(finalDeal!.status).toBe(DEAL_STATUS.RELEASED);
     });
   });
@@ -333,8 +406,18 @@ describe('E2E: BothSafe API', () => {
           product: { create: { title: 'Dispute Item', type: 'electronics' } },
           participants: {
             create: [
-              { role: 'seller', name: 'Seller', accessTokenHash: hashToken(rawSeller), approvedAt: new Date() },
-              { role: 'buyer', name: 'Buyer', accessTokenHash: hashToken(rawBuyer), approvedAt: new Date() },
+              {
+                role: 'seller',
+                name: 'Seller',
+                accessTokenHash: hashToken(rawSeller),
+                approvedAt: new Date(),
+              },
+              {
+                role: 'buyer',
+                name: 'Buyer',
+                accessTokenHash: hashToken(rawBuyer),
+                approvedAt: new Date(),
+              },
             ],
           },
           payments: {
@@ -350,8 +433,16 @@ describe('E2E: BothSafe API', () => {
           ledgerEntries: {
             create: [
               { entryType: 'ESCROW_RECEIVED', amount: 150, currency: 'USD' },
-              { entryType: 'PLATFORM_FEE_RESERVED', amount: 3, currency: 'USD' },
-              { entryType: 'SELLER_PAYOUT_PENDING', amount: 147, currency: 'USD' },
+              {
+                entryType: 'PLATFORM_FEE_RESERVED',
+                amount: 3,
+                currency: 'USD',
+              },
+              {
+                entryType: 'SELLER_PAYOUT_PENDING',
+                amount: 147,
+                currency: 'USD',
+              },
             ],
           },
         },
@@ -369,7 +460,9 @@ describe('E2E: BothSafe API', () => {
       const disputeId = disputeRes.body.dispute_id;
 
       // Verify dispute record
-      const disputeRecord = await prisma.dispute.findUnique({ where: { id: disputeId } });
+      const disputeRecord = await prisma.dispute.findUnique({
+        where: { id: disputeId },
+      });
       expect(disputeRecord!.status).toBe('open');
       expect(disputeRecord!.reason).toBe('ITEM_NOT_RECEIVED');
 
@@ -387,15 +480,23 @@ describe('E2E: BothSafe API', () => {
       expect(resolveRes.body.status).toBe(DEAL_STATUS.REFUNDED);
 
       // Verify final state
-      const finalDeal = await prisma.deal.findUnique({ where: { id: deal.id } });
+      const finalDeal = await prisma.deal.findUnique({
+        where: { id: deal.id },
+      });
       expect(finalDeal!.status).toBe(DEAL_STATUS.REFUNDED);
 
-      const updatedDispute = await prisma.dispute.findUnique({ where: { id: disputeId } });
+      const updatedDispute = await prisma.dispute.findUnique({
+        where: { id: disputeId },
+      });
       expect(updatedDispute!.status).toBe('resolved_refund');
 
       // Verify refund ledger entries
-      const entries = await prisma.ledgerEntry.findMany({ where: { dealId: deal.id } });
-      expect(entries.some((e) => e.entryType === 'BUYER_REFUND_SENT')).toBe(true);
+      const entries = await prisma.ledgerEntry.findMany({
+        where: { dealId: deal.id },
+      });
+      expect(entries.some((e) => e.entryType === 'BUYER_REFUND_SENT')).toBe(
+        true,
+      );
     });
 
     it('POST /deals/:id/disputes → admin resolves with release', async () => {
@@ -415,8 +516,18 @@ describe('E2E: BothSafe API', () => {
           product: { create: { title: 'Another Item', type: 'electronics' } },
           participants: {
             create: [
-              { role: 'seller', name: 'Seller2', accessTokenHash: hashToken(rawSeller), approvedAt: new Date() },
-              { role: 'buyer', name: 'Buyer2', accessTokenHash: hashToken(rawBuyer), approvedAt: new Date() },
+              {
+                role: 'seller',
+                name: 'Seller2',
+                accessTokenHash: hashToken(rawSeller),
+                approvedAt: new Date(),
+              },
+              {
+                role: 'buyer',
+                name: 'Buyer2',
+                accessTokenHash: hashToken(rawBuyer),
+                approvedAt: new Date(),
+              },
             ],
           },
           payments: {
@@ -453,8 +564,12 @@ describe('E2E: BothSafe API', () => {
 
       expect(resolveRes.body.status).toBe(DEAL_STATUS.RELEASE_PENDING);
 
-      const entries = await prisma.ledgerEntry.findMany({ where: { dealId: deal.id } });
-      expect(entries.some((e) => e.entryType === 'SELLER_PAYOUT_PENDING')).toBe(true);
+      const entries = await prisma.ledgerEntry.findMany({
+        where: { dealId: deal.id },
+      });
+      expect(entries.some((e) => e.entryType === 'SELLER_PAYOUT_PENDING')).toBe(
+        true,
+      );
     });
   });
 
@@ -468,9 +583,7 @@ describe('E2E: BothSafe API', () => {
     });
 
     it('returns 401 for missing auth on protected endpoints', async () => {
-      await request(app.getHttpServer())
-        .get('/admin/deals')
-        .expect(401);
+      await request(app.getHttpServer()).get('/admin/deals').expect(401);
     });
 
     it('returns 400 for invalid transition', async () => {
@@ -483,7 +596,13 @@ describe('E2E: BothSafe API', () => {
           status: DEAL_STATUS.DRAFT,
           currency: 'USD',
           creatorAccessTokenHash: hashToken(rawCreator),
-          participants: { create: { role: 'buyer', name: 'Buyer', accessTokenHash: hashToken(rawCreator) } },
+          participants: {
+            create: {
+              role: 'buyer',
+              name: 'Buyer',
+              accessTokenHash: hashToken(rawCreator),
+            },
+          },
         },
       });
 
@@ -504,7 +623,13 @@ describe('E2E: BothSafe API', () => {
           status: DEAL_STATUS.DRAFT,
           currency: 'USD',
           creatorAccessTokenHash: hashToken(rawCreator),
-          participants: { create: { role: 'buyer', name: 'Buyer', accessTokenHash: hashToken(rawCreator) } },
+          participants: {
+            create: {
+              role: 'buyer',
+              name: 'Buyer',
+              accessTokenHash: hashToken(rawCreator),
+            },
+          },
         },
       });
 
@@ -528,12 +653,26 @@ describe('E2E: BothSafe API', () => {
           amount: 100,
           netSellerAmount: 98,
           creatorAccessTokenHash: hashToken(rawCreator),
-          participants: { create: { role: 'seller', name: 'Seller', accessTokenHash: hashToken(rawCreator) } },
+          participants: {
+            create: {
+              role: 'seller',
+              name: 'Seller',
+              accessTokenHash: hashToken(rawCreator),
+            },
+          },
           ledgerEntries: {
             create: [
               { entryType: 'ESCROW_RECEIVED', amount: 100, currency: 'USD' },
-              { entryType: 'PLATFORM_FEE_RESERVED', amount: 2, currency: 'USD' },
-              { entryType: 'SELLER_PAYOUT_PENDING', amount: 98, currency: 'USD' },
+              {
+                entryType: 'PLATFORM_FEE_RESERVED',
+                amount: 2,
+                currency: 'USD',
+              },
+              {
+                entryType: 'SELLER_PAYOUT_PENDING',
+                amount: 98,
+                currency: 'USD',
+              },
             ],
           },
         },
@@ -554,7 +693,9 @@ describe('E2E: BothSafe API', () => {
         .expect(201);
 
       expect(res1.body.status).toBe(res2.body.status);
-      expect(res1.body.ledger_entries.length).toBe(res2.body.ledger_entries.length);
+      expect(res1.body.ledger_entries.length).toBe(
+        res2.body.ledger_entries.length,
+      );
     });
   });
 });

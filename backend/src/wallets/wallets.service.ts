@@ -54,7 +54,9 @@ export class WalletsService {
     } catch {
       const retry = await this.prisma.wallet.findUnique({ where: { userId } });
       if (!retry) {
-        throw new ConflictException({ messageKey: MESSAGE_KEYS.WALLET_NOT_FOUND });
+        throw new ConflictException({
+          messageKey: MESSAGE_KEYS.WALLET_NOT_FOUND,
+        });
       }
       return retry;
     }
@@ -76,9 +78,14 @@ export class WalletsService {
     };
   }
 
-  async getEffectiveAvailable(userId: string, currency: Currency): Promise<bigint> {
+  async getEffectiveAvailable(
+    userId: string,
+    currency: Currency,
+  ): Promise<bigint> {
     const snapshot = await this.getSnapshot(userId);
-    return currency === CURRENCIES.USD ? snapshot.effectiveUsd : snapshot.effectiveKhr;
+    return currency === CURRENCIES.USD
+      ? snapshot.effectiveUsd
+      : snapshot.effectiveKhr;
   }
 
   // ─── Core balance operations (must be called inside an outer transaction
@@ -116,7 +123,13 @@ export class WalletsService {
     }
     const wallet = await this.requireWalletForUpdate(tx, input.userId);
     const newBalance = this.balanceFor(wallet, input.currency) + input.amount;
-    await this.updateWalletBalance(tx, wallet.id, wallet.version, input.currency, newBalance);
+    await this.updateWalletBalance(
+      tx,
+      wallet.id,
+      wallet.version,
+      input.currency,
+      newBalance,
+    );
     await this.writeEntry(tx, wallet.id, newBalance, input);
     return newBalance;
   }
@@ -135,7 +148,8 @@ export class WalletsService {
     const wallet = await this.requireWalletForUpdate(tx, input.userId);
     const currentBalance = this.balanceFor(wallet, input.currency);
     const effectiveAvailable =
-      currentBalance - (await this.lockedAmount(tx, input.userId, input.currency));
+      currentBalance -
+      (await this.lockedAmount(tx, input.userId, input.currency));
     if (effectiveAvailable < input.amount) {
       throw new BadRequestException({
         messageKey: MESSAGE_KEYS.WALLET_INSUFFICIENT_FUNDS,
@@ -147,7 +161,13 @@ export class WalletsService {
       });
     }
     const newBalance = currentBalance - input.amount;
-    await this.updateWalletBalance(tx, wallet.id, wallet.version, input.currency, newBalance);
+    await this.updateWalletBalance(
+      tx,
+      wallet.id,
+      wallet.version,
+      input.currency,
+      newBalance,
+    );
     await this.writeEntry(tx, wallet.id, newBalance, input);
     return newBalance;
   }
@@ -190,7 +210,12 @@ export class WalletsService {
     });
   }
 
-  async listLedger(userId: string, currency: Currency | null, limit = 50, cursor?: string) {
+  async listLedger(
+    userId: string,
+    currency: Currency | null,
+    limit = 50,
+    cursor?: string,
+  ) {
     const where: Prisma.WalletLedgerEntryWhereInput = { userId };
     if (currency) where.currency = currency;
     return this.prisma.walletLedgerEntry.findMany({
@@ -218,7 +243,9 @@ export class WalletsService {
   private async requireWallet(tx: Tx, userId: string) {
     const wallet = await tx.wallet.findUnique({ where: { userId } });
     if (!wallet) {
-      throw new NotFoundException({ messageKey: MESSAGE_KEYS.WALLET_NOT_FOUND });
+      throw new NotFoundException({
+        messageKey: MESSAGE_KEYS.WALLET_NOT_FOUND,
+      });
     }
     return wallet;
   }
@@ -231,7 +258,9 @@ export class WalletsService {
     wallet: { availableUsd: bigint; availableKhr: bigint },
     currency: Currency,
   ): bigint {
-    return currency === CURRENCIES.USD ? wallet.availableUsd : wallet.availableKhr;
+    return currency === CURRENCIES.USD
+      ? wallet.availableUsd
+      : wallet.availableKhr;
   }
 
   private async updateWalletBalance(
@@ -278,7 +307,9 @@ export class WalletsService {
     });
   }
 
-  private async pendingWithdrawalsByCurrency(userId: string): Promise<Map<string, bigint>> {
+  private async pendingWithdrawalsByCurrency(
+    userId: string,
+  ): Promise<Map<string, bigint>> {
     const rows = await this.prisma.withdrawal.findMany({
       where: { userId, status: { in: [...WITHDRAWAL_ACTIVE_STATUSES] } },
       select: { amount: true, currency: true },
@@ -291,9 +322,17 @@ export class WalletsService {
     return map;
   }
 
-  private async lockedAmount(tx: Tx, userId: string, currency: Currency): Promise<bigint> {
+  private async lockedAmount(
+    tx: Tx,
+    userId: string,
+    currency: Currency,
+  ): Promise<bigint> {
     const rows = await tx.withdrawal.findMany({
-      where: { userId, currency, status: { in: [...WITHDRAWAL_ACTIVE_STATUSES] } },
+      where: {
+        userId,
+        currency,
+        status: { in: [...WITHDRAWAL_ACTIVE_STATUSES] },
+      },
       select: { amount: true },
     });
     return rows.reduce((acc, row) => acc + row.amount, 0n);

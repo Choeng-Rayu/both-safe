@@ -1,4 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
 
@@ -15,10 +21,7 @@ export class BotWebhookGuard implements CanActivate {
   constructor(private readonly cfg: ConfigService) {
     this.secretToken = this.cfg.get<string>('TELEGRAM_WEBHOOK_SECRET') ?? '';
     // Telegram IP ranges (AWS AS16509) — expand as needed
-    this.telegramIpRanges = [
-      '149.154.160.0/20',
-      '91.108.4.0/22',
-    ];
+    this.telegramIpRanges = ['149.154.160.0/20', '91.108.4.0/22'];
   }
 
   canActivate(context: ExecutionContext): boolean {

@@ -29,18 +29,23 @@ class BotEnvValidationService implements OnModuleInit {
     const enabled = this.cfg.get<string>('TELEGRAM_BOT_ENABLED') !== 'false';
     const token = this.cfg.get<string>('TELEGRAM_BOT_TOKEN') ?? '';
     if (!enabled || token.length === 0) {
-      this.logger.log('Bot disabled (TELEGRAM_BOT_TOKEN missing or TELEGRAM_BOT_ENABLED=false) — skipping bot env validation');
+      this.logger.log(
+        'Bot disabled (TELEGRAM_BOT_TOKEN missing or TELEGRAM_BOT_ENABLED=false) — skipping bot env validation',
+      );
       return;
     }
 
     if (token.length < 10 || !/^\d+:[A-Za-z0-9_-]+$/.test(token)) {
-      throw new Error('TELEGRAM_BOT_TOKEN appears invalid (expected "<digits>:<token>" format)');
+      throw new Error(
+        'TELEGRAM_BOT_TOKEN appears invalid (expected "<digits>:<token>" format)',
+      );
     }
 
     const isProd = process.env.NODE_ENV === 'production';
     if (isProd) {
       const webhookUrl = this.cfg.get<string>('TELEGRAM_WEBHOOK_URL') ?? '';
-      const webhookSecret = this.cfg.get<string>('TELEGRAM_WEBHOOK_SECRET') ?? '';
+      const webhookSecret =
+        this.cfg.get<string>('TELEGRAM_WEBHOOK_SECRET') ?? '';
       if (!webhookUrl) {
         throw new Error('TELEGRAM_WEBHOOK_URL is required in production');
       }
@@ -52,18 +57,30 @@ class BotEnvValidationService implements OnModuleInit {
       }
     }
 
-    const ttl = Number(this.cfg.get<string>('BOT_CONVERSATION_TIMEOUT_MINUTES') ?? '10');
+    const ttl = Number(
+      this.cfg.get<string>('BOT_CONVERSATION_TIMEOUT_MINUTES') ?? '10',
+    );
     if (!Number.isFinite(ttl) || ttl <= 0) {
-      throw new Error('BOT_CONVERSATION_TIMEOUT_MINUTES must be a positive number');
+      throw new Error(
+        'BOT_CONVERSATION_TIMEOUT_MINUTES must be a positive number',
+      );
     }
 
-    const dealsPerHour = Number(this.cfg.get<string>('BOT_RATE_LIMIT_DEALS_PER_HOUR') ?? '3');
-    const cmdsPerMin = Number(this.cfg.get<string>('BOT_RATE_LIMIT_COMMANDS_PER_MINUTE') ?? '10');
+    const dealsPerHour = Number(
+      this.cfg.get<string>('BOT_RATE_LIMIT_DEALS_PER_HOUR') ?? '3',
+    );
+    const cmdsPerMin = Number(
+      this.cfg.get<string>('BOT_RATE_LIMIT_COMMANDS_PER_MINUTE') ?? '10',
+    );
     if (!Number.isFinite(dealsPerHour) || dealsPerHour <= 0) {
-      throw new Error('BOT_RATE_LIMIT_DEALS_PER_HOUR must be a positive number');
+      throw new Error(
+        'BOT_RATE_LIMIT_DEALS_PER_HOUR must be a positive number',
+      );
     }
     if (!Number.isFinite(cmdsPerMin) || cmdsPerMin <= 0) {
-      throw new Error('BOT_RATE_LIMIT_COMMANDS_PER_MINUTE must be a positive number');
+      throw new Error(
+        'BOT_RATE_LIMIT_COMMANDS_PER_MINUTE must be a positive number',
+      );
     }
 
     this.logger.log(
@@ -83,7 +100,9 @@ class BotEnvValidationService implements OnModuleInit {
       inject: [ConfigService],
       useFactory: (cfg: ConfigService) => {
         const token = cfg.get<string>('TELEGRAM_BOT_TOKEN') ?? '';
-        const isEnabled = cfg.get<string>('TELEGRAM_BOT_ENABLED') !== 'false' && token.length > 10;
+        const isEnabled =
+          cfg.get<string>('TELEGRAM_BOT_ENABLED') !== 'false' &&
+          token.length > 10;
         const webhookUrl = cfg.get<string>('TELEGRAM_WEBHOOK_URL') ?? '';
         const webhookSecret = cfg.get<string>('TELEGRAM_WEBHOOK_SECRET') ?? '';
         const isDev = cfg.get<string>('NODE_ENV') !== 'production';
@@ -129,6 +148,12 @@ class BotEnvValidationService implements OnModuleInit {
       useExisting: BotTelegramService,
     },
   ],
-  exports: [BotTelegramService, BotStateService, BotRateLimiterService, BotWebhookGuard, BOT_NOTIFIER],
+  exports: [
+    BotTelegramService,
+    BotStateService,
+    BotRateLimiterService,
+    BotWebhookGuard,
+    BOT_NOTIFIER,
+  ],
 })
 export class BotModule {}

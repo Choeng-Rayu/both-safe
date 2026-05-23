@@ -10,11 +10,13 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletsService } from '../wallets/wallets.service';
 import { AuditService } from '../common/services/audit.service';
+import { NotificationService } from '../notifications/notification.service';
 import {
   CURRENCIES,
   Currency,
   FILE_CATEGORIES,
   MESSAGE_KEYS,
+  NOTIFICATION_EVENTS,
   WALLET_LEDGER_DIRECTIONS,
   WALLET_LEDGER_ENTRY_TYPES,
   WITHDRAWAL_DESTINATION_TYPES,
@@ -25,7 +27,10 @@ import {
 } from '../common/constants';
 import { FilesService } from '../files/files.service';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
-import { CompleteWithdrawalDto, RejectWithdrawalDto } from './dto/admin-action.dto';
+import {
+  CompleteWithdrawalDto,
+  RejectWithdrawalDto,
+} from './dto/admin-action.dto';
 
 @Injectable()
 export class WithdrawalsService {
@@ -34,6 +39,7 @@ export class WithdrawalsService {
     private readonly wallets: WalletsService,
     private readonly audit: AuditService,
     private readonly files: FilesService,
+    private readonly notif: NotificationService,
   ) {}
 
   /**
@@ -59,7 +65,10 @@ export class WithdrawalsService {
         details: { field: 'qr_image', reason: 'required' },
       });
     }
-    if (input.currency !== CURRENCIES.USD && input.currency !== CURRENCIES.KHR) {
+    if (
+      input.currency !== CURRENCIES.USD &&
+      input.currency !== CURRENCIES.KHR
+    ) {
       throw new BadRequestException({
         messageKey: MESSAGE_KEYS.VALIDATION_FAILED,
         details: { field: 'currency', allowed: Object.values(CURRENCIES) },
@@ -85,7 +94,7 @@ export class WithdrawalsService {
     const imageUrl = this.files.signedUrlFor(stored);
 
     return this.createForUser(userId, {
-      currency: input.currency as Currency,
+      currency: input.currency,
       amount_minor: amountMinor,
       destination: {
         type: WITHDRAWAL_DESTINATION_TYPES.BAKONG_KHQR,
@@ -109,10 +118,13 @@ export class WithdrawalsService {
         details: { field: 'amount_minor' },
       });
     }
-    const currency = dto.currency as Currency;
+    const currency = dto.currency;
 
     const wallet = await this.wallets.getOrCreateWallet(userId);
-    const effective = await this.wallets.getEffectiveAvailable(userId, currency);
+    const effective = await this.wallets.getEffectiveAvailable(
+      userId,
+      currency,
+    );
     if (effective < amount) {
       throw new BadRequestException({
         messageKey: MESSAGE_KEYS.WALLET_INSUFFICIENT_FUNDS,
@@ -233,7 +245,9 @@ export class WithdrawalsService {
       },
     });
     if (!row) {
-      throw new NotFoundException({ messageKey: MESSAGE_KEYS.WITHDRAWAL_NOT_FOUND });
+      throw new NotFoundException({
+        messageKey: MESSAGE_KEYS.WITHDRAWAL_NOT_FOUND,
+      });
     }
     return {
       ...this.toApi(row),
@@ -271,10 +285,21 @@ export class WithdrawalsService {
       action: 'withdrawal.approved',
       details: { withdrawal_id: withdrawal.id },
     });
+
+    await this.notifyWithdrawalEvent(
+      withdrawal.id,
+      NOTIFICATION_EVENTS.WITHDRAWAL_APPROVED,
+      MESSAGE_KEYS.WITHDRAWAL_APPROVED,
+    );
+
     return this.toApi(updated);
   }
 
-  async complete(adminId: string, withdrawalId: string, dto: CompleteWithdrawalDto) {
+  async complete(
+    adminId: string,
+    withdrawalId: string,
+    dto: CompleteWithdrawalDto,
+  ) {
     const withdrawal = await this.requireById(withdrawalId);
     if (
       withdrawal.status !== WITHDRAWAL_STATUS.APPROVED &&
@@ -339,15 +364,24 @@ export class WithdrawalsService {
       },
     });
 
-    // Withdrawal completion is surfaced to the user via the wallet UI;
-    // the existing Notification model is deal-scoped so we record only
-    // the audit log here. A future generic user-notification channel
-    // can hook in alongside the audit record above.
+    // Withdrawal completion is now surfaced to the user via the
+    // generic notification stream (in-app + Telegram). The wallet
+    // UI consumes the same feed via /v1/users/me/notifications.
+    await this.notifyWithdrawalEvent(
+      withdrawal.id,
+      NOTIFICATION_EVENTS.WITHDRAWAL_COMPLETED,
+      MESSAGE_KEYS.WITHDRAWAL_COMPLETED,
+      { provider_reference: dto.provider_reference ?? null },
+    );
 
     return this.toApi(await this.requireById(withdrawalId));
   }
 
-  async reject(adminId: string, withdrawalId: string, dto: RejectWithdrawalDto) {
+  async reject(
+    adminId: string,
+    withdrawalId: string,
+    dto: RejectWithdrawalDto,
+  ) {
     const withdrawal = await this.requireById(withdrawalId);
     if (
       withdrawal.status !== WITHDRAWAL_STATUS.PENDING_REVIEW &&
@@ -372,10 +406,68 @@ export class WithdrawalsService {
       action: 'withdrawal.rejected',
       details: { withdrawal_id: withdrawal.id, reason: dto.reason },
     });
+
+    await this.notifyWithdrawalEvent(
+      withdrawal.id,
+      NOTIFICATION_EVENTS.WITHDRAWAL_REJECTED,
+      MESSAGE_KEYS.WITHDRAWAL_REJECTED,
+      { reason: dto.reason },
+    );
+
     return this.toApi(await this.requireById(withdrawalId));
   }
 
   // ─── Internal helpers ────────────────────────────────────────────────────
+
+  /**
+   * Dispatch an in-app + (optional) Telegram notification for a
+   * withdrawal lifecycle event. Looks up the user's most recent
+   * Telegram identity so the user is notified on the channel they
+   * actually use. Failures here are swallowed — admin actions
+   * should not be rolled back if the notification path fails.
+   */
+  private async notifyWithdrawalEvent(
+    withdrawalId: string,
+    eventKey: string,
+    messageKey: string,
+    extra: Record<string, unknown> = {},
+  ) {
+    try {
+      const w = await this.prisma.withdrawal.findUnique({
+        where: { id: withdrawalId },
+        select: {
+          id: true,
+          publicId: true,
+          userId: true,
+          amount: true,
+          currency: true,
+          status: true,
+        },
+      });
+      if (!w) return;
+      const telegramIdentity = await this.prisma.telegramIdentity.findFirst({
+        where: { linkedUserId: w.userId },
+        orderBy: { createdAt: 'desc' },
+        select: { chatId: true },
+      });
+      await this.notif.notifyUser({
+        userId: w.userId,
+        eventKey,
+        messageKey,
+        telegramChatId: telegramIdentity?.chatId ?? null,
+        payload: {
+          withdrawal_id: w.id,
+          public_id: w.publicId,
+          amount_minor: w.amount.toString(),
+          currency: w.currency,
+          status: w.status,
+          ...extra,
+        },
+      });
+    } catch {
+      // best-effort; never block admin action.
+    }
+  }
 
   private async transitionToTerminal(
     withdrawalId: string,
@@ -389,7 +481,9 @@ export class WithdrawalsService {
     },
   ) {
     if (!WITHDRAWAL_TERMINAL_STATUSES.includes(nextStatus)) {
-      throw new BadRequestException({ messageKey: MESSAGE_KEYS.VALIDATION_FAILED });
+      throw new BadRequestException({
+        messageKey: MESSAGE_KEYS.VALIDATION_FAILED,
+      });
     }
     await this.prisma.$transaction(async (tx) => {
       await tx.withdrawal.update({
@@ -420,7 +514,9 @@ export class WithdrawalsService {
       where: { id: withdrawalId },
     });
     if (!row) {
-      throw new NotFoundException({ messageKey: MESSAGE_KEYS.WITHDRAWAL_NOT_FOUND });
+      throw new NotFoundException({
+        messageKey: MESSAGE_KEYS.WITHDRAWAL_NOT_FOUND,
+      });
     }
     if (row.userId !== userId) {
       throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
@@ -433,7 +529,9 @@ export class WithdrawalsService {
       where: { id: withdrawalId },
     });
     if (!row) {
-      throw new NotFoundException({ messageKey: MESSAGE_KEYS.WITHDRAWAL_NOT_FOUND });
+      throw new NotFoundException({
+        messageKey: MESSAGE_KEYS.WITHDRAWAL_NOT_FOUND,
+      });
     }
     return row;
   }
@@ -444,14 +542,20 @@ export class WithdrawalsService {
       if (!d.khqr && !d.khqr_image) {
         throw new BadRequestException({
           messageKey: MESSAGE_KEYS.VALIDATION_FAILED,
-          details: { field: 'destination', reason: 'khqr or khqr_image required' },
+          details: {
+            field: 'destination',
+            reason: 'khqr or khqr_image required',
+          },
         });
       }
     } else if (d.type === WITHDRAWAL_DESTINATION_TYPES.BANK_ACCOUNT) {
       if (!d.bank_name || !d.account_number) {
         throw new BadRequestException({
           messageKey: MESSAGE_KEYS.VALIDATION_FAILED,
-          details: { field: 'destination', reason: 'bank_name and account_number required' },
+          details: {
+            field: 'destination',
+            reason: 'bank_name and account_number required',
+          },
         });
       }
     }

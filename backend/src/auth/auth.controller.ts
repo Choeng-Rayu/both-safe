@@ -17,16 +17,10 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 
-import { AuthService } from './auth.service';
 import { UserAuthService } from './user-auth.service';
 import { OAuthStateService } from './oauth-state.service';
 
 // ─── DTOs ─────────────────────────────────────────────────────────────────────
-
-class AdminLoginDto {
-  @IsEmail() email!: string;
-  @IsString() @MinLength(6) password!: string;
-}
 
 class RegisterDto {
   @IsEmail() email!: string;
@@ -47,21 +41,10 @@ export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
   constructor(
-    private readonly auth: AuthService,
     private readonly userAuth: UserAuthService,
     private readonly oauthState: OAuthStateService,
     private readonly config: ConfigService,
   ) {}
-
-  // ─── Admin login (existing) ────────────────────────────────────────────────
-
-  @Post('admin/login')
-  @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
-  @ApiOperation({ summary: 'Admin login (returns JWT)' })
-  async adminLogin(@Body() dto: AdminLoginDto) {
-    return this.auth.loginAdmin(dto.email, dto.password);
-  }
 
   // ─── Current user ──────────────────────────────────────────────────────────
 
@@ -88,7 +71,11 @@ export class AuthController {
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const user = await this.userAuth.registerWithPassword(dto.email, dto.password, dto.name);
+    const user = await this.userAuth.registerWithPassword(
+      dto.email,
+      dto.password,
+      dto.name,
+    );
     const rawToken = await this.userAuth.createSession(user.id);
     this.setSessionCookie(res, rawToken);
     return { user };
@@ -111,10 +98,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Logout (clear session cookie)' })
-  async logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const rawToken = req.cookies?.[this.userAuth.cookieName];
     if (rawToken) {
       await this.userAuth.revokeSession(rawToken);
@@ -126,7 +110,9 @@ export class AuthController {
   // ─── Telegram OIDC ────────────────────────────────────────────────────────
 
   @Get('telegram/authorize')
-  @ApiOperation({ summary: 'Initiate Telegram OIDC login (redirects to Telegram)' })
+  @ApiOperation({
+    summary: 'Initiate Telegram OIDC login (redirects to Telegram)',
+  })
   telegramAuthorize(
     @Query('redirectAfter') redirectAfter: string | undefined,
     @Res() res: Response,
@@ -134,7 +120,10 @@ export class AuthController {
     const botId = this.config.getOrThrow<string>('TELEGRAM_CLIENT_ID');
     const callbackUrl = this.getCallbackUrl('telegram');
 
-    const { state, codeChallenge } = this.oauthState.create('telegram', redirectAfter);
+    const { state, codeChallenge } = this.oauthState.create(
+      'telegram',
+      redirectAfter,
+    );
 
     const url = new URL('https://oauth.telegram.org/auth');
     url.searchParams.set('client_id', botId);
@@ -149,7 +138,9 @@ export class AuthController {
   }
 
   @Get('telegram/callback')
-  @ApiOperation({ summary: 'Telegram OIDC callback (exchanges code for session)' })
+  @ApiOperation({
+    summary: 'Telegram OIDC callback (exchanges code for session)',
+  })
   async telegramCallback(
     @Query('code') code: string,
     @Query('state') state: string,
@@ -178,12 +169,18 @@ export class AuthController {
     });
 
     if (!tokenRes.ok) {
-      this.logger.error('Telegram token exchange failed', await tokenRes.text());
+      this.logger.error(
+        'Telegram token exchange failed',
+        await tokenRes.text(),
+      );
       return res.redirect(`${this.frontendUrl()}/login?error=telegram_failed`);
     }
 
     const tokenData = (await tokenRes.json()) as { id_token: string };
-    const rawPayload = await this.verifyTelegramIdToken(tokenData.id_token, botId);
+    const rawPayload = await this.verifyTelegramIdToken(
+      tokenData.id_token,
+      botId,
+    );
 
     const claims = rawPayload as {
       id?: unknown;
@@ -206,13 +203,17 @@ export class AuthController {
     this.setSessionCookie(res, rawToken);
 
     const redirectAfter = entry.redirectAfter ?? '/';
-    return res.redirect(`${this.frontendUrl()}/auth/callback?success=1&redirectTo=${encodeURIComponent(redirectAfter)}`);
+    return res.redirect(
+      `${this.frontendUrl()}/auth/callback?success=1&redirectTo=${encodeURIComponent(redirectAfter)}`,
+    );
   }
 
   // ─── Google OAuth ─────────────────────────────────────────────────────────
 
   @Get('google/authorize')
-  @ApiOperation({ summary: 'Initiate Google OAuth login (redirects to Google)' })
+  @ApiOperation({
+    summary: 'Initiate Google OAuth login (redirects to Google)',
+  })
   googleAuthorize(
     @Query('redirectAfter') redirectAfter: string | undefined,
     @Res() res: Response,
@@ -220,7 +221,10 @@ export class AuthController {
     const clientId = this.config.getOrThrow<string>('GOOGLE_CLIENT_ID');
     const callbackUrl = this.getCallbackUrl('google');
 
-    const { state, codeChallenge } = this.oauthState.create('google', redirectAfter);
+    const { state, codeChallenge } = this.oauthState.create(
+      'google',
+      redirectAfter,
+    );
 
     const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     url.searchParams.set('client_id', clientId);
@@ -237,7 +241,9 @@ export class AuthController {
   }
 
   @Get('google/callback')
-  @ApiOperation({ summary: 'Google OAuth callback (exchanges code for session)' })
+  @ApiOperation({
+    summary: 'Google OAuth callback (exchanges code for session)',
+  })
   async googleCallback(
     @Query('code') code: string,
     @Query('state') state: string,
@@ -272,7 +278,9 @@ export class AuthController {
 
     // Decode ID token (no signature check needed for Google — use userinfo instead)
     const [, payload] = tokenData.id_token.split('.');
-    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+    const claims = JSON.parse(
+      Buffer.from(payload, 'base64url').toString('utf8'),
+    ) as {
       sub: string;
       email?: string;
       name?: string;
@@ -284,7 +292,9 @@ export class AuthController {
     this.setSessionCookie(res, rawToken);
 
     const redirectAfter = entry.redirectAfter ?? '/';
-    return res.redirect(`${this.frontendUrl()}/auth/callback?success=1&redirectTo=${encodeURIComponent(redirectAfter)}`);
+    return res.redirect(
+      `${this.frontendUrl()}/auth/callback?success=1&redirectTo=${encodeURIComponent(redirectAfter)}`,
+    );
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────
@@ -317,15 +327,20 @@ export class AuthController {
    * Verify Telegram ID token using JWKS endpoint.
    * Validates iss, aud, and expiry.
    */
-  private async verifyTelegramIdToken(idToken: string, expectedAud: string): Promise<Record<string, unknown>> {
+  private async verifyTelegramIdToken(
+    idToken: string,
+    expectedAud: string,
+  ): Promise<Record<string, unknown>> {
     const { createRemoteJWKSet, jwtVerify } = await import('jose');
-    const JWKS = createRemoteJWKSet(new URL('https://oauth.telegram.org/.well-known/jwks.json'));
+    const JWKS = createRemoteJWKSet(
+      new URL('https://oauth.telegram.org/.well-known/jwks.json'),
+    );
 
     const { payload } = await jwtVerify(idToken, JWKS, {
       issuer: 'https://oauth.telegram.org',
       audience: expectedAud,
     });
 
-    return payload as Record<string, unknown>;
+    return payload;
   }
 }

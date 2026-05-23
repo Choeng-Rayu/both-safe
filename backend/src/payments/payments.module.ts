@@ -11,7 +11,15 @@ import { TransfersModule } from '../transfers/transfers.module';
 import { WalletsModule } from '../wallets/wallets.module';
 
 @Module({
-  imports: [ConfigModule, AuthModule, LedgerModule, AuditModule, NotificationModule, TransfersModule, WalletsModule],
+  imports: [
+    ConfigModule,
+    AuthModule,
+    LedgerModule,
+    AuditModule,
+    NotificationModule,
+    TransfersModule,
+    WalletsModule,
+  ],
   controllers: [PaymentsController],
   providers: [PaymentsService, PaymentPollerService],
   exports: [PaymentsService],

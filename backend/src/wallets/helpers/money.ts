@@ -18,12 +18,18 @@ export function assertCurrency(value: string): Currency {
   return value;
 }
 
-export function toMinorUnits(amount: number | string, currency: Currency): bigint {
+export function toMinorUnits(
+  amount: number | string,
+  currency: Currency,
+): bigint {
   const asNumber = typeof amount === 'string' ? Number(amount) : amount;
   if (!Number.isFinite(asNumber) || asNumber < 0) {
     throw new BadRequestException({
       messageKey: 'validation.failed',
-      details: { field: 'amount', reason: 'must be a non-negative finite number' },
+      details: {
+        field: 'amount',
+        reason: 'must be a non-negative finite number',
+      },
     });
   }
   if (currency === CURRENCIES.USD) {
@@ -41,7 +47,9 @@ export function fromMinorUnits(amount: bigint, currency: Currency): number {
 }
 
 export function minorPerMajor(currency: Currency): bigint {
-  return currency === CURRENCIES.USD ? USD_MINOR_PER_MAJOR : KHR_MINOR_PER_MAJOR;
+  return currency === CURRENCIES.USD
+    ? USD_MINOR_PER_MAJOR
+    : KHR_MINOR_PER_MAJOR;
 }
 
 export function formatMajor(amount: bigint, currency: Currency): string {

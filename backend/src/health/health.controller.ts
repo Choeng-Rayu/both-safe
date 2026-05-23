@@ -8,7 +8,9 @@ import { BotTelegramService } from '../bot/bot-telegram.service';
 export class HealthController {
   constructor(
     private readonly prisma: PrismaService,
-    @Optional() @Inject(BotTelegramService) private readonly botTelegram?: BotTelegramService,
+    @Optional()
+    @Inject(BotTelegramService)
+    private readonly botTelegram?: BotTelegramService,
   ) {}
 
   @Get()
@@ -21,7 +23,10 @@ export class HealthController {
       dbOk = false;
     }
 
-    const botHealth = await this.botTelegram?.healthCheck() ?? { status: 'disabled', ok: true };
+    const botHealth = (await this.botTelegram?.healthCheck()) ?? {
+      status: 'disabled',
+      ok: true,
+    };
 
     const allOk = dbOk && botHealth.ok;
 

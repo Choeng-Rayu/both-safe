@@ -10,9 +10,9 @@ import {
   confirmReceived,
   getDeal,
   getPaymentInstruction,
+  regeneratePaymentInstruction,
   openDispute,
   updateDealSection,
-  uploadPaymentProof,
   uploadShippingProof,
   joinDeal,
 } from "@/lib/api";
@@ -42,7 +42,6 @@ import { MissingFieldsChecklist } from "@/components/deal/missing-fields-checkli
 import { Timeline } from "@/components/deal/timeline";
 import { CopyLinkButton } from "@/components/deal/copy-link-button";
 import { ImageUploader } from "@/components/deal/image-uploader";
-import { ReceiptUploader } from "@/components/deal/receipt-uploader";
 import { ConfirmDialog } from "@/components/deal/confirm-dialog";
 import { DisputeForm } from "@/components/deal/dispute-form";
 import { ActionButton, PrimaryActionBar } from "@/components/deal/primary-action-bar";
@@ -105,9 +104,6 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
   const [deliveryNote, setDeliveryNote] = useState("");
   const [editor, setEditor] = useState<null | "product" | "participant" | "delivery">(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [paymentFile, setPaymentFile] = useState<File | null>(null);
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentNote, setPaymentNote] = useState("");
   const [packagePhoto, setPackagePhoto] = useState<File | null>(null);
   const [deliveryReceipt, setDeliveryReceipt] = useState<File | null>(null);
   const [shippingForm, setShippingForm] = useState({
@@ -176,7 +172,6 @@ if (
         ...current,
         role: result.creator_role === "seller" ? "buyer" : "seller",
       }));
-      setPaymentAmount(String(result.amount ?? ""));
 
       if (activeAccessToken && accessFromUrl) {
         setStoredAccessToken(publicId, accessFromUrl);
@@ -203,7 +198,6 @@ if (
           ...current,
           role: result.creator_role === "seller" ? "buyer" : "seller",
         }));
-        setPaymentAmount(String(result.amount ?? ""));
 
         if (accessFromUrl) {
           setStoredAccessToken(publicId, accessFromUrl);
@@ -278,7 +272,6 @@ if (
       await task();
       await refreshDeal();
       setEditor(null);
-      setPaymentFile(null);
       setPackagePhoto(null);
       setDeliveryReceipt(null);
       setDisputeFile(null);
@@ -796,6 +789,31 @@ if (
                                   <span>📱</span>
                                   {t("payment.open_bakong_app")}
                                 </a>
+                                {actionSet.has("upload_payment_proof") ? (
+                                  <button
+                                    type="button"
+                                    disabled={pending}
+                                    onClick={() =>
+                                      void runAction(async () => {
+                                        const fresh = await regeneratePaymentInstruction(publicId, {
+                                          accessToken: activeAccessToken,
+                                        });
+                                        setPaymentInstruction({
+                                          receiver_account_label: fresh.receiver_account_label,
+                                          receiver_account_id: fresh.receiver_account_id,
+                                          expected_amount: fresh.expected_amount,
+                                          currency: fresh.currency,
+                                          reference_note: fresh.reference_note,
+                                          khqr_string: fresh.khqr_string,
+                                          khqr_md5: fresh.khqr_md5,
+                                        });
+                                      })
+                                    }
+                                    className="text-xs text-[var(--ink-soft)] hover:text-[var(--brand)] hover:underline disabled:opacity-50"
+                                  >
+                                    {t("payment.regenerate_qr")}
+                                  </button>
+                                ) : null}
                               </div>
                             ) : null}
                           </div>
@@ -836,54 +854,14 @@ if (
                           </div>
                         ) : null}
                         {actionSet.has("upload_payment_proof") ? (
-                          <>
-                            <Field label={t("field.paid_amount")} hint={t("common.optional")}>
-                              <Input
-                                inputMode="decimal"
-                                value={paymentAmount}
-                                onChange={(event) => setPaymentAmount(event.target.value)}
-                              />
-                            </Field>
-                            <Field label={t("payment.receipt")} hint={t("common.optional")}>
-                              <ReceiptUploader
-                                value={paymentFile}
-                                onChange={setPaymentFile}
-                              />
-                            </Field>
-                            <Field label={t("field.seller_note")}>
-                              <Textarea
-                                value={paymentNote}
-                                onChange={(event) => setPaymentNote(event.target.value)}
-                              />
-                            </Field>
-                            <Button
-                              onClick={() =>
-                                runAction(async () => {
-                                  const formData = new FormData();
-                                  if (paymentAmount.trim()) {
-                                    formData.set("paid_amount", paymentAmount);
-                                  }
-                                  if (paymentNote.trim()) {
-                                    formData.set("buyer_note", paymentNote);
-                                  }
-                                  if (paymentFile) {
-                                    formData.set("proof_image", paymentFile);
-                                  }
-                                  // Pass the KHQR MD5 so the backend poller can auto-verify
-                                  // via Bakong's check_transaction_by_md5 API
-                                  if (paymentInstruction?.khqr_md5) {
-                                    formData.set("khqr_md5", paymentInstruction.khqr_md5);
-                                  }
-                                  await uploadPaymentProof(publicId, formData, {
-                                    accessToken: activeAccessToken,
-                                  });
-                                })
-                              }
-	                              disabled={pending}
-                            >
-                              {t("payment.submit")}
-                            </Button>
-                          </>
+                          <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm text-[var(--ink-soft)]">
+                            <p className="font-medium text-[var(--ink)]">
+                              {t("payment.auto_detect_title")}
+                            </p>
+                            <p className="mt-1 text-xs">
+                              {t("payment.auto_detect_hint")}
+                            </p>
+                          </div>
                         ) : currentRole === "seller" ? (
                           <p className="text-sm text-[var(--ink-soft)]">
                             Wait for Bakong payment confirmation. This updates automatically when the buyer pays.

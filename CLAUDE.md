@@ -25,6 +25,7 @@ npm run build              # Production build
 npm run test               # Run Jest unit tests
 npm run test:e2e           # Run e2e tests (jest --config ./test/jest-e2e.json)
 npm run test:watch         # Watch mode
+npx jest path/to/file      # Run a single test file
 npm run lint               # ESLint with auto-fix
 
 npx prisma migrate dev     # Run migrations in dev
@@ -107,6 +108,8 @@ AppModule
 ├── BotModule (Telegram bot commands, runs in same process)
 ├── BakongModule (KHQR generation, Bakong API polling)
 ├── UsersModule
+├── WalletsModule (internal wallet balance, credit on deal release)
+├── WithdrawalsModule (seller withdrawal requests + admin approval)
 ├── TransfersModule
 ├── HealthModule / SeedModule / AuditModule
 ```
@@ -125,7 +128,7 @@ The bot runs **inside the NestJS backend** as a module (`BotModule`). It calls `
 - **Next.js 16** with App Router, **React 19**, **Tailwind CSS v4**
 - **i18n**: `next-intl` pattern with `messages/index.ts`, supports `km`, `en`, `zh`
 - **API client**: `lib/api.ts` — all API calls go through `apiGet`/`apiSend` which handle auth query params and `message_key` error extraction
-- **Auth**: `middleware.ts` protects `/deals/new` and `/dashboard` routes via `bothsafe_session` cookie
+- **Auth**: `middleware.ts` protects `/deals/new`, `/dashboard`, and `/wallet` routes via `bothsafe_session` cookie
 - **Admin routes**: `/admin/*` — server-side session check required
 - No hardcoded strings in components — all text uses translation keys
 
