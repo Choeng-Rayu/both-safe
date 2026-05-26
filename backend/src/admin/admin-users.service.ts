@@ -11,7 +11,6 @@ import { WalletsService } from '../wallets/wallets.service';
 import { AuditService } from '../common/services/audit.service';
 import { WinstonLoggerService } from '../common/logger/winston-logger.service';
 import {
-  CURRENCIES,
   Currency,
   MESSAGE_KEYS,
   WITHDRAWAL_ACTIVE_STATUSES,
@@ -342,12 +341,5 @@ export class AdminUsersService {
     };
   }
 }
-
-// Re-export so the controller can validate currency without
-// pulling the full constants file in tests.
-export const SUPPORTED_USER_LEDGER_CURRENCIES: Currency[] = [
-  CURRENCIES.USD,
-  CURRENCIES.KHR,
-];
 
 export { WITHDRAWAL_ACTIVE_STATUSES, MESSAGE_KEYS };

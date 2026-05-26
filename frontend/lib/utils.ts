@@ -75,14 +75,6 @@ export function buildQueryString(params: Record<string, string | undefined>) {
   return query ? `?${query}` : "";
 }
 
-export function titleCase(value: string) {
-  return value
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
 export function parseJson<T>(value: string | null | undefined, fallback: T): T {
   if (!value) return fallback;
   try {
@@ -90,8 +82,4 @@ export function parseJson<T>(value: string | null | undefined, fallback: T): T {
   } catch {
     return fallback;
   }
-}
-
-export function randomId() {
-  return crypto.randomUUID();
 }

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ImageUploadField } from "@/components/ui/image-upload-field";
 import { useI18n } from "@/components/providers/app-providers";
 import {
   adminCompleteWithdrawalWithProof,
@@ -22,9 +22,7 @@ export function AdminWithdrawalDetail({ withdrawal: initial }: Props) {
   const [withdrawal, setWithdrawal] = useState(initial);
 
   // Complete-with-proof form state
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [proofFile, setProofFile] = useState<File | null>(null);
-  const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [providerReference, setProviderReference] = useState("");
   const [adminNote, setAdminNote] = useState("");
 
@@ -39,38 +37,6 @@ export function AdminWithdrawalDetail({ withdrawal: initial }: Props) {
   const isTerminal = ["COMPLETED", "REJECTED", "CANCELLED", "FAILED"].includes(
     withdrawal.status,
   );
-
-  // Generate a preview URL for the selected proof image and clean up
-  // the object URL on unmount / file replacement.
-  useEffect(() => {
-    if (!proofFile) {
-      setProofPreview(null);
-      return;
-    }
-    const url = URL.createObjectURL(proofFile);
-    setProofPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [proofFile]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("Please choose an image file (PNG, JPG, WebP).");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setError("Image must be smaller than 10 MB.");
-      return;
-    }
-    setError(null);
-    setProofFile(file);
-  };
-
-  const clearFile = () => {
-    setProofFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
 
   const handleComplete = async () => {
     if (!proofFile) {
@@ -232,40 +198,17 @@ export function AdminWithdrawalDetail({ withdrawal: initial }: Props) {
                 <p className="mb-1 text-sm font-medium text-[var(--ink)]">
                   {t("admin.withdrawals.proof_image")} *
                 </p>
-                {proofPreview ? (
-                  <div className="relative inline-block">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={proofPreview}
-                      alt="Proof preview"
-                      className="h-44 w-44 rounded-lg border border-[var(--border)] bg-white object-contain"
-                    />
-                    <button
-                      type="button"
-                      onClick={clearFile}
-                      className="absolute -top-2 -right-2 rounded-full bg-[var(--ink)] p-1 text-white shadow"
-                      aria-label="Remove image"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <label
-                    htmlFor="proof-upload"
-                    className="flex h-44 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[var(--border)] bg-white px-4 py-6 text-sm text-[var(--muted)] transition hover:border-[var(--brand)] hover:text-[var(--ink)]"
-                  >
-                    <Upload className="h-6 w-6" />
-                    <span>{t("admin.withdrawals.proof_upload")}</span>
-                    <span className="text-xs">PNG / JPG / WebP, up to 10 MB</span>
-                  </label>
-                )}
-                <input
-                  ref={fileInputRef}
-                  id="proof-upload"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={handleFileChange}
-                  className="sr-only"
+                <ImageUploadField
+                  inputId="proof-upload"
+                  value={proofFile}
+                  onChange={(file) => {
+                    setError(null);
+                    setProofFile(file);
+                  }}
+                  onValidationError={setError}
+                  promptLabel={t("admin.withdrawals.proof_upload")}
+                  helperText="PNG / JPG / WebP, up to 10 MB"
+                  previewAlt="Proof preview"
                 />
               </div>
 

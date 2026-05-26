@@ -113,15 +113,6 @@ export type JoinDealResponse = {
   allowed_actions: DealAllowedAction[];
 };
 
-export type AdminLoginResponse = {
-  token: string;
-  admin: {
-    id: string;
-    email: string;
-    name: string | null;
-  };
-};
-
 export type AdminDealsResponse = {
   items: AdminDealRecord[];
   total: number;

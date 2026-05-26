@@ -22,24 +22,3 @@ export function parseMajorToMinor(major: string, currency: WalletCurrency): numb
   }
   return Math.round(Number(major));
 }
-
-export function withdrawalStatusLabel(status: string): string {
-  switch (status) {
-    case "PENDING_REVIEW":
-      return "Pending review";
-    case "APPROVED":
-      return "Approved";
-    case "PROCESSING":
-      return "Processing";
-    case "COMPLETED":
-      return "Completed";
-    case "REJECTED":
-      return "Rejected";
-    case "FAILED":
-      return "Failed";
-    case "CANCELLED":
-      return "Cancelled";
-    default:
-      return status;
-  }
-}

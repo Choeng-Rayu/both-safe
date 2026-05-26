@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, X } from "lucide-react";
 import { PublicHeader } from "@/components/layout/public-header";
 import { Button } from "@/components/ui/button";
+import { ImageUploadField } from "@/components/ui/image-upload-field";
 import { useI18n } from "@/components/providers/app-providers";
 import {
   ApiError,
@@ -22,7 +22,6 @@ type Mode = "qr_upload" | "bank_account";
 export function WithdrawForm() {
   const router = useRouter();
   const { t } = useI18n();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [wallet, setWallet] = useState<WalletSnapshot | null>(null);
   const [mode, setMode] = useState<Mode>("qr_upload");
@@ -31,7 +30,6 @@ export function WithdrawForm() {
   const [amount, setAmount] = useState("");
   const [providerLabel, setProviderLabel] = useState("");
   const [qrFile, setQrFile] = useState<File | null>(null);
-  const [qrPreview, setQrPreview] = useState<string | null>(null);
 
   const [bankName, setBankName] = useState("");
   const [accountName, setAccountName] = useState("");
@@ -51,38 +49,8 @@ export function WithdrawForm() {
     })();
   }, []);
 
-  useEffect(() => {
-    if (!qrFile) {
-      setQrPreview(null);
-      return;
-    }
-    const url = URL.createObjectURL(qrFile);
-    setQrPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [qrFile]);
-
   const effective =
     wallet?.[currency === "USD" ? "effective_usd_minor" : "effective_khr_minor"] ?? "0";
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("Please choose an image file (PNG, JPG, WebP).");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setError("Image must be smaller than 10 MB.");
-      return;
-    }
-    setError(null);
-    setQrFile(file);
-  };
-
-  const clearFile = () => {
-    setQrFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,40 +173,17 @@ export function WithdrawForm() {
           {mode === "qr_upload" ? (
             <>
               <Field label="QR code image">
-                {qrPreview ? (
-                  <div className="relative inline-block">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={qrPreview}
-                      alt="QR preview"
-                      className="h-44 w-44 rounded-lg border border-[var(--border)] object-contain bg-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={clearFile}
-                      className="absolute -top-2 -right-2 rounded-full bg-[var(--ink)] p-1 text-white shadow"
-                      aria-label="Remove image"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <label
-                    htmlFor="qr-upload"
-                    className="flex h-44 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[var(--border)] bg-white px-4 py-6 text-sm text-[var(--muted)] transition hover:border-[var(--brand)] hover:text-[var(--ink)]"
-                  >
-                    <Upload className="h-6 w-6" />
-                    <span>Tap to upload your QR code</span>
-                    <span className="text-xs">PNG / JPG / WebP, up to 10 MB</span>
-                  </label>
-                )}
-                <input
-                  ref={fileInputRef}
-                  id="qr-upload"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={handleFileChange}
-                  className="sr-only"
+                <ImageUploadField
+                  inputId="qr-upload"
+                  value={qrFile}
+                  onChange={(file) => {
+                    setError(null);
+                    setQrFile(file);
+                  }}
+                  onValidationError={setError}
+                  promptLabel="Tap to upload your QR code"
+                  helperText="PNG / JPG / WebP, up to 10 MB"
+                  previewAlt="QR preview"
                 />
               </Field>
 

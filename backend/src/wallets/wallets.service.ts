@@ -357,7 +357,3 @@ export class WalletsService {
     return rows.reduce((acc, row) => acc + row.amount, 0n);
   }
 }
-
-export function buildIdempotencyKey(...parts: (string | number)[]): string {
-  return parts.join(':');
-}

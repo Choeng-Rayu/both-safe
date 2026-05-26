@@ -183,8 +183,6 @@ export const PAYMENT_METHODS = {
   BAKONG_KHQR: 'bakong_khqr',
   WALLET_INTERNAL: 'wallet_internal',
 } as const;
-export type PaymentMethod =
-  (typeof PAYMENT_METHODS)[keyof typeof PAYMENT_METHODS];
 
 export const WITHDRAWAL_DESTINATION_TYPES = {
   BAKONG_KHQR: 'bakong_khqr',

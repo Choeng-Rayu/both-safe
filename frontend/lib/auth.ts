@@ -70,17 +70,6 @@ export async function requireAdmin(redirectTo?: string): Promise<SessionUser> {
 }
 
 /**
- * Get the backend OAuth initiation URL.
- */
-export function getOAuthUrl(
-  provider: "telegram" | "google",
-  redirectAfter = "/",
-): string {
-  const backendBase = API_BASE.replace("/v1", "");
-  return `${backendBase}/v1/auth/${provider}/authorize?redirectAfter=${encodeURIComponent(redirectAfter)}`;
-}
-
-/**
  * Server-side helper: read the session cookie and build a `Cookie`
  * header to forward to the backend on behalf of the user. Used by
  * server components that proxy admin API calls.

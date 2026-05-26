@@ -165,15 +165,6 @@ export function canCancel(status: DealStatus): boolean {
   );
 }
 
-/**
- * Approval is deprecated. Paying is the buyer's implicit approval and
- * shipping is the seller's. Returns false universally so the legacy
- * frontend Approve button stays disabled.
- */
-export function canApprove(_status: DealStatus): boolean {
-  return false;
-}
-
 export function canJoin(status: DealStatus): boolean {
   return status === DEAL_STATUS.AWAITING_COUNTERPARTY;
 }
