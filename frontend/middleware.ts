@@ -4,7 +4,12 @@ import type { NextRequest } from "next/server";
 const SESSION_COOKIE = "bothsafe_session";
 
 // Strictly protected routes — never accessible without a session.
-const PROTECTED_ROUTES = ["/deals/new", "/dashboard", "/wallet"];
+//
+// `/deals/new` is intentionally *not* listed here. The create-deal
+// page renders client-side and shows an inline auth modal when the
+// user is anonymous (see CreateDealPage + AuthRequiredDialog). That
+// gives a smoother popup-style UX instead of a hard redirect.
+const PROTECTED_ROUTES = ["/dashboard", "/wallet"];
 
 export function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
@@ -36,8 +41,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/deals/new",
-    "/deals/new/:path*",
     "/dashboard",
     "/dashboard/:path*",
     "/wallet",

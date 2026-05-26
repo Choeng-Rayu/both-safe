@@ -41,6 +41,15 @@ export class AdminController {
     private readonly payments: PaymentsService,
   ) {}
 
+  @Get('stats')
+  @ApiOperation({
+    summary:
+      'High-level admin dashboard counters: users, deals, wallets, withdrawals, feedback',
+  })
+  stats() {
+    return this.admin.overviewStats();
+  }
+
   @Get('deals')
   @ApiOperation({ summary: 'List deals with filters and pagination' })
   list(
@@ -143,5 +152,18 @@ export class AdminController {
   })
   checkBakong(@Param('paymentId') paymentId: string) {
     return this.admin.checkBakongByPaymentId(paymentId, this.payments);
+  }
+
+  @Get('feedback')
+  @ApiOperation({
+    summary: 'List user-submitted deal feedback (rating + optional comment)',
+  })
+  listFeedback(
+    @Query('minRating') minRating?: string,
+    @Query('role') role?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.admin.listFeedback({ minRating, role, page, pageSize });
   }
 }

@@ -12,6 +12,9 @@ export default async function AdminWithdrawalsPage({
 }) {
   const params = await searchParams;
   await requireAdmin("/admin/withdrawals");
+  // Default to the actionable queue so the first thing the admin
+  // sees is "what needs my approval right now".
+  const initialStatus = params.status ?? "PENDING_REVIEW";
 
   return (
     <div className="min-h-screen">
@@ -27,7 +30,7 @@ export default async function AdminWithdrawalsPage({
             complete, or reject.
           </p>
         </section>
-        <AdminWithdrawalsList initialStatus={params.status} />
+        <AdminWithdrawalsList initialStatus={initialStatus} />
       </main>
     </div>
   );

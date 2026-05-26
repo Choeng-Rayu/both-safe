@@ -34,19 +34,30 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const res = exception.getResponse();
+      let serviceProvidedKey = false;
       if (typeof res === 'string') {
         message = res;
       } else if (typeof res === 'object' && res !== null) {
         const r = res as Record<string, unknown>;
         message = (r.message as string | string[]) ?? exception.message;
-        messageKey = (r.messageKey as string) ?? messageKey;
+        if (typeof r.messageKey === 'string' && r.messageKey.length > 0) {
+          messageKey = r.messageKey;
+          serviceProvidedKey = true;
+        }
         details = r.details;
       }
-      if (status === HttpStatus.BAD_REQUEST) messageKey = 'validation.failed';
-      if (status === HttpStatus.UNAUTHORIZED) messageKey = 'auth.unauthorized';
-      if (status === HttpStatus.FORBIDDEN) messageKey = 'auth.forbidden';
-      if (status === HttpStatus.NOT_FOUND) messageKey = 'resource.not_found';
-      if (status === 429) messageKey = 'auth.rate_limited';
+      // Only fall back to a generic key when the service didn't
+      // bother specifying one. Otherwise the domain-specific key
+      // (e.g. wallet.insufficient_funds) gets swallowed by the
+      // catch-all `validation.failed` and the frontend has no way
+      // to render a useful message.
+      if (!serviceProvidedKey) {
+        if (status === HttpStatus.BAD_REQUEST) messageKey = 'validation.failed';
+        else if (status === HttpStatus.UNAUTHORIZED) messageKey = 'auth.unauthorized';
+        else if (status === HttpStatus.FORBIDDEN) messageKey = 'auth.forbidden';
+        else if (status === HttpStatus.NOT_FOUND) messageKey = 'resource.not_found';
+        else if (status === 429) messageKey = 'auth.rate_limited';
+      }
     } else if (exception instanceof Error) {
       this.logger.error(
         `Unhandled exception: ${exception.message}`,

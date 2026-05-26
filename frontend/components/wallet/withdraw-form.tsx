@@ -7,12 +7,14 @@ import { PublicHeader } from "@/components/layout/public-header";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/components/providers/app-providers";
 import {
+  ApiError,
   createWithdrawal,
   createWithdrawalWithQr,
   getWallet,
   type WalletCurrency,
   type WalletSnapshot,
 } from "@/lib/api";
+import { getErrorMessage } from "@/lib/errors";
 import { formatMinor, parseMajorToMinor } from "@/lib/wallet-format";
 
 type Mode = "qr_upload" | "bank_account";
@@ -121,7 +123,27 @@ export function WithdrawForm() {
       router.push("/wallet");
       router.refresh();
     } catch (err) {
-      setError((err as Error).message ?? "Failed to submit withdrawal");
+      // Surface the backend's domain-specific error key (e.g.
+      // wallet.insufficient_funds) and decorate it with the actual
+      // available-vs-requested numbers so the user knows exactly
+      // what they're missing.
+      let message = getErrorMessage(err, t);
+      if (err instanceof ApiError) {
+        const details = err.details as
+          | { effective_available?: string; requested?: string; currency?: string }
+          | undefined;
+        if (
+          err.messageKey === "wallet.insufficient_funds" &&
+          details?.effective_available !== undefined &&
+          details?.currency
+        ) {
+          const cur = details.currency as WalletCurrency;
+          const have = formatMinor(details.effective_available, cur);
+          const want = formatMinor(details.requested ?? "0", cur);
+          message = `Not enough balance. You have ${have}, requested ${want}.`;
+        }
+      }
+      setError(message);
       setSubmitting(false);
     }
   };

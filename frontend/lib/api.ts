@@ -653,3 +653,115 @@ export async function listMyNotifications(limit = 50) {
   );
 }
 
+// ─── Deal feedback ─────────────────────────────────────────────────────────
+
+export interface DealFeedbackEntry {
+  id: string;
+  role: "buyer" | "seller";
+  rating: number;
+  comment: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function submitDealFeedback(
+  publicId: string,
+  payload: { rating: number; comment?: string },
+  options?: RequestOptions,
+) {
+  return apiSend<DealFeedbackEntry>(
+    `/deals/${publicId}/feedback`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+    options,
+  );
+}
+
+export async function getDealFeedback(
+  publicId: string,
+  options?: RequestOptions,
+) {
+  return apiGet<{ feedback: DealFeedbackEntry[] }>(
+    `/deals/${publicId}/feedback`,
+    options,
+  );
+}
+
+// ─── Admin: Stats ──────────────────────────────────────────────────────────
+
+export interface AdminStats {
+  users: { total: number; active: number; disabled: number; admins: number };
+  deals: {
+    total: number;
+    in_escrow: number;
+    by_status: Record<string, number>;
+  };
+  wallets: {
+    total_usd_minor: string;
+    total_khr_minor: string;
+    users_with_balance: number;
+  };
+  withdrawals: {
+    pending_review: number;
+    approved: number;
+    processing: number;
+    completed: number;
+    rejected: number;
+    cancelled: number;
+    by_status: Record<string, { count: number; amount_minor: string }>;
+  };
+  feedback: {
+    total: number;
+    avg_rating: number | null;
+    low_rating_count: number;
+  };
+}
+
+export async function adminGetStats(cookieHeader?: string | null) {
+  return apiGet<AdminStats>("/admin/stats", { cookieHeader });
+}
+
+// ─── Admin: Feedback ───────────────────────────────────────────────────────
+
+export interface AdminFeedbackItem {
+  id: string;
+  deal_id: string;
+  deal_public_id: string | null;
+  deal_status: string | null;
+  role: "buyer" | "seller";
+  rating: number;
+  comment: string | null;
+  user_id: string | null;
+  user_email: string | null;
+  user_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function adminListFeedback(params: {
+  minRating?: string;
+  role?: "buyer" | "seller";
+  page?: string;
+  pageSize?: string;
+  cookieHeader?: string | null;
+}) {
+  return apiGet<{
+    items: AdminFeedbackItem[];
+    total: number;
+    page: number;
+    pageSize: number;
+    summary: { total: number; avg_rating: number | null };
+  }>(
+    `/admin/feedback${buildQueryString({
+      minRating: params.minRating,
+      role: params.role,
+      page: params.page,
+      pageSize: params.pageSize,
+    })}`,
+    { cookieHeader: params.cookieHeader },
+  );
+}
+

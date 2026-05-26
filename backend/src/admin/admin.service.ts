@@ -621,6 +621,229 @@ export class AdminService {
     });
   }
 
+  /**
+   * Paginated admin view of every piece of feedback users have left
+   * across all deals. Supports filtering by minimum rating and by
+   * role so the team can spot dissatisfied users quickly.
+   */
+  /**
+   * High-level dashboard counters surfaced to the admin landing page.
+   * Single round-trip: every figure here is a small COUNT/SUM that
+   * Postgres can answer in milliseconds even at scale.
+   */
+  async overviewStats() {
+    const dealStatuses = [
+      'DRAFT',
+      'AWAITING_COUNTERPARTY',
+      'AWAITING_BOTH_APPROVAL',
+      'READY_FOR_PAYMENT',
+      'PAYMENT_PENDING_VERIFICATION',
+      'PAID_ESCROWED',
+      'SELLER_PREPARING',
+      'SHIPPED',
+      'BUYER_CONFIRMED',
+      'RELEASE_PENDING',
+      'RELEASED',
+      'REFUNDED',
+      'CANCELLED',
+      'EXPIRED',
+      'DISPUTED',
+    ] as const;
+    const withdrawalStatuses = [
+      'PENDING_REVIEW',
+      'APPROVED',
+      'PROCESSING',
+      'COMPLETED',
+      'REJECTED',
+      'FAILED',
+      'CANCELLED',
+    ] as const;
+
+    const [
+      userTotal,
+      userActive,
+      userDisabled,
+      adminCount,
+      dealTotal,
+      walletTotals,
+      walletWithBalance,
+      feedbackAgg,
+      lowFeedbackCount,
+      ...counts
+    ] = await this.prisma.$transaction([
+      this.prisma.user.count(),
+      this.prisma.user.count({ where: { disabled: false, role: 'USER' } }),
+      this.prisma.user.count({ where: { disabled: true } }),
+      this.prisma.user.count({ where: { role: 'ADMIN' } }),
+      this.prisma.deal.count(),
+      this.prisma.wallet.aggregate({
+        _sum: { availableUsd: true, availableKhr: true },
+      }),
+      this.prisma.wallet.count({
+        where: {
+          OR: [{ availableUsd: { gt: 0n } }, { availableKhr: { gt: 0n } }],
+        },
+      }),
+      this.prisma.dealFeedback.aggregate({
+        _avg: { rating: true },
+        _count: true,
+      }),
+      this.prisma.dealFeedback.count({ where: { rating: { lte: 2 } } }),
+      ...dealStatuses.map((status) =>
+        this.prisma.deal.count({ where: { status } }),
+      ),
+      ...withdrawalStatuses.map((status) =>
+        this.prisma.withdrawal.count({ where: { status } }),
+      ),
+      ...withdrawalStatuses.map((status) =>
+        this.prisma.withdrawal.aggregate({
+          where: { status },
+          _sum: { amount: true },
+        }),
+      ),
+    ]);
+
+    const dealCountResults = counts.slice(0, dealStatuses.length) as number[];
+    const withdrawalCountResults = counts.slice(
+      dealStatuses.length,
+      dealStatuses.length + withdrawalStatuses.length,
+    ) as number[];
+    const withdrawalAggResults = counts.slice(
+      dealStatuses.length + withdrawalStatuses.length,
+    ) as { _sum: { amount: bigint | null } }[];
+
+    const dealsByStatus: Record<string, number> = {};
+    dealStatuses.forEach((status, i) => {
+      dealsByStatus[status] = dealCountResults[i];
+    });
+
+    const withdrawalsByStatus: Record<
+      string,
+      { count: number; amount_minor: string }
+    > = {};
+    withdrawalStatuses.forEach((status, i) => {
+      withdrawalsByStatus[status] = {
+        count: withdrawalCountResults[i],
+        amount_minor: (withdrawalAggResults[i]._sum.amount ?? 0n).toString(),
+      };
+    });
+
+    // "In escrow" = deals where the buyer has paid but the seller
+    // hasn't been credited yet. These are the funds BothSafe is
+    // currently holding on behalf of users.
+    const inEscrowStatuses = [
+      'PAID_ESCROWED',
+      'SELLER_PREPARING',
+      'SHIPPED',
+      'BUYER_CONFIRMED',
+      'RELEASE_PENDING',
+      'DISPUTED',
+    ];
+    const inEscrowCount = inEscrowStatuses.reduce(
+      (acc, status) => acc + (dealsByStatus[status] ?? 0),
+      0,
+    );
+
+    return {
+      users: {
+        total: userTotal,
+        active: userActive,
+        disabled: userDisabled,
+        admins: adminCount,
+      },
+      deals: {
+        total: dealTotal,
+        in_escrow: inEscrowCount,
+        by_status: dealsByStatus,
+      },
+      wallets: {
+        total_usd_minor: (walletTotals._sum.availableUsd ?? 0n).toString(),
+        total_khr_minor: (walletTotals._sum.availableKhr ?? 0n).toString(),
+        users_with_balance: walletWithBalance,
+      },
+      withdrawals: {
+        pending_review: withdrawalsByStatus['PENDING_REVIEW']?.count ?? 0,
+        approved: withdrawalsByStatus['APPROVED']?.count ?? 0,
+        processing: withdrawalsByStatus['PROCESSING']?.count ?? 0,
+        completed: withdrawalsByStatus['COMPLETED']?.count ?? 0,
+        rejected: withdrawalsByStatus['REJECTED']?.count ?? 0,
+        cancelled: withdrawalsByStatus['CANCELLED']?.count ?? 0,
+        by_status: withdrawalsByStatus,
+      },
+      feedback: {
+        total: feedbackAgg._count,
+        avg_rating: feedbackAgg._avg.rating
+          ? +feedbackAgg._avg.rating.toFixed(2)
+          : null,
+        low_rating_count: lowFeedbackCount,
+      },
+    };
+  }
+
+  async listFeedback(query: {
+    minRating?: string;
+    role?: string;
+    page?: string;
+    pageSize?: string;
+  }) {
+    const page = Math.max(1, Number(query.page ?? '1'));
+    const pageSize = Math.min(100, Math.max(1, Number(query.pageSize ?? '25')));
+
+    const where: any = {};
+    if (query.minRating) {
+      const min = Number(query.minRating);
+      if (Number.isFinite(min)) where.rating = { gte: min };
+    }
+    if (query.role === 'buyer' || query.role === 'seller') {
+      where.role = query.role;
+    }
+
+    const [items, total, summary] = await this.prisma.$transaction([
+      this.prisma.dealFeedback.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          deal: { select: { id: true, publicId: true, status: true } },
+          user: { select: { id: true, email: true, name: true } },
+          participant: { select: { id: true, name: true } },
+        },
+      }),
+      this.prisma.dealFeedback.count({ where }),
+      this.prisma.dealFeedback.aggregate({
+        _avg: { rating: true },
+        _count: { _all: true },
+      }),
+    ]);
+
+    return {
+      items: items.map((f) => ({
+        id: f.id,
+        deal_id: f.dealId,
+        deal_public_id: f.deal?.publicId ?? null,
+        deal_status: f.deal?.status ?? null,
+        role: f.role,
+        rating: f.rating,
+        comment: f.comment,
+        user_id: f.userId,
+        user_email: f.user?.email ?? null,
+        user_name: f.user?.name ?? f.participant?.name ?? null,
+        created_at: f.createdAt.toISOString(),
+        updated_at: f.updatedAt.toISOString(),
+      })),
+      total,
+      page,
+      pageSize,
+      summary: {
+        total: summary._count._all,
+        avg_rating: summary._avg.rating
+          ? +summary._avg.rating.toFixed(2)
+          : null,
+      },
+    };
+  }
+
   async checkBakongByPaymentId(paymentId: string, payments: PaymentsService) {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },

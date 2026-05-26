@@ -60,7 +60,11 @@ export class PaymentsController {
   }
 
   @Post('payment-instruction/regenerate')
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  // 5/min was too tight in practice — the buyer might tap "Generate
+  // KHQR" several times if the first attempt looked like nothing
+  // happened, and our existing GET endpoint already self-heals on
+  // each fetch. 30/min is plenty of head-room without being abusive.
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
   @UseGuards(UserSessionGuard, DealAccessGuard)
   @ApiOperation({
     summary:

@@ -12,6 +12,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { DealsService } from './deals.service';
 import { CreateDealDto } from './dto/create-deal.dto';
+import { CreateDealFeedbackDto } from './dto/create-deal-feedback.dto';
 import { JoinDealDto } from './dto/join-deal.dto';
 import {
   UpdateDeliveryDto,
@@ -127,5 +128,30 @@ export class DealsController {
     @CurrentActor() actor: RequestActor,
   ) {
     return this.deals.confirmReceived(publicId, actor);
+  }
+
+  @Post(':publicId/feedback')
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @UseGuards(UserSessionGuard, DealAccessGuard)
+  @ApiOperation({
+    summary:
+      'Submit (or update) optional rating + comment after the deal is complete',
+  })
+  submitFeedback(
+    @Param('publicId') publicId: string,
+    @Body() dto: CreateDealFeedbackDto,
+    @CurrentActor() actor: RequestActor,
+  ) {
+    return this.deals.submitFeedback(publicId, actor, dto);
+  }
+
+  @Get(':publicId/feedback')
+  @UseGuards(DealAccessGuard)
+  @ApiOperation({ summary: 'List feedback entries for this deal' })
+  listFeedback(
+    @Param('publicId') publicId: string,
+    @CurrentActor() actor: RequestActor,
+  ) {
+    return this.deals.listFeedback(publicId, actor);
   }
 }

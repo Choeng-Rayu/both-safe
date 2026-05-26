@@ -2,28 +2,48 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Users, Briefcase, Banknote } from "lucide-react";
+import {
+  LayoutDashboard,
+  Users,
+  Briefcase,
+  Banknote,
+  Star,
+} from "lucide-react";
 
 const TABS = [
-  { href: "/admin/users", label: "Users", icon: Users },
-  { href: "/admin/deals", label: "Deals", icon: Briefcase },
-  { href: "/admin/withdrawals", label: "Withdrawals", icon: Banknote },
+  { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/admin/users", label: "Users", icon: Users, exact: false },
+  { href: "/admin/deals", label: "Deals", icon: Briefcase, exact: false },
+  {
+    href: "/admin/withdrawals",
+    label: "Withdrawals",
+    icon: Banknote,
+    exact: false,
+  },
+  { href: "/admin/feedback", label: "Feedback", icon: Star, exact: false },
 ];
 
 /**
- * Top-of-page navigation that ties together the three admin
- * dashboard sections. Each section has its own server page that
- * renders this component above its content for a consistent
- * experience.
+ * Top-of-page navigation for the admin dashboard.
+ *
+ * The platform's deal flow is fully automated: payments auto-verify
+ * (Bakong / wallet pay) and confirm-received auto-credits the
+ * seller's wallet. The admin's only money-moving action is approving
+ * and completing withdrawal requests. Deals appear in the nav so the
+ * admin can audit transaction history, but they are read-only.
  */
 export function AdminNav() {
   const pathname = usePathname();
+
+  function isActive(tab: (typeof TABS)[number]) {
+    return tab.exact ? pathname === tab.href : pathname.startsWith(tab.href);
+  }
 
   return (
     <nav className="flex flex-wrap gap-1 rounded-xl bg-[var(--surface-muted)] p-1">
       {TABS.map((tab) => {
         const Icon = tab.icon;
-        const active = pathname.startsWith(tab.href);
+        const active = isActive(tab);
         return (
           <Link
             key={tab.href}

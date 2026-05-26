@@ -139,11 +139,9 @@ export class PaymentsService {
       return { paymentId: payment.id };
     });
 
-    // Auto-transition to SELLER_PREPARING (mirrors adminVerify path).
-    await this.prisma.deal.update({
-      where: { id: deal.id },
-      data: { status: DEAL_STATUS.SELLER_PREPARING },
-    });
+    // Wallet payment is fully verified at this point; the deal sits in
+    // PAID_ESCROWED so the seller's UI can show "buyer paid — please
+    // ship". The simplified flow has no SELLER_PREPARING intermediate.
 
     if (!(await this.ledger.hasEntry(deal.id, 'ESCROW_RECEIVED'))) {
       await this.ledger.append({
@@ -210,7 +208,7 @@ export class PaymentsService {
 
     return {
       message_key: MESSAGE_KEYS.PAID_FROM_WALLET,
-      status: DEAL_STATUS.SELLER_PREPARING,
+      status: DEAL_STATUS.PAID_ESCROWED,
       payment_id: paymentId,
     };
   }
@@ -234,16 +232,17 @@ export class PaymentsService {
     }
 
     try {
-      // Note: deliberately not setting `expirationTimestamp`. Embedding an
-      // expiry into the QR causes Bakong-aware bank apps to reject the
-      // scan once the deadline passes, even though our backend would
-      // happily accept the payment. We rely on the Bakong poller to
-      // close the loop instead, and expose a manual "regenerate" path
-      // so the buyer can rotate the intent on demand.
+      // bakong-khqr requires an `expirationTimestamp` whenever the QR
+      // is dynamic (amount > 0). We use a 24-hour window so the buyer
+      // has plenty of time to scan, and we expose a manual
+      // "regenerate" endpoint that clones the intent with a fresh
+      // expiry whenever the buyer needs more time. The Bakong poller
+      // closes the verification loop independently of this expiry.
       const optional: Record<string, unknown> = {
         currency: khqrData.currency.usd,
         storeLabel: 'BothSafe',
         billNumber: publicId.slice(0, 25),
+        expirationTimestamp: Date.now() + 24 * 60 * 60 * 1000,
       };
 
       if (amount && amount > 0) {
@@ -260,16 +259,20 @@ export class PaymentsService {
 
       if (result.status.code !== 0 || !result.data) {
         this.logger.warn(
-          `KHQR generation failed: ${result.status.message}`,
+          `KHQR generation failed for deal=${publicId} amount=${amount} accountId=${accountId}: code=${result.status.code} msg=${result.status.message}`,
           PaymentsService.name,
         );
         return null;
       }
 
+      this.logger.log(
+        `KHQR generated for deal=${publicId} amount=${amount} md5=${result.data.md5}`,
+        PaymentsService.name,
+      );
       return { khqr_string: result.data.qr, khqr_md5: result.data.md5 };
     } catch (err) {
       this.logger.error(
-        'KHQR generation error',
+        `KHQR generation threw for deal=${publicId} amount=${amount} accountId=${accountId}: ${(err as Error).message}`,
         (err as Error).stack,
         PaymentsService.name,
       );
@@ -496,7 +499,29 @@ export class PaymentsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    // If we have an existing pending intent that is missing a KHQR
+    // string (e.g. it was created before KHQR generation succeeded
+    // for this account or the bakong-khqr lib failed transiently),
+    // backfill the KHQR data so the buyer always sees a scannable
+    // code. Verified intents are left alone — their KHQR is moot.
     if (existing) {
+      if (
+        existing.adminStatus === 'pending' &&
+        (!existing.khqrString || !existing.khqrMd5)
+      ) {
+        const khqr = this.generateKhqr(deal.amount, deal.publicId);
+        if (khqr?.khqr_string) {
+          const refreshed = await this.prisma.payment.update({
+            where: { id: existing.id },
+            data: {
+              khqrString: khqr.khqr_string,
+              khqrMd5: khqr.khqr_md5,
+            },
+          });
+          return refreshed;
+        }
+      }
       return existing;
     }
 
@@ -583,11 +608,9 @@ export class PaymentsService {
       }),
     ]);
 
-    // Auto-transition to SELLER_PREPARING
-    await this.prisma.deal.update({
-      where: { id: deal.id },
-      data: { status: DEAL_STATUS.SELLER_PREPARING },
-    });
+    // Simplified flow: the deal stays in PAID_ESCROWED until the
+    // seller uploads shipping proof. There is no SELLER_PREPARING
+    // intermediate any more.
 
     await this.ledger.append({
       dealId: deal.id,
@@ -649,7 +672,7 @@ export class PaymentsService {
     });
 
     return {
-      deal_status: DEAL_STATUS.SELLER_PREPARING,
+      deal_status: DEAL_STATUS.PAID_ESCROWED,
       ledger_entries: await this.ledger.list(deal.id),
     };
   }

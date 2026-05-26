@@ -85,6 +85,14 @@ export type DealResponse = {
   payment_summary: PaymentSummary;
   shipping_summary: ShippingSummary;
   dispute_summary: DisputeSummaryItem[] | null;
+  feedback: Array<{
+    id: string;
+    role: "buyer" | "seller";
+    rating: number;
+    comment: string | null;
+    created_at: string;
+    updated_at: string;
+  }> | null;
   timeline: TimelineItem[];
 };
 

@@ -7,13 +7,31 @@ import { ArrowRight, MessageCircleMore, ShieldCheck, Truck, Lock, CreditCard, Ch
 import { PublicHeader } from "@/components/layout/public-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useI18n } from "@/components/providers/app-providers";
+import { useAuth, useI18n } from "@/components/providers/app-providers";
+import { AuthRequiredDialog } from "@/components/auth/auth-required-dialog";
 import Image from "next/image";
 
 export function PublicHome() {
   const { t } = useI18n();
+  const { user } = useAuth();
   const router = useRouter();
   const [openLink, setOpenLink] = useState("");
+  const [authDialog, setAuthDialog] = useState<{
+    open: boolean;
+    redirectTo: string;
+  }>({ open: false, redirectTo: "" });
+
+  // Anonymous click on a Create CTA opens the auth modal; the user
+  // continues to the deal-creation page after a successful sign-in or
+  // sign-up. Authenticated users skip straight to the form.
+  function handleCreate(role: "buyer" | "seller") {
+    const target = `/deals/new?role=${role}`;
+    if (user) {
+      router.push(target);
+      return;
+    }
+    setAuthDialog({ open: true, redirectTo: target });
+  }
 
   const quickSteps = useMemo(
     () => [
@@ -45,18 +63,21 @@ export function PublicHome() {
               {t("landing.hero.body")}
             </p>
             <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-md mx-auto">
-              <Link href="/deals/new?role=seller" className="w-full">
-                <Button className="w-full h-12 text-base px-6 shadow-md hover:shadow-lg transition-all">
-                  {t("deal.action.create_seller")}
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href="/deals/new?role=buyer" className="w-full">
-                <Button variant="secondary" className="w-full h-12 text-base px-6 shadow-sm hover:shadow transition-all">
-                  {t("deal.action.create_buyer")}
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
+              <Button
+                onClick={() => handleCreate("seller")}
+                className="w-full h-12 text-base px-6 shadow-md hover:shadow-lg transition-all"
+              >
+                {t("deal.action.create_seller")}
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => handleCreate("buyer")}
+                className="w-full h-12 text-base px-6 shadow-sm hover:shadow transition-all"
+              >
+                {t("deal.action.create_buyer")}
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
             </div>
             
             <div className="mt-16 w-full max-w-2xl">
@@ -170,11 +191,12 @@ export function PublicHome() {
             <p className="text-[var(--surface-muted)] mb-10 max-w-xl mx-auto text-lg">
               Create a BothSafe deal room in seconds and share the link with your buyer or seller. No app download required.
             </p>
-            <Link href="/deals/new?role=seller">
-              <Button className="bg-white text-[var(--brand)] hover:bg-[var(--surface-muted)] h-14 px-8 text-lg rounded-xl">
-                Start a Protected Deal Now
-              </Button>
-            </Link>
+            <Button
+              onClick={() => handleCreate("seller")}
+              className="bg-white text-[var(--brand)] hover:bg-[var(--surface-muted)] h-14 px-8 text-lg rounded-xl"
+            >
+              Start a Protected Deal Now
+            </Button>
           </div>
         </section>
       </main>
@@ -184,6 +206,14 @@ export function PublicHome() {
           <p>© {new Date().getFullYear()} BothSafe. The Trust Layer for Cambodia.</p>
         </div>
       </footer>
+
+      <AuthRequiredDialog
+        open={authDialog.open}
+        onClose={() => setAuthDialog({ open: false, redirectTo: "" })}
+        redirectTo={authDialog.redirectTo}
+        title="Sign in to create a deal"
+        subtitle="BothSafe deal rooms are tied to your account so you can manage them, get notified, and receive payouts in your wallet."
+      />
     </div>
   );
 }

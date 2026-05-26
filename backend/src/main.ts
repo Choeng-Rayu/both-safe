@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import * as dns from 'dns';
 import { AppModule } from './app.module';
 import { WinstonLoggerService } from './common/logger/winston-logger.service';
+import { LOGS_DIR } from './common/logger/winston.config';
 
 const cookieParser: (
   options?: import('cookie-parser').CookieParseOptions,
@@ -19,6 +20,8 @@ async function bootstrap() {
     bufferLogs: true,
   });
   const logger = new Logger('bootstrap');
+
+  logger.log(`File-based logging active. LOGS_DIR=${LOGS_DIR}`);
 
   // Parse cookies for session auth
   app.use(cookieParser());

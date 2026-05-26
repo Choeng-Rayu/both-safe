@@ -39,6 +39,7 @@ model User {
   wallet        Wallet?
   withdrawals   Withdrawal[]
   walletEntries WalletLedgerEntry[]
+  feedbacks     DealFeedback[]
 
   @@index([role])
   @@index([disabled])
@@ -136,6 +137,7 @@ model Deal {
   auditLogs        AuditLog[]
   notifications    Notification[]
   walletEntries    WalletLedgerEntry[]
+  feedbacks        DealFeedback[]
 
   @@index([status])
   @@index([createdAt])
@@ -175,6 +177,7 @@ model Participant {
 
   deal Deal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  feedbacks DealFeedback[]
 
   @@unique([dealId, role])
   @@index([userId])
@@ -452,4 +455,35 @@ model BotState {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   expiresAt    DateTime?
+}
+
+
+// ---------- Deal Feedback ----------
+//
+// Optional rating + comment that either party can leave once the
+// deal is in a terminal status (RELEASED, REFUNDED, CANCELLED,
+// EXPIRED). Used to surface improvement signals in the admin
+// dashboard. One entry per (dealId, role) — submitting again from
+// the same role just updates the existing row.
+
+model DealFeedback {
+  id            String   @id @default(uuid())
+  dealId        String
+  participantId String
+  userId        String?
+  role          String   // "buyer" | "seller"
+  rating        Int      // 1-5
+  comment       String?  // optional free-form text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  deal        Deal        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([dealId, role])
+  @@index([dealId])
+  @@index([userId])
+  @@index([rating])
+  @@index([createdAt])
 }

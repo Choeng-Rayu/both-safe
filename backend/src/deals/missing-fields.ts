@@ -6,18 +6,23 @@ export interface DealLike extends Deal {
 }
 
 /**
- * Compute missing required fields per Kiro spec Requirement 4.
- * Checked fields: product_title, product_type, amount, buyer_name, seller_name
+ * Required fields before the buyer can pay.
  *
- * Payout details are no longer required — released funds go to the seller's
- * internal BothSafe wallet automatically. Sellers withdraw via /wallet/withdraw.
+ * The flow has been simplified to remove all unnecessary friction:
+ * the only items truly needed before money changes hands are the
+ * product title, the amount, the buyer name and the seller name.
+ * Product type / description / phone numbers are now optional and
+ * can be filled in later inside the deal room without blocking the
+ * payment step.
+ *
+ * Payout details are not collected at all — released funds go to the
+ * seller's BothSafe wallet automatically.
  */
 export function computeMissingFields(deal: DealLike): string[] {
   const missing: string[] = [];
 
   // Product fields
   if (!deal.product?.title) missing.push('product.title');
-  if (!deal.product?.type) missing.push('product.type');
   if (!deal.amount || deal.amount <= 0) missing.push('product.amount');
 
   // Participant fields

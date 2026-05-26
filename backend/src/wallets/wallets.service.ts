@@ -149,7 +149,12 @@ export class WalletsService {
     const currentBalance = this.balanceFor(wallet, input.currency);
     const effectiveAvailable =
       currentBalance -
-      (await this.lockedAmount(tx, input.userId, input.currency));
+      (await this.lockedAmount(
+        tx,
+        input.userId,
+        input.currency,
+        input.withdrawalId,
+      ));
     if (effectiveAvailable < input.amount) {
       throw new BadRequestException({
         messageKey: MESSAGE_KEYS.WALLET_INSUFFICIENT_FUNDS,
@@ -182,7 +187,12 @@ export class WalletsService {
     if (await this.entryExists(tx, input.idempotencyKey)) return;
     const wallet = await this.requireWallet(tx, input.userId);
     const balance = this.balanceFor(wallet, input.currency);
-    const locked = await this.lockedAmount(tx, input.userId, input.currency);
+    const locked = await this.lockedAmount(
+      tx,
+      input.userId,
+      input.currency,
+      input.withdrawalId,
+    );
     const effective = balance - locked;
     if (effective < input.amount) {
       throw new BadRequestException({
@@ -326,13 +336,22 @@ export class WalletsService {
     tx: Tx,
     userId: string,
     currency: Currency,
+    excludeWithdrawalId?: string | null,
   ): Promise<bigint> {
+    const where: Prisma.WithdrawalWhereInput = {
+      userId,
+      currency,
+      status: { in: [...WITHDRAWAL_ACTIVE_STATUSES] },
+    };
+    if (excludeWithdrawalId) {
+      // Skip the withdrawal currently being processed in this same
+      // transaction. Without this, the freshly inserted PENDING_REVIEW
+      // row counts itself as "locked", causing every withdraw to fail
+      // with insufficient funds even when the wallet has the money.
+      where.id = { not: excludeWithdrawalId };
+    }
     const rows = await tx.withdrawal.findMany({
-      where: {
-        userId,
-        currency,
-        status: { in: [...WITHDRAWAL_ACTIVE_STATUSES] },
-      },
+      where,
       select: { amount: true },
     });
     return rows.reduce((acc, row) => acc + row.amount, 0n);

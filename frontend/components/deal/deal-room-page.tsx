@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ExternalLink, Pencil, RefreshCcw } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import {
-  approveDeal,
   confirmReceived,
   getDeal,
   getPaymentInstruction,
@@ -38,6 +37,8 @@ import { ProductCard } from "@/components/deal/product-card";
 import { ParticipantCard } from "@/components/deal/participant-card";
 import { PriceSummaryCard } from "@/components/deal/price-summary-card";
 import { EscrowExplanationCard } from "@/components/deal/escrow-explanation-card";
+import { DealRatingCard } from "@/components/deal/deal-rating-card";
+import { FeedbackPromptDialog } from "@/components/deal/feedback-prompt-dialog";
 import { MissingFieldsChecklist } from "@/components/deal/missing-fields-checklist";
 import { Timeline } from "@/components/deal/timeline";
 import { CopyLinkButton } from "@/components/deal/copy-link-button";
@@ -46,7 +47,7 @@ import { ConfirmDialog } from "@/components/deal/confirm-dialog";
 import { DisputeForm } from "@/components/deal/dispute-form";
 import { ActionButton, PrimaryActionBar } from "@/components/deal/primary-action-bar";
 import { SectionCard } from "@/components/deal/section-card";
-import type { DealResponse, DisputeReason } from "@/types/api";
+import type { DealResponse, DealStatus, DisputeReason } from "@/types/api";
 
 const initialProductForm = {
   title: "",
@@ -104,6 +105,7 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
   const [deliveryNote, setDeliveryNote] = useState("");
   const [editor, setEditor] = useState<null | "product" | "participant" | "delivery">(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
   const [packagePhoto, setPackagePhoto] = useState<File | null>(null);
   const [deliveryReceipt, setDeliveryReceipt] = useState<File | null>(null);
   const [shippingForm, setShippingForm] = useState({
@@ -145,8 +147,12 @@ export function DealRoomPage({ publicId }: { publicId: string }) {
 
     let instruction: typeof paymentInstruction = null;
 if (
-  result.status === "READY_FOR_PAYMENT" ||
-  result.status === "PAYMENT_PENDING_VERIFICATION"
+  (result.status === "READY_FOR_PAYMENT" ||
+    result.status === "PAYMENT_PENDING_VERIFICATION") &&
+  // The endpoint is buyer-only on the backend (returns 403 for the
+  // seller). Skipping the call avoids noisy error logs while showing
+  // the same UI — the seller never needs to see the KHQR.
+  result.current_user_role === "buyer"
 ) {
       try {
         instruction = await getPaymentInstruction(publicId, {
@@ -221,18 +227,73 @@ if (
     };
   }, [accessFromUrl, fetchDealState, inviteToken, publicId, t]);
 
-  // Auto-poll every 10 seconds while payment is awaiting Bakong verification.
-  // The backend PaymentPollerService checks Bakong every 30s and auto-verifies.
-  // This keeps the buyer's page in sync without requiring a manual refresh.
+  // Live polling — keep the deal room in sync without manual refresh.
+  // Per the flow.deal.md spec ("always update or pull the latest update
+  // forever until the deal is done or expire") we poll every 10s
+  // until the deal reaches a terminal status. Polling pauses when the
+  // browser tab is hidden so we don't waste cycles in background tabs.
   useEffect(() => {
-    if (deal?.status !== "PAYMENT_PENDING_VERIFICATION") return;
+    if (!deal) return;
+
+    const TERMINAL: ReadonlyArray<DealStatus> = [
+      "RELEASED",
+      "REFUNDED",
+      "CANCELLED",
+      "EXPIRED",
+    ];
+    if (TERMINAL.includes(deal.status as DealStatus)) return;
+
+    // Faster cadence while we're waiting for the buyer's KHQR payment
+    // to land (the backend auto-verifies via the Bakong poller every
+    // 30s) — for everything else 10s is plenty.
+    const interval =
+      deal.status === "PAYMENT_PENDING_VERIFICATION" ? 5_000 : 10_000;
 
     const intervalId = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       void refreshDeal();
-    }, 10_000);
+    }, interval);
 
     return () => clearInterval(intervalId);
-  }, [deal?.status, refreshDeal]);
+  }, [deal, refreshDeal]);
+
+  // Auto-open the feedback prompt the first time a deal lands in a
+  // terminal status. Conditions:
+  //   - the deal is final (RELEASED / REFUNDED / CANCELLED / EXPIRED)
+  //   - the viewer is a participant (admin override / preview view skipped)
+  //   - they haven't already left feedback for this role
+  //   - they haven't dismissed the prompt for this deal in this browser
+  // The inline DealRatingCard remains on the page so they can come
+  // back later — the modal is just a "while you're here" nudge.
+  useEffect(() => {
+    if (!deal) return;
+    const terminal: DealStatus[] = [
+      "RELEASED",
+      "REFUNDED",
+      "CANCELLED",
+      "EXPIRED",
+    ];
+    if (!terminal.includes(deal.status as DealStatus)) return;
+    if (
+      deal.current_user_role !== "buyer" &&
+      deal.current_user_role !== "seller"
+    ) {
+      return;
+    }
+    const alreadySubmitted = !!deal.feedback?.find(
+      (f) => f.role === deal.current_user_role,
+    );
+    if (alreadySubmitted) return;
+
+    const dismissKey = `bothsafe_feedback_dismissed_${publicId}`;
+    if (
+      typeof window !== "undefined" &&
+      window.localStorage.getItem(dismissKey) === "1"
+    ) {
+      return;
+    }
+    setFeedbackDialogOpen(true);
+  }, [deal, publicId]);
 
   async function handleJoin() {
     if (!inviteToken || !joinForm.name.trim()) {
@@ -370,21 +431,29 @@ if (
                       value={formatCurrency(deal.amount, deal.currency, locale)}
                     />
                   </div>
+                  <div
+                    className="mt-5 rounded-xl border border-[var(--brand)]/30 bg-[rgba(47,106,82,0.06)] p-4 text-sm text-[var(--ink)]"
+                    role="status"
+                  >
+                    <span className="font-medium">{t("deal.join.role")}: </span>
+                    <span className="font-semibold text-[var(--brand-strong)]">
+                      {t(`deal.role.${joinForm.role}`)}
+                    </span>
+                    <p className="mt-1 text-xs text-[var(--ink-soft)]">
+                      The other party created this room as the
+                      {" "}
+                      <span className="font-medium">
+                        {t(`deal.role.${deal.creator_role}`)}
+                      </span>
+                      , so you automatically join as the
+                      {" "}
+                      <span className="font-medium">
+                        {t(`deal.role.${joinForm.role}`)}
+                      </span>
+                      .
+                    </p>
+                  </div>
                   <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                    <Field label={t("deal.join.role")} required>
-                      <Select
-                        value={joinForm.role}
-                        onChange={(event) =>
-                          setJoinForm((current) => ({
-                            ...current,
-                            role: event.target.value as "buyer" | "seller",
-                          }))
-                        }
-                      >
-                        <option value="buyer">{t("deal.role.buyer")}</option>
-                        <option value="seller">{t("deal.role.seller")}</option>
-                      </Select>
-                    </Field>
                     <Field label={t("deal.create.your_name")} required>
                       <Input
                         value={joinForm.name}
@@ -396,19 +465,17 @@ if (
                         }
                       />
                     </Field>
-                    <div className="sm:col-span-2">
-                      <Field label={t("deal.create.phone")}>
-                        <Input
-                          value={joinForm.phone}
-                          onChange={(event) =>
-                            setJoinForm((current) => ({
-                              ...current,
-                              phone: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
-                    </div>
+                    <Field label={t("deal.create.phone")}>
+                      <Input
+                        value={joinForm.phone}
+                        onChange={(event) =>
+                          setJoinForm((current) => ({
+                            ...current,
+                            phone: event.target.value,
+                          }))
+                        }
+                      />
+                    </Field>
                   </div>
                   <div className="mt-5">
                     <Button onClick={() => void handleJoin()} disabled={pending}>
@@ -638,30 +705,6 @@ if (
                     </EditorCard>
                   ) : null}
 
-                    {/* Approval Section — visible when both parties must approve */}
-                    {actionSet.has("approve") && (
-                      <div className="rounded-xl border-2 border-[var(--brand)] bg-[rgba(47,106,82,0.05)] p-5">
-                        <p className="text-base font-semibold text-[var(--ink)]">
-                          {t("deal.action.approve")}
-                        </p>
-                        <p className="mt-1 text-sm text-[var(--ink-soft)]">
-                          {t("deal.instruction.awaiting_both_approval")}
-                        </p>
-                        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                          <Button
-                            onClick={() =>
-                              void runAction(async () => {
-                                await approveDeal(publicId, { accessToken: activeAccessToken });
-                              })
-                            }
-                            disabled={pending}
-                          >
-                            {t("deal.action.approve")}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Buyer Cancel Section */}
                     {actionSet.has("cancel") && currentRole === 'buyer' && (
                       <div className='rounded-xl border border-[rgba(180,67,52,0.2)] bg-[rgba(180,67,52,0.04)] p-4'>
@@ -815,43 +858,102 @@ if (
                                   </button>
                                 ) : null}
                               </div>
+                            ) : actionSet.has("upload_payment_proof") ? (
+                              // The backend usually generates a KHQR on
+                              // first load, but if generation failed
+                              // (e.g. transient bakong-khqr error) we
+                              // give the buyer a clear "try again"
+                              // button instead of leaving them stuck.
+                              <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-muted)] p-5 text-center">
+                                <p className="text-sm font-medium text-[var(--ink)]">
+                                  KHQR not ready yet
+                                </p>
+                                <p className="text-xs text-[var(--ink-soft)]">
+                                  Tap below to generate a Bakong KHQR for
+                                  this deal so you can scan and pay.
+                                </p>
+                                <Button
+                                  disabled={pending}
+                                  onClick={() =>
+                                    void runAction(async () => {
+                                      const fresh = await regeneratePaymentInstruction(
+                                        publicId,
+                                        { accessToken: activeAccessToken },
+                                      );
+                                      setPaymentInstruction({
+                                        receiver_account_label: fresh.receiver_account_label,
+                                        receiver_account_id: fresh.receiver_account_id,
+                                        expected_amount: fresh.expected_amount,
+                                        currency: fresh.currency,
+                                        reference_note: fresh.reference_note,
+                                        khqr_string: fresh.khqr_string,
+                                        khqr_md5: fresh.khqr_md5,
+                                      });
+                                    })
+                                  }
+                                >
+                                  Generate KHQR
+                                </Button>
+                              </div>
                             ) : null}
                           </div>
                         ) : null}
                         {deal.payment_summary ? (
-                          <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4">
-                            {deal.status === "PAYMENT_PENDING_VERIFICATION" ? (
-                              <div className="flex items-center gap-3">
-                                {/* Animated pulse — indicates live Bakong polling */}
-                                <span className="relative flex h-3 w-3 flex-shrink-0">
-                                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-                                  <span className="relative inline-flex h-3 w-3 rounded-full bg-amber-500" />
-                                </span>
-                                <div>
-                                  <div className="text-sm font-semibold text-[var(--ink)]">
-                                    {t("payment.auto_checking")}
+                          (() => {
+                            // The payment row is created the moment the
+                            // buyer first opens the page (the backend
+                            // generates a KHQR intent eagerly). So
+                            // `payment_summary` being present does NOT
+                            // mean the buyer has actually paid. The
+                            // status field is the source of truth:
+                            //   READY_FOR_PAYMENT          → not paid yet
+                            //   PAYMENT_PENDING_VERIFICATION → bank check
+                            //   PAID_ESCROWED+             → confirmed
+                            const isChecking =
+                              deal.status === "PAYMENT_PENDING_VERIFICATION";
+                            const isPaid =
+                              deal.status === "PAID_ESCROWED" ||
+                              deal.status === "SELLER_PREPARING" ||
+                              deal.status === "SHIPPED" ||
+                              deal.status === "BUYER_CONFIRMED" ||
+                              deal.status === "RELEASE_PENDING" ||
+                              deal.status === "RELEASED";
+                            if (!isChecking && !isPaid) return null;
+                            return (
+                              <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4">
+                                {isChecking ? (
+                                  <div className="flex items-center gap-3">
+                                    <span className="relative flex h-3 w-3 flex-shrink-0">
+                                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                                      <span className="relative inline-flex h-3 w-3 rounded-full bg-amber-500" />
+                                    </span>
+                                    <div>
+                                      <div className="text-sm font-semibold text-[var(--ink)]">
+                                        {t("payment.auto_checking")}
+                                      </div>
+                                      <div className="mt-0.5 text-xs text-[var(--ink-soft)]">
+                                        {t("payment.auto_checking_hint")}
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div className="mt-0.5 text-xs text-[var(--ink-soft)]">
-                                    {t("payment.auto_checking_hint")}
+                                ) : (
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-lg">✅</span>
+                                    <div className="text-sm font-semibold text-emerald-700">
+                                      {t("payment.verified_success")}
+                                    </div>
                                   </div>
-                                </div>
+                                )}
+                                {deal.payment_summary?.proof_image_url ? (
+                                  <img
+                                    src={deal.payment_summary.proof_image_url}
+                                    alt=""
+                                    className="mt-3 max-h-64 rounded-lg border border-[var(--border)] object-cover"
+                                  />
+                                ) : null}
                               </div>
-                            ) : (
-                              <div className="flex items-center gap-3">
-                                <span className="text-lg">✅</span>
-                                <div className="text-sm font-semibold text-emerald-700">
-                                  {t("payment.verified_success")}
-                                </div>
-                              </div>
-                            )}
-                            {deal.payment_summary.proof_image_url ? (
-                              <img
-                                src={deal.payment_summary.proof_image_url}
-                                alt=""
-                                className="mt-3 max-h-64 rounded-lg border border-[var(--border)] object-cover"
-                              />
-                            ) : null}
-                          </div>
+                            );
+                          })()
                         ) : null}
                         {actionSet.has("upload_payment_proof") ? (
                           <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm text-[var(--ink-soft)]">
@@ -1039,6 +1141,60 @@ if (
               )}
 
               <Timeline items={deal.timeline} />
+
+              {/* Optional rating + feedback after the deal is final.
+                  Either party can submit one entry; comment is optional.
+                  Admin viewers (no buyer/seller role) see a read-only
+                  summary via the same component. */}
+              {(deal.status === "RELEASED" ||
+                deal.status === "REFUNDED" ||
+                deal.status === "CANCELLED" ||
+                deal.status === "EXPIRED") && (
+                <DealRatingCard
+                  publicId={publicId}
+                  currentRole={
+                    deal.current_user_role === "buyer" ||
+                    deal.current_user_role === "seller"
+                      ? deal.current_user_role
+                      : null
+                  }
+                  feedback={deal.feedback ?? null}
+                  onSubmitted={() => void refreshDeal()}
+                  pending={pending}
+                  accessToken={activeAccessToken}
+                />
+              )}
+
+              {/* "While you're here" prompt — auto-opens once when the
+                  deal first hits a terminal status. Dismissal is
+                  remembered per-deal in localStorage so we don't nag. */}
+              {(deal.current_user_role === "buyer" ||
+                deal.current_user_role === "seller") && (
+                <FeedbackPromptDialog
+                  open={feedbackDialogOpen}
+                  onClose={() => {
+                    setFeedbackDialogOpen(false);
+                    if (typeof window !== "undefined") {
+                      window.localStorage.setItem(
+                        `bothsafe_feedback_dismissed_${publicId}`,
+                        "1",
+                      );
+                    }
+                  }}
+                  onSubmitted={() => {
+                    if (typeof window !== "undefined") {
+                      window.localStorage.setItem(
+                        `bothsafe_feedback_dismissed_${publicId}`,
+                        "1",
+                      );
+                    }
+                    void refreshDeal();
+                  }}
+                  publicId={publicId}
+                  currentRole={deal.current_user_role}
+                  accessToken={activeAccessToken}
+                />
+              )}
             </div>
 
             <aside className="space-y-6">
@@ -1060,17 +1216,7 @@ if (
               </SectionCard>
               <PrimaryActionBar
                 primary={
-                  actionSet.has("approve") ? (
-                    <ActionButton
-                      onClick={() =>
-                        void runAction(async () => {
-                          await approveDeal(publicId, { accessToken: activeAccessToken });
-                        })
-                      }
-                    >
-                      {t("deal.action.approve")}
-                    </ActionButton>
-                  ) : actionSet.has("upload_payment_proof") ? (
+                  actionSet.has("upload_payment_proof") ? (
                     <ActionButton
                       onClick={() =>
                         document

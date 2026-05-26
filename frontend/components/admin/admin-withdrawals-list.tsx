@@ -94,7 +94,12 @@ export function AdminWithdrawalsList({ initialStatus = "" }: AdminWithdrawalsLis
           </thead>
           <tbody>
             {rows.map((w) => (
-              <tr key={w.id} className="border-t border-[var(--border)]">
+              <tr
+                key={w.id}
+                className={`border-t border-[var(--border)] ${
+                  w.status === "PENDING_REVIEW" ? "bg-amber-50/40" : ""
+                }`}
+              >
                 <td className="px-3 py-2 font-mono text-xs">{w.public_id}</td>
                 <td className="px-3 py-2">
                   {w.user?.email ?? w.user?.name ?? w.user?.id ?? w.user_id}
@@ -102,13 +107,32 @@ export function AdminWithdrawalsList({ initialStatus = "" }: AdminWithdrawalsLis
                 <td className="px-3 py-2 font-semibold">
                   {formatMinor(w.amount_minor, w.currency)}
                 </td>
-                <td className="px-3 py-2">{t(`withdrawal.status.${w.status}`)}</td>
+                <td className="px-3 py-2">
+                  <span
+                    className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      w.status === "PENDING_REVIEW"
+                        ? "bg-amber-200 text-amber-900"
+                        : w.status === "APPROVED" ||
+                            w.status === "PROCESSING"
+                          ? "bg-blue-100 text-blue-800"
+                          : w.status === "COMPLETED"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    {t(`withdrawal.status.${w.status}`)}
+                  </span>
+                </td>
                 <td className="px-3 py-2 text-[var(--muted)]">
                   {new Date(w.created_at).toLocaleString()}
                 </td>
                 <td className="px-3 py-2 text-right">
                   <Link href={`/admin/withdrawals/${w.id}`}>
-                    <Button variant="ghost">{t("common.view")}</Button>
+                    <Button
+                      variant={w.status === "PENDING_REVIEW" ? "primary" : "ghost"}
+                    >
+                      {w.status === "PENDING_REVIEW" ? "Review" : t("common.view")}
+                    </Button>
                   </Link>
                 </td>
               </tr>

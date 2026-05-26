@@ -95,27 +95,29 @@ export class DealsService {
     ) {
       acts.push('share_invite_link', 'update_product', 'update_participant');
     }
-    if (status === DEAL_STATUS.AWAITING_BOTH_APPROVAL) {
-      acts.push('approve');
+    // READY_FOR_PAYMENT → both sides may still polish optional info
+    // (product type, description, phone) before the buyer pays.
+    if (status === DEAL_STATUS.READY_FOR_PAYMENT) {
       if (role) acts.push('update_product', 'update_participant');
-    }
-    if (status === DEAL_STATUS.READY_FOR_PAYMENT && role === 'buyer') {
-      acts.push('upload_payment_proof');
+      if (role === 'buyer') acts.push('upload_payment_proof');
     }
     if (canCancel(status) && role === 'buyer') acts.push('cancel');
+    // Seller can ship at any post-payment stage where the funds are
+    // escrowed and tracking has not yet been recorded.
     if (
+      role === 'seller' &&
       (status === DEAL_STATUS.PAID_ESCROWED ||
-        status === DEAL_STATUS.SELLER_PREPARING) &&
-      role === 'seller'
+        status === DEAL_STATUS.SELLER_PREPARING)
     ) {
       acts.push('upload_shipping_proof');
     }
-    // Buyer can confirm receipt as soon as the seller is preparing (no
-    // shipping proof required) — the act of confirming is what releases
-    // the funds.
+    // Buyer can confirm receipt as soon as the funds are escrowed —
+    // confirming is what releases the money. Seller-preparing and
+    // shipped statuses are both valid trigger points.
     if (
       role === 'buyer' &&
-      (status === DEAL_STATUS.SELLER_PREPARING ||
+      (status === DEAL_STATUS.PAID_ESCROWED ||
+        status === DEAL_STATUS.SELLER_PREPARING ||
         status === DEAL_STATUS.SHIPPED)
     ) {
       acts.push('confirm_received', 'open_dispute');
@@ -266,8 +268,25 @@ export class DealsService {
       payment_summary: await this.paymentSummary(deal.id),
       shipping_summary: await this.shippingSummary(deal.id),
       dispute_summary: await this.disputeSummary(deal.id),
+      feedback: await this.feedbackSummary(deal.id),
       timeline: await this.notif.timeline(deal.id),
     };
+  }
+
+  private async feedbackSummary(dealId: string) {
+    const rows = await this.prisma.dealFeedback.findMany({
+      where: { dealId },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!rows.length) return null;
+    return rows.map((r) => ({
+      id: r.id,
+      role: r.role as 'buyer' | 'seller',
+      rating: r.rating,
+      comment: r.comment,
+      created_at: r.createdAt.toISOString(),
+      updated_at: r.updatedAt.toISOString(),
+    }));
   }
 
   /** Ensure file URLs are absolute (handles old relative paths stored before the fix). */
@@ -392,11 +411,13 @@ export class DealsService {
       });
     }
 
-    // Transition to AWAITING_BOTH_APPROVAL and invalidate invite token
+    // Transition straight to READY_FOR_PAYMENT — the simplified flow
+    // treats paying as the buyer's implicit approval and shipping as
+    // the seller's, so there is no separate "Approve deal" gate.
     await this.prisma.deal.update({
       where: { id: deal.id },
       data: {
-        status: DEAL_STATUS.AWAITING_BOTH_APPROVAL,
+        status: DEAL_STATUS.READY_FOR_PAYMENT,
         inviteTokenHash: null,
         inviteExpiresAt: null,
       },
@@ -446,100 +467,22 @@ export class DealsService {
   }
 
   /** Participant approves the deal terms */
+  /**
+   * Deprecated. The simplified flow no longer has an explicit
+   * approve step — paying *is* the buyer's approval and shipping
+   * *is* the seller's approval. We keep the method as a no-op so
+   * old clients (and any in-flight Telegram bot states) get a
+   * benign success response instead of an error.
+   */
   async approveDeal(publicId: string, actor: RequestActor) {
     if (!actor.role)
       throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
     const deal = await this.loadDeal(publicId);
-
-    if (deal.status !== DEAL_STATUS.AWAITING_BOTH_APPROVAL) {
-      throw new BadRequestException({
-        messageKey: MESSAGE_KEYS.INVALID_TRANSITION,
-      });
-    }
-
-    const participant = deal.participants.find((p) => p.role === actor.role);
-    if (!participant)
-      throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
-
-    // Record approval timestamp
-    await this.prisma.participant.update({
-      where: { id: participant.id },
-      data: { approvedAt: new Date() },
-    });
-
-    await this.audit.record({
-      dealId: deal.id,
-      actorType: 'participant',
-      actorId: participant.id,
-      action: 'deal.approved',
-      details: { role: actor.role },
-    });
-    this.logger.action('deal.approved', {
-      public_id: publicId,
-      role: actor.role,
-      participant_id: participant.id,
-    });
-
-    // Check if both approved and all fields complete
-    const fresh = await this.loadDeal(publicId);
-    const missing = computeMissingFields(fresh);
-    const allApproved = fresh.participants.every((p) => p.approvedAt != null);
-
-    if (allApproved && missing.length === 0) {
-      await this.prisma.deal.update({
-        where: { id: deal.id },
-        data: { status: DEAL_STATUS.READY_FOR_PAYMENT },
-      });
-      await this.audit.record({
-        dealId: deal.id,
-        actorType: 'system',
-        action: 'status.transition',
-        details: {
-          from: DEAL_STATUS.AWAITING_BOTH_APPROVAL,
-          to: DEAL_STATUS.READY_FOR_PAYMENT,
-        },
-      });
-      this.logger.action('status.transition', {
-        public_id: publicId,
-        from: DEAL_STATUS.AWAITING_BOTH_APPROVAL,
-        to: DEAL_STATUS.READY_FOR_PAYMENT,
-      });
-
-      // Notify both inapp and Telegram channels. The buyer needs the
-      // amount and receiving account so they can pay (Req 14.3).
-      const buyer = fresh.participants.find((p) => p.role === 'buyer');
-      const recipients = [
-        ...fresh.participants.map((p) => ({
-          channel: 'inapp' as const,
-          ref: p.id,
-        })),
-        ...(buyer?.telegramChatId
-          ? [{ channel: 'telegram' as const, ref: buyer.telegramChatId }]
-          : []),
-      ];
-      await this.notif.notify({
-        dealId: deal.id,
-        eventKey: NOTIFICATION_EVENTS.BOTH_APPROVED,
-        messageKey: MESSAGE_KEYS.BOTH_APPROVED,
-        recipients,
-        payload: {
-          amount: fresh.amount,
-          currency: fresh.currency,
-          receiver_account_label:
-            this.cfg.get<string>('BAKONG_MERCHANT_NAME') ?? 'BothSafe',
-        },
-      });
-    }
-
-    const updated = await this.loadDeal(publicId);
     return {
-      status: updated.status,
-      message_key:
-        allApproved && missing.length === 0
-          ? MESSAGE_KEYS.BOTH_APPROVED
-          : MESSAGE_KEYS.APPROVED,
-      missing_fields: computeMissingFields(updated),
-      allowed_actions: this.allowedActions(updated, actor),
+      status: deal.status,
+      message_key: MESSAGE_KEYS.APPROVED,
+      missing_fields: computeMissingFields(deal),
+      allowed_actions: this.allowedActions(deal, actor),
     };
   }
 
@@ -959,6 +902,100 @@ export class DealsService {
       waiting_my_approval: waitingMyApproval,
       active,
       completed_cancelled: completedCancelled,
+    };
+  }
+
+  // ─── Deal feedback ───────────────────────────────────────────────────────
+
+  /**
+   * Either party may leave one rating + optional comment per deal,
+   * once the deal reaches a terminal status (RELEASED, REFUNDED,
+   * CANCELLED, EXPIRED). Re-submitting from the same role updates
+   * the existing row. Feedback is fully optional.
+   */
+  async submitFeedback(
+    publicId: string,
+    actor: RequestActor,
+    dto: { rating: number; comment?: string },
+  ) {
+    if (!actor.role) {
+      throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
+    }
+    const deal = await this.loadDeal(publicId);
+    if (!isTerminal(deal.status as DealStatus)) {
+      throw new BadRequestException({ messageKey: 'feedback.deal_not_complete' });
+    }
+
+    const participant = deal.participants.find((p) => p.role === actor.role);
+    if (!participant) {
+      throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
+    }
+
+    const trimmedComment = dto.comment?.trim() || null;
+
+    const upserted = await this.prisma.dealFeedback.upsert({
+      where: { dealId_role: { dealId: deal.id, role: actor.role } },
+      update: {
+        rating: dto.rating,
+        comment: trimmedComment,
+      },
+      create: {
+        dealId: deal.id,
+        participantId: participant.id,
+        userId: participant.userId ?? null,
+        role: actor.role,
+        rating: dto.rating,
+        comment: trimmedComment,
+      },
+    });
+
+    await this.audit.record({
+      dealId: deal.id,
+      actorType: 'participant',
+      actorId: participant.id,
+      action: 'feedback.submitted',
+      details: {
+        role: actor.role,
+        rating: dto.rating,
+        has_comment: !!trimmedComment,
+      },
+    });
+
+    return this.toFeedbackApi(upserted);
+  }
+
+  async listFeedback(publicId: string, actor: RequestActor) {
+    if (!actor.role && actor.type !== 'admin') {
+      throw new ForbiddenException({ messageKey: MESSAGE_KEYS.FORBIDDEN });
+    }
+    const deal = await this.prisma.deal.findUnique({
+      where: { publicId },
+      select: { id: true },
+    });
+    if (!deal) throw new NotFoundException({ messageKey: MESSAGE_KEYS.DEAL_NOT_FOUND });
+
+    const rows = await this.prisma.dealFeedback.findMany({
+      where: { dealId: deal.id },
+      orderBy: { createdAt: 'asc' },
+    });
+    return { feedback: rows.map((r) => this.toFeedbackApi(r)) };
+  }
+
+  private toFeedbackApi(row: {
+    id: string;
+    role: string;
+    rating: number;
+    comment: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    return {
+      id: row.id,
+      role: row.role as 'buyer' | 'seller',
+      rating: row.rating,
+      comment: row.comment,
+      created_at: row.createdAt.toISOString(),
+      updated_at: row.updatedAt.toISOString(),
     };
   }
 }
