@@ -763,7 +763,6 @@ export class AdminService {
       },
       withdrawals: {
         pending_review: withdrawalsByStatus['PENDING_REVIEW']?.count ?? 0,
-        approved: withdrawalsByStatus['APPROVED']?.count ?? 0,
         processing: withdrawalsByStatus['PROCESSING']?.count ?? 0,
         completed: withdrawalsByStatus['COMPLETED']?.count ?? 0,
         rejected: withdrawalsByStatus['REJECTED']?.count ?? 0,

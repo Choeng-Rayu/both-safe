@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/components/providers/app-providers";
 import {
-  adminApproveWithdrawal,
-  adminCompleteWithdrawal,
+  adminCompleteWithdrawalWithProof,
   adminRejectWithdrawal,
   type WithdrawalAdminDetail,
 } from "@/lib/api";
@@ -20,24 +20,90 @@ export function AdminWithdrawalDetail({ withdrawal: initial }: Props) {
   const router = useRouter();
   const { t } = useI18n();
   const [withdrawal, setWithdrawal] = useState(initial);
+
+  // Complete-with-proof form state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [providerReference, setProviderReference] = useState("");
+  const [adminNote, setAdminNote] = useState("");
+
+  // Reject form state
   const [rejectionReason, setRejectionReason] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isPending = withdrawal.status === "PENDING_REVIEW";
-  const isApproved =
-    withdrawal.status === "APPROVED" || withdrawal.status === "PROCESSING";
+  const isCompleted = withdrawal.status === "COMPLETED";
   const isTerminal = ["COMPLETED", "REJECTED", "CANCELLED", "FAILED"].includes(
     withdrawal.status,
   );
 
-  const run = async (action: () => Promise<{ withdrawal: WithdrawalAdminDetail }>) => {
+  // Generate a preview URL for the selected proof image and clean up
+  // the object URL on unmount / file replacement.
+  useEffect(() => {
+    if (!proofFile) {
+      setProofPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(proofFile);
+    setProofPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [proofFile]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Please choose an image file (PNG, JPG, WebP).");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Image must be smaller than 10 MB.");
+      return;
+    }
+    setError(null);
+    setProofFile(file);
+  };
+
+  const clearFile = () => {
+    setProofFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleComplete = async () => {
+    if (!proofFile) {
+      setError("Upload a proof screenshot before completing.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      const result = await action();
-      setWithdrawal(result.withdrawal);
+      const result = await adminCompleteWithdrawalWithProof(withdrawal.id, {
+        proof_image: proofFile,
+        provider_reference: providerReference || undefined,
+        admin_note: adminNote || undefined,
+      });
+      setWithdrawal(result.withdrawal as WithdrawalAdminDetail);
+      router.refresh();
+    } catch (err) {
+      setError((err as Error).message ?? "Action failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectionReason) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const result = await adminRejectWithdrawal(
+        withdrawal.id,
+        rejectionReason,
+      );
+      setWithdrawal(result.withdrawal as WithdrawalAdminDetail);
       router.refresh();
     } catch (err) {
       setError((err as Error).message ?? "Action failed");
@@ -126,6 +192,23 @@ export function AdminWithdrawalDetail({ withdrawal: initial }: Props) {
         </dl>
       </section>
 
+      {/* Stored proof image, shown once the withdrawal is completed.
+          This is the same image the user sees in their notification —
+          surfaced here so disputes can be cross-referenced. */}
+      {isCompleted && withdrawal.admin_proof_image && (
+        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+          <p className="text-xs uppercase tracking-wide text-emerald-700">
+            Proof of payment sent to user
+          </p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={withdrawal.admin_proof_image}
+            alt="Admin proof of payment"
+            className="mt-2 max-h-96 w-full rounded-lg border border-emerald-200 bg-white object-contain p-2"
+          />
+        </section>
+      )}
+
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
@@ -137,46 +220,83 @@ export function AdminWithdrawalDetail({ withdrawal: initial }: Props) {
           <h2 className="text-lg font-semibold">Actions</h2>
 
           {isPending && (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={() =>
-                  run(() => adminApproveWithdrawal(withdrawal.id))
-                }
-                disabled={submitting}
-              >
-                {t("admin.withdrawals.approve")}
-              </Button>
-            </div>
-          )}
-
-          {isApproved && (
-            <div className="space-y-3 rounded-xl border border-[var(--border)] p-4">
-              <p className="text-sm text-[var(--muted)]">
-                {t("admin.withdrawals.mark_paid_hint")}
+            <div className="space-y-3 rounded-xl border-2 border-[var(--brand)]/30 bg-[rgba(47,106,82,0.04)] p-4">
+              <p className="text-sm font-semibold text-[var(--ink)]">
+                {t("admin.withdrawals.complete_step")}
               </p>
+              <p className="text-sm text-[var(--ink-soft)]">
+                {t("admin.withdrawals.complete_hint")}
+              </p>
+
+              <div>
+                <p className="mb-1 text-sm font-medium text-[var(--ink)]">
+                  {t("admin.withdrawals.proof_image")} *
+                </p>
+                {proofPreview ? (
+                  <div className="relative inline-block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={proofPreview}
+                      alt="Proof preview"
+                      className="h-44 w-44 rounded-lg border border-[var(--border)] bg-white object-contain"
+                    />
+                    <button
+                      type="button"
+                      onClick={clearFile}
+                      className="absolute -top-2 -right-2 rounded-full bg-[var(--ink)] p-1 text-white shadow"
+                      aria-label="Remove image"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="proof-upload"
+                    className="flex h-44 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[var(--border)] bg-white px-4 py-6 text-sm text-[var(--muted)] transition hover:border-[var(--brand)] hover:text-[var(--ink)]"
+                  >
+                    <Upload className="h-6 w-6" />
+                    <span>{t("admin.withdrawals.proof_upload")}</span>
+                    <span className="text-xs">PNG / JPG / WebP, up to 10 MB</span>
+                  </label>
+                )}
+                <input
+                  ref={fileInputRef}
+                  id="proof-upload"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handleFileChange}
+                  className="sr-only"
+                />
+              </div>
+
               <input
                 value={providerReference}
                 onChange={(e) => setProviderReference(e.target.value)}
                 placeholder={t("admin.withdrawals.provider_reference")}
                 className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2"
               />
+              <textarea
+                value={adminNote}
+                onChange={(e) => setAdminNote(e.target.value)}
+                placeholder={t("admin.withdrawals.admin_note")}
+                rows={2}
+                className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2"
+              />
               <Button
-                onClick={() =>
-                  run(() =>
-                    adminCompleteWithdrawal(withdrawal.id, {
-                      provider_reference: providerReference || undefined,
-                    }),
-                  )
-                }
-                disabled={submitting}
+                onClick={handleComplete}
+                disabled={submitting || !proofFile}
               >
-                {t("admin.withdrawals.mark_paid")}
+                {submitting
+                  ? t("admin.withdrawals.completing")
+                  : t("admin.withdrawals.complete")}
               </Button>
             </div>
           )}
 
           <div className="space-y-3 rounded-xl border border-[var(--border)] p-4">
-            <p className="text-sm font-medium">{t("admin.withdrawals.reject")}</p>
+            <p className="text-sm font-medium">
+              {t("admin.withdrawals.reject")}
+            </p>
             <input
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
@@ -185,9 +305,7 @@ export function AdminWithdrawalDetail({ withdrawal: initial }: Props) {
             />
             <Button
               variant="secondary"
-              onClick={() =>
-                run(() => adminRejectWithdrawal(withdrawal.id, rejectionReason))
-              }
+              onClick={handleReject}
               disabled={submitting || !rejectionReason}
             >
               {t("admin.withdrawals.reject")}

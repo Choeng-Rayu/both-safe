@@ -7,9 +7,19 @@ import {
   Query,
   Req,
   UnauthorizedException,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Request } from 'express';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { MESSAGE_KEYS } from '../common/constants';
@@ -50,29 +60,44 @@ export class AdminWithdrawalsController {
     };
   }
 
-  @Post(':id/approve')
-  @ApiOperation({ summary: 'Mark a withdrawal as approved for manual payout' })
-  async approve(@Req() req: AdminRequest, @Param('id') id: string) {
-    const adminId = this.requireAdminId(req);
-    return {
-      message_key: MESSAGE_KEYS.WITHDRAWAL_APPROVED,
-      withdrawal: await this.withdrawals.approve(adminId, id),
-    };
-  }
-
   @Post(':id/complete')
+  @UseInterceptors(
+    FileInterceptor('proof_image', {
+      storage: memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
   @ApiOperation({
-    summary: 'Mark a withdrawal as completed; debits the wallet',
+    summary:
+      'Complete a withdrawal: admin uploads a screenshot of the external payment they sent. The withdrawal moves PENDING_REVIEW → COMPLETED, the wallet is unlocked and debited atomically, and the user is notified with the proof image.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        proof_image: { type: 'string', format: 'binary' },
+        provider_reference: { type: 'string' },
+        admin_note: { type: 'string' },
+      },
+      required: ['proof_image'],
+    },
   })
   async complete(
     @Req() req: AdminRequest,
     @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
     @Body() body: CompleteWithdrawalDto,
   ) {
     const adminId = this.requireAdminId(req);
     return {
       message_key: MESSAGE_KEYS.WITHDRAWAL_COMPLETED,
-      withdrawal: await this.withdrawals.complete(adminId, id, body),
+      withdrawal: await this.withdrawals.completeWithProof(
+        adminId,
+        id,
+        file,
+        body,
+      ),
     };
   }
 

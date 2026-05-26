@@ -92,8 +92,8 @@ export function WalletPage({ user }: WalletPageProps) {
         )}
 
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <BalanceCard label={t("wallet.balance_usd")} hint={t("wallet.available_now")} currency="USD" wallet={wallet} />
-          <BalanceCard label={t("wallet.balance_khr")} hint={t("wallet.available_now")} currency="KHR" wallet={wallet} />
+          <BalanceCard label={t("wallet.balance_usd")} currency="USD" wallet={wallet} />
+          <BalanceCard label={t("wallet.balance_khr")} currency="KHR" wallet={wallet} />
         </section>
 
         <section>
@@ -107,7 +107,13 @@ export function WalletPage({ user }: WalletPageProps) {
               {withdrawals.map((w) => (
                 <li
                   key={w.id}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3"
+                  className={`rounded-xl border bg-[var(--surface-strong)] px-4 py-3 ${
+                    w.status === "COMPLETED"
+                      ? "border-emerald-300 bg-emerald-50/40"
+                      : w.status === "PENDING_REVIEW"
+                        ? "border-amber-300 bg-amber-50/40"
+                        : "border-[var(--border)]"
+                  }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -123,12 +129,47 @@ export function WalletPage({ user }: WalletPageProps) {
                           {t("withdrawal.status.REJECTED")}: {w.rejection_reason}
                         </p>
                       )}
+                      {w.status === "PENDING_REVIEW" && (
+                        <p className="mt-2 max-w-xl text-xs text-amber-800">
+                          {t("withdrawal.pending_user_hint")}
+                        </p>
+                      )}
+                      {w.status === "COMPLETED" && (
+                        <div className="mt-2 max-w-xl space-y-2">
+                          <p className="text-xs text-emerald-800">
+                            {t("withdrawal.completed_user_hint")}
+                            {w.provider_reference
+                              ? ` (${t("withdrawal.reference_label")}: ${w.provider_reference})`
+                              : ""}
+                          </p>
+                          {w.admin_proof_image && (
+                            <a
+                              href={w.admin_proof_image}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-block"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={w.admin_proof_image}
+                                alt={t("withdrawal.proof_alt")}
+                                className="h-32 w-auto rounded-lg border border-emerald-200 bg-white object-contain p-1"
+                              />
+                              <span className="mt-1 block text-xs text-emerald-700 underline">
+                                {t("withdrawal.proof_view")}
+                              </span>
+                            </a>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {w.status === "PENDING_REVIEW" && (
-                      <Button variant="ghost" onClick={() => handleCancel(w.id)}>
-                        {t("common.cancel")}
-                      </Button>
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {w.status === "PENDING_REVIEW" && (
+                        <Button variant="ghost" onClick={() => handleCancel(w.id)}>
+                          {t("common.cancel")}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </li>
               ))}
@@ -177,28 +218,47 @@ export function WalletPage({ user }: WalletPageProps) {
 
 function BalanceCard({
   label,
-  hint,
   currency,
   wallet,
 }: {
   label: string;
-  hint: string;
   currency: WalletCurrency;
   wallet: WalletSnapshot | null;
 }) {
-  const available =
+  const { t } = useI18n();
+  const availableStr =
     wallet?.[currency === "USD" ? "available_usd_minor" : "available_khr_minor"] ?? "0";
-  const effective =
+  const effectiveStr =
     wallet?.[currency === "USD" ? "effective_usd_minor" : "effective_khr_minor"] ?? "0";
+  // The on-chain balance is `available` but any active withdrawal
+  // request locks part of it, so the *spendable* balance is
+  // `effective`. Show the spendable number as the primary headline
+  // — that's what the user can actually use right now — and surface
+  // the locked delta as a secondary hint so they understand why the
+  // headline differs from the gross balance.
+  let lockedMinor = BigInt(0);
+  try {
+    lockedMinor = BigInt(availableStr) - BigInt(effectiveStr);
+  } catch {
+    lockedMinor = BigInt(0);
+  }
+  const hasLock = lockedMinor > BigInt(0);
   return (
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] p-5">
       <p className="text-sm text-[var(--muted)]">{label}</p>
       <p className="mt-2 text-3xl font-semibold text-[var(--ink)]">
-        {formatMinor(available, currency)}
+        {formatMinor(effectiveStr, currency)}
       </p>
-      <p className="mt-1 text-xs text-[var(--muted)]">
-        {hint}: {formatMinor(effective, currency)}
-      </p>
+      {hasLock ? (
+        <p className="mt-1 text-xs text-amber-700">
+          {formatMinor(lockedMinor.toString(), currency)}{" "}
+          {t("wallet.locked_pending_suffix")}
+        </p>
+      ) : (
+        <p className="mt-1 text-xs text-[var(--muted)]">
+          {t("wallet.spendable_now")}
+        </p>
+      )}
     </div>
   );
 }

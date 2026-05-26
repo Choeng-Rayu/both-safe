@@ -50,7 +50,10 @@ export const NOTIFICATION_EVENTS = {
   DISPUTE_OPENED: 'DISPUTE_OPENED',
   PAYOUT_RELEASED: 'PAYOUT_RELEASED',
   REFUND_COMPLETED: 'REFUND_COMPLETED',
-  WITHDRAWAL_APPROVED: 'WITHDRAWAL_APPROVED',
+  // Withdrawal lifecycle: COMPLETED is dispatched once the admin has
+  // paid externally and uploaded the proof image — at that point the
+  // wallet has been debited and the user is notified with the proof.
+  // REJECTED unlocks the funds back into the wallet.
   WITHDRAWAL_COMPLETED: 'WITHDRAWAL_COMPLETED',
   WITHDRAWAL_REJECTED: 'WITHDRAWAL_REJECTED',
   USER_DISABLED: 'USER_DISABLED',
@@ -72,6 +75,11 @@ export const FILE_CATEGORIES = {
   DELIVERY_RECEIPT: 'delivery_receipt',
   DISPUTE_EVIDENCE: 'dispute_evidence',
   WITHDRAWAL_QR: 'withdrawal_qr',
+  // Screenshot the admin uploads as proof that they actually sent
+  // the user's withdrawal payment externally (Bakong receipt, bank
+  // app confirmation, etc.). Surfaced to the user in the success
+  // notification so they can verify the payment landed.
+  WITHDRAWAL_PROOF: 'withdrawal_proof',
 } as const;
 
 export const MESSAGE_KEYS = {
@@ -106,7 +114,6 @@ export const MESSAGE_KEYS = {
   WITHDRAWAL_NOT_FOUND: 'withdrawal.not_found',
   WITHDRAWAL_INVALID_STATUS: 'withdrawal.invalid_status',
   WITHDRAWAL_CREATED: 'withdrawal.created',
-  WITHDRAWAL_APPROVED: 'withdrawal.approved',
   WITHDRAWAL_COMPLETED: 'withdrawal.completed',
   WITHDRAWAL_REJECTED: 'withdrawal.rejected',
   WITHDRAWAL_CANCELLED: 'withdrawal.cancelled',
@@ -141,9 +148,18 @@ export type WalletLedgerDirection =
   (typeof WALLET_LEDGER_DIRECTIONS)[keyof typeof WALLET_LEDGER_DIRECTIONS];
 
 export const WITHDRAWAL_STATUS = {
+  // Awaiting admin action. Funds are held under a WITHDRAWAL_LOCK
+  // ledger entry — they remain in availableUsd/availableKhr but are
+  // excluded from the user's *effective* available balance, so the
+  // user cannot double-spend the same money on a deal payment while
+  // a withdrawal is pending. The lock is released when the
+  // withdrawal transitions to a terminal status.
   PENDING_REVIEW: 'PENDING_REVIEW',
-  APPROVED: 'APPROVED',
-  PROCESSING: 'PROCESSING',
+  // Admin paid externally and uploaded a proof image. Wallet has
+  // been unlocked and debited in the same transaction. There is
+  // intentionally no separate "user confirms receipt" step —
+  // disputes are handled by reviewing the user's submitted
+  // bank/QR info against the admin's proof image.
   COMPLETED: 'COMPLETED',
   REJECTED: 'REJECTED',
   FAILED: 'FAILED',
@@ -154,8 +170,6 @@ export type WithdrawalStatus =
 
 export const WITHDRAWAL_ACTIVE_STATUSES: WithdrawalStatus[] = [
   WITHDRAWAL_STATUS.PENDING_REVIEW,
-  WITHDRAWAL_STATUS.APPROVED,
-  WITHDRAWAL_STATUS.PROCESSING,
 ];
 
 export const WITHDRAWAL_TERMINAL_STATUSES: WithdrawalStatus[] = [

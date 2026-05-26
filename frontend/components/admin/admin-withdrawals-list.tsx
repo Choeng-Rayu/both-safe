@@ -14,8 +14,6 @@ interface AdminWithdrawalsListProps {
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
   { value: "PENDING_REVIEW", label: "Pending review" },
-  { value: "APPROVED", label: "Approved" },
-  { value: "PROCESSING", label: "Processing" },
   { value: "COMPLETED", label: "Completed" },
   { value: "REJECTED", label: "Rejected" },
   { value: "CANCELLED", label: "Cancelled" },
@@ -112,12 +110,9 @@ export function AdminWithdrawalsList({ initialStatus = "" }: AdminWithdrawalsLis
                     className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
                       w.status === "PENDING_REVIEW"
                         ? "bg-amber-200 text-amber-900"
-                        : w.status === "APPROVED" ||
-                            w.status === "PROCESSING"
-                          ? "bg-blue-100 text-blue-800"
-                          : w.status === "COMPLETED"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-slate-100 text-slate-700"
+                        : w.status === "COMPLETED"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-slate-100 text-slate-700"
                     }`}
                   >
                     {t(`withdrawal.status.${w.status}`)}

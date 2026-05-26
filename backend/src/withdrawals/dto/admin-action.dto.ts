@@ -4,7 +4,8 @@ import { IsOptional, IsString, MaxLength } from 'class-validator';
 export class CompleteWithdrawalDto {
   @ApiProperty({
     required: false,
-    description: 'Bank or Bakong reference for the completed payout',
+    description:
+      'Bank or Bakong reference for the payment the admin sent externally',
   })
   @IsOptional()
   @IsString()

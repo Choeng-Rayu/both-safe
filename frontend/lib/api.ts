@@ -332,6 +332,7 @@ export interface WithdrawalSummary {
   status: string;
   rejection_reason: string | null;
   provider_reference: string | null;
+  admin_proof_image: string | null;
   reviewed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -446,29 +447,32 @@ export async function adminGetWithdrawal(id: string, cookieHeader?: string | nul
   );
 }
 
-export async function adminApproveWithdrawal(id: string) {
-  return apiSend<{ message_key: string; withdrawal: WithdrawalSummary }>(
-    `/admin/withdrawals/${id}/approve`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    },
-  );
-}
-
-export async function adminCompleteWithdrawal(
+export async function adminCompleteWithdrawalWithProof(
   id: string,
-  payload: { provider_reference?: string; admin_note?: string },
+  input: {
+    proof_image: File;
+    provider_reference?: string;
+    admin_note?: string;
+  },
 ) {
-  return apiSend<{ message_key: string; withdrawal: WithdrawalSummary }>(
-    `/admin/withdrawals/${id}/complete`,
+  const form = new FormData();
+  form.set("proof_image", input.proof_image);
+  if (input.provider_reference) {
+    form.set("provider_reference", input.provider_reference);
+  }
+  if (input.admin_note) form.set("admin_note", input.admin_note);
+  const response = await fetch(
+    `${getApiBaseUrl()}/admin/withdrawals/${id}/complete`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: form,
+      credentials: "include",
     },
   );
+  return parseResponse<{
+    message_key: string;
+    withdrawal: WithdrawalSummary;
+  }>(response);
 }
 
 export async function adminRejectWithdrawal(id: string, reason: string) {
@@ -706,7 +710,6 @@ export interface AdminStats {
   };
   withdrawals: {
     pending_review: number;
-    approved: number;
     processing: number;
     completed: number;
     rejected: number;

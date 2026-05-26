@@ -424,6 +424,12 @@ model Withdrawal {
   reviewedAt               DateTime?
   rejectionReason          String?
   providerReference        String?
+  // URL of the screenshot the admin uploads as proof that the
+  // payment has been sent externally (Bakong receipt, bank app
+  // confirmation, etc.). Stored when the admin completes the
+  // withdrawal; surfaced to the user in the success notification
+  // so they can verify the payment landed.
+  adminProofImage          String?
   providerResponseJson     String?
   failureReason            String?
   transferAttemptId        String?   @unique

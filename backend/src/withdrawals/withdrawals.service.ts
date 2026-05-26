@@ -263,7 +263,31 @@ export class WithdrawalsService {
     };
   }
 
-  async approve(adminId: string, withdrawalId: string) {
+  /**
+   * Admin marks the withdrawal complete by uploading a screenshot of
+   * the external payment they just made (Bakong receipt, bank app
+   * confirmation, etc.). In a single transaction:
+   *   1. Status flips PENDING_REVIEW → COMPLETED.
+   *   2. The proof image URL is stored on the withdrawal.
+   *   3. The wallet's WITHDRAWAL_LOCK is released.
+   *   4. The wallet is debited for the amount.
+   * The user is then notified of success with the proof image URL,
+   * which they can review (alongside their submitted bank/QR info)
+   * if they ever claim they didn't receive the money. There is no
+   * separate user-confirms-receipt step.
+   */
+  async completeWithProof(
+    adminId: string,
+    withdrawalId: string,
+    proofFile: Express.Multer.File,
+    dto: CompleteWithdrawalDto,
+  ) {
+    if (!proofFile) {
+      throw new BadRequestException({
+        messageKey: MESSAGE_KEYS.VALIDATION_FAILED,
+        details: { field: 'proof_image', reason: 'required' },
+      });
+    }
     const withdrawal = await this.requireById(withdrawalId);
     if (withdrawal.status !== WITHDRAWAL_STATUS.PENDING_REVIEW) {
       throw new ConflictException({
@@ -271,64 +295,36 @@ export class WithdrawalsService {
         details: { current: withdrawal.status },
       });
     }
-    const updated = await this.prisma.withdrawal.update({
-      where: { id: withdrawal.id },
-      data: {
-        status: WITHDRAWAL_STATUS.APPROVED,
-        reviewedByAdminId: adminId,
-        reviewedAt: new Date(),
-      },
+
+    // Persist the proof image first. We deliberately do this before
+    // the DB transaction — the FilesService writes to disk and we
+    // want any storage failure to abort cleanly without leaving an
+    // orphaned partial transaction. Marked public so the user's
+    // notification view can render it directly.
+    const stored = await this.files.store(proofFile, {
+      category: FILE_CATEGORIES.WITHDRAWAL_PROOF,
+      uploadedBy: adminId,
+      isPublic: true,
     });
-    await this.audit.record({
-      actorType: 'admin',
-      actorId: adminId,
-      action: 'withdrawal.approved',
-      details: { withdrawal_id: withdrawal.id },
-    });
+    const proofUrl = this.files.signedUrlFor(stored);
 
-    await this.notifyWithdrawalEvent(
-      withdrawal.id,
-      NOTIFICATION_EVENTS.WITHDRAWAL_APPROVED,
-      MESSAGE_KEYS.WITHDRAWAL_APPROVED,
-    );
-
-    return this.toApi(updated);
-  }
-
-  async complete(
-    adminId: string,
-    withdrawalId: string,
-    dto: CompleteWithdrawalDto,
-  ) {
-    const withdrawal = await this.requireById(withdrawalId);
-    if (
-      withdrawal.status !== WITHDRAWAL_STATUS.APPROVED &&
-      withdrawal.status !== WITHDRAWAL_STATUS.PROCESSING
-    ) {
-      throw new ConflictException({
-        messageKey: MESSAGE_KEYS.WITHDRAWAL_INVALID_STATUS,
-        details: { current: withdrawal.status },
-      });
-    }
     const currency = withdrawal.currency as Currency;
     const amount = withdrawal.amount;
     const debitKey = `withdrawal_debit:${withdrawal.id}`;
     const unlockKey = `withdrawal_unlock:${withdrawal.id}`;
 
     await this.prisma.$transaction(async (tx) => {
-      // Mark withdrawal terminal first; this removes it from the pending set
-      // so debit/unlock calculations downstream see the post-state.
       await tx.withdrawal.update({
         where: { id: withdrawal.id },
         data: {
           status: WITHDRAWAL_STATUS.COMPLETED,
+          adminProofImage: proofUrl,
           providerReference: dto.provider_reference ?? null,
           reviewedByAdminId: adminId,
           reviewedAt: withdrawal.reviewedAt ?? new Date(),
           updatedAt: new Date(),
         },
       });
-      // Write the unlock entry for ledger completeness.
       await this.wallets.unlockInTx(tx, {
         userId: withdrawal.userId,
         entryType: WALLET_LEDGER_ENTRY_TYPES.WITHDRAWAL_UNLOCK,
@@ -339,7 +335,6 @@ export class WithdrawalsService {
         withdrawalId: withdrawal.id,
         description: `Withdrawal ${withdrawal.publicId} unlock`,
       });
-      // Apply the actual balance debit.
       await this.wallets.debitInTx(tx, {
         userId: withdrawal.userId,
         entryType: WALLET_LEDGER_ENTRY_TYPES.WITHDRAWAL_DEBIT,
@@ -361,17 +356,21 @@ export class WithdrawalsService {
         withdrawal_id: withdrawal.id,
         provider_reference: dto.provider_reference,
         admin_note: dto.admin_note,
+        proof_image: proofUrl,
       },
     });
 
-    // Withdrawal completion is now surfaced to the user via the
-    // generic notification stream (in-app + Telegram). The wallet
-    // UI consumes the same feed via /v1/users/me/notifications.
+    // Notify the user. The proof image URL is included in the
+    // payload so the wallet UI / Telegram message can render it
+    // inline — that's the user's evidence the payment went out.
     await this.notifyWithdrawalEvent(
       withdrawal.id,
       NOTIFICATION_EVENTS.WITHDRAWAL_COMPLETED,
       MESSAGE_KEYS.WITHDRAWAL_COMPLETED,
-      { provider_reference: dto.provider_reference ?? null },
+      {
+        provider_reference: dto.provider_reference ?? null,
+        admin_proof_image: proofUrl,
+      },
     );
 
     return this.toApi(await this.requireById(withdrawalId));
@@ -383,10 +382,7 @@ export class WithdrawalsService {
     dto: RejectWithdrawalDto,
   ) {
     const withdrawal = await this.requireById(withdrawalId);
-    if (
-      withdrawal.status !== WITHDRAWAL_STATUS.PENDING_REVIEW &&
-      withdrawal.status !== WITHDRAWAL_STATUS.APPROVED
-    ) {
+    if (withdrawal.status !== WITHDRAWAL_STATUS.PENDING_REVIEW) {
       throw new ConflictException({
         messageKey: MESSAGE_KEYS.WITHDRAWAL_INVALID_STATUS,
         details: { current: withdrawal.status },
@@ -580,6 +576,7 @@ export class WithdrawalsService {
     status: string;
     rejectionReason: string | null;
     providerReference: string | null;
+    adminProofImage: string | null;
     reviewedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
@@ -601,6 +598,10 @@ export class WithdrawalsService {
       status: row.status,
       rejection_reason: row.rejectionReason,
       provider_reference: row.providerReference,
+      // Admin's proof-of-payment screenshot URL. Populated when a
+      // withdrawal moves to COMPLETED. Surfaced to the user on the
+      // wallet page and in the success notification.
+      admin_proof_image: row.adminProofImage,
       reviewed_at: row.reviewedAt?.toISOString() ?? null,
       created_at: row.createdAt.toISOString(),
       updated_at: row.updatedAt.toISOString(),
